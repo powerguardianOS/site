@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
+import MobileNav from "./components/MobileNav";
+
 
 export const metadata: Metadata = {
   title: {
@@ -44,6 +46,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="bg-[#020617] text-white antialiased">
+        <body className="bg-black text-white antialiased">
+  <MobileNav />
+
+  <main className="pt-4">
+    {children}
+  </main>
+</body>
         <div className="min-h-screen flex flex-col">
           {/* Top navigation */}
           <header className="border-b border-zinc-900/80 bg-[#020617]/90 backdrop-blur">
