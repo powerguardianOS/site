@@ -4,9 +4,9 @@ import "./globals.css";
 export const metadata = {
   title: "PowerGuardian",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.ico",
-    apple: "/favicon.png",
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg,
   },
 };
 
