@@ -10,7 +10,7 @@ export const metadata = {
       { url: "/favicon-64.png", sizes: "64x64", type: "image/png" },
       { url: "/favicon.svg", type: "image/svg+xml" },
     ],
-    apple: "/favicon-180.png", // of: "/apple-touch-icon.png" als je 'm zo noemt
+    apple: "/apple-touch-icon.png", // of: "/apple-touch-icon.png" als je 'm zo noemt
   },
 };
 export default function RootLayout({
