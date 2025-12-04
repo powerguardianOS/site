@@ -1,12 +1,17 @@
-<svg width="220" height="260" viewBox="0 0 220 260" fill="none" xmlns="http://www.w3.org/2000/svg">
-
-  <!-- Shield outline (accurate proportions + rounded corners) -->
+<svg
+  width="220"
+  height="260"
+  viewBox="0 0 220 260"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Shield outline -->
   <path
     d="M110 20
        L178 55
        V125
-       C178 170 145 210 110 230
-       C75 210 42 170 42 125
+       C178 170 148 210 110 233
+       C72 210 42 170 42 125
        V55
        L110 20Z"
     stroke="#00C66F"
@@ -15,16 +20,14 @@
     fill="none"
   />
 
-  <!-- Lightning bolt (correct weight, shape, and proportions) -->
-  <path
-    d="M120 70
-       L90 125
-       H115
-       L95 185
-       L135 120
-       H110
-       L120 70Z"
+<path
+    d="M124 75
+       L96 130
+       H118
+       L94 185
+       L136 120
+       H114
+       L124 75Z"
     fill="#00C66F"
   />
-
 </svg>
