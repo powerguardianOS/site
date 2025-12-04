@@ -9,7 +9,7 @@ export default function MobileNav() {
   return (
     <>
       {/* MOBILE TOP BAR */}
-      <div className="md:hidden flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#020617]/95 backdrop-blur">
+      <div className="sm:hidden flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#020617]/95 backdrop-blur">
         <div className="flex items-center space-x-2">
           <div className="w-6 h-6 rounded-sm bg-[#00C66F]" />
           <span className="text-white font-semibold tracking-tight">
