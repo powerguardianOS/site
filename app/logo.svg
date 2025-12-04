@@ -1,33 +1,33 @@
 <svg
-  width="220"
-  height="260"
-  viewBox="0 0 220 260"
-  fill="none"
   xmlns="http://www.w3.org/2000/svg"
+  width="220"
+  height="220"
+  viewBox="0 0 128 140"
 >
   <!-- Shield outline -->
   <path
-    d="M110 20
-       L178 55
-       V125
-       C178 170 148 210 110 233
-       C72 210 42 170 42 125
-       V55
-       L110 20Z"
-    stroke="#00C66F"
-    stroke-width="14"
-    stroke-linejoin="round"
+    d="M64 8
+       L112 28
+       V72
+       C112 100 94 122 64 132
+       C34 122 16 100 16 72
+       V28
+       L64 8Z"
     fill="none"
+    stroke="#00C66F"
+    stroke-width="10"
+    stroke-linejoin="round"
   />
 
-<path
-    d="M124 75
-       L96 130
-       H118
-       L94 185
-       L136 120
-       H114
-       L124 75Z"
+  <!-- Lightning bolt -->
+  <path
+    d="M72 32
+       L48 72
+       H62
+       L52 108
+       L80 68
+       H66
+       L72 32Z"
     fill="#00C66F"
   />
 </svg>
