@@ -2,22 +2,36 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      {/* MOBILE TOP BAR */}
+      {/* MOBILE TOP BAR (only < md) */}
       <div className="md:hidden flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#020617]/95 backdrop-blur">
-        <div class="flex items-center space-x-2"><div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C66F]/10">
-<img alt="PowerGuardian logo" width="28" height="28" decoding="async" data-nimg="1" style="color:transparent" src="/logo.svg">
-</div><span class="text-white font-semibold tracking-tight">PowerGuardian</span></div>
+        {/* Brand */}
+        <div className="flex items-center space-x-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C66F]/10">
+            <Image
+              src="/logo.svg"
+              alt="PowerGuardian logo"
+              width={28}
+              height={28}
+              priority
+            />
+          </div>
+          <span className="text-white font-semibold tracking-tight">
+            PowerGuardian
+          </span>
+        </div>
 
         {/* HAMBURGER BUTTON */}
         <button
           onClick={() => setOpen(true)}
           className="text-white p-2 hover:text-[#00C66F] transition"
+          aria-label="Open navigation"
         >
           <span className="block w-6 h-[2px] bg-white mb-1 rounded" />
           <span className="block w-6 h-[2px] bg-white mb-1 rounded" />
@@ -42,7 +56,15 @@ export default function MobileNav() {
         {/* HEADER */}
         <div className="flex items-center justify-between p-6 border-b border-zinc-800">
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 rounded-sm bg-[#00C66F]" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C66F]/10">
+              <Image
+                src="/logo.svg"
+                alt="PowerGuardian logo"
+                width={24}
+                height={24}
+                priority
+              />
+            </div>
             <span className="text-white font-semibold tracking-tight">
               Menu
             </span>
@@ -52,6 +74,7 @@ export default function MobileNav() {
           <button
             onClick={() => setOpen(false)}
             className="text-white hover:text-[#00C66F] transition relative w-6 h-6"
+            aria-label="Close navigation"
           >
             <span className="absolute inset-0 w-[2px] h-6 bg-white rotate-45 origin-center rounded" />
             <span className="absolute inset-0 w-[2px] h-6 bg-white -rotate-45 origin-center rounded" />
