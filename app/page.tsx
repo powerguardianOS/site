@@ -12,9 +12,9 @@ export default function Home() {
           </h1>
 
           <p className="text-zinc-400 text-lg max-w-xl">
-            PowerGuardian is your Zero toutch control plane for UPS devices:
+            PowerGuardian is your zero-touch control plane for UPS devices:
             one dashboard, zero vendor lock-in, full control over shutdown
-            rules, VLAN-aware networking and OTA updates.
+            automation, VLAN-aware networking and OTA updates — fully self-hosted.
           </p>
 
           <div className="flex flex-wrap gap-3">
@@ -52,7 +52,7 @@ export default function Home() {
           <div className="space-y-4 text-sm text-zinc-300">
             <DiagramRow
               title="Controller OS"
-              subtitle="Central dashboard · rules engine · credential vault · VLAN"
+              subtitle="Central dashboard · rule engine · credential vault · VLAN segmentation"
               badge="NanoPi R3S / VM / Docker"
             />
             <div className="flex items-center justify-center">
@@ -65,13 +65,13 @@ export default function Home() {
             <DiagramRow
               title="Connector OS"
               subtitle="Local UPS daemon · NUT-based · buffered events + OTA"
-              badge="NanoPi Neo3 / Pi"
+              badge="NanoPi Neo3 / Raspberry Pi"
             />
           </div>
           <p className="text-xs text-zinc-500 border-t border-zinc-800 pt-3">
-            PowerGuardian bouwt op NUT (Network UPS Tools), maar regelt drivers,
-            discovery, rules en shutdown-mapping voor je. Geen losse scripts
-            meer, één geconsolideerde stack.
+            PowerGuardian builds on NUT (Network UPS Tools), but handles drivers,
+            autodiscovery, rules and shutdown mapping for you. No more scattered
+            scripts — one consolidated stack.
           </p>
         </div>
       </section>
@@ -81,52 +81,54 @@ export default function Home() {
         <ProductCard
           label="Edge agent"
           title="Connector OS"
-          description="Draait naast je UPS. Autodetecteert USB, SNMP en network cards, en voert lokale shutdown-rules uit wanneer de controller niet bereikbaar is."
+          description="Runs next to your UPS. Detects USB, SNMP and network cards, and executes local shutdown rules when the controller is unreachable."
           bullets={[
-            "NUT onder de motorkap, maar volledig voorgaconfigureerd",
-            "UPS identify (beep), autodetect drivers & capabilities",
-            "Local rules engine voor NAS / hypervisors / switches",
-            "OTA updates via de Controller, met signed packages",
+            "NUT under the hood, but fully pre-configured",
+            "Identify UPS hardware, detect drivers & capabilities",
+            "Local rule engine for NAS, hypervisors and switches",
+            "OTA updates from the Controller with signed packages",
           ]}
           href="/connector"
         />
+
         <ProductCard
           label="Control plane"
           title="Controller OS"
-          description="Je UniFi-stijl dashboard voor alles rond power: connectors adopteren, UPS-en mappen, rules definiëren en automatische shutdown-sequenties beheren."
+          description="Your central dashboard for everything power-related: adopt connectors, map UPS devices, define rules and manage automated shutdown sequences."
           bullets={[
-            "Zero-touch adoptie van nieuwe connectors",
-            "Device inventory + shutdown mapping per server / rack",
-            "Credential vault, MFA, user-roles en SSH-policy",
-            "Google Drive backups en optionele cloud proxy",
+            "Zero-touch adoption of new connectors",
+            "Device inventory + shutdown mapping per host or rack",
+            "Credential vault, MFA, user roles and SSH policy",
+            "Google Drive backups and optional cloud relay",
           ]}
           href="/controller"
         />
       </section>
 
-      {/* WHY NOT JUST A UPS CARD? */}
+      {/* WHY NOT A UPS CARD? */}
       <section className="pg-card p-6 md:p-7 space-y-4">
         <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
-          WAAROM GEEN DURE UPS-KAART?
+          WHY NOT A VENDOR SNMP CARD?
         </h2>
         <p className="text-zinc-300 text-sm md:text-base max-w-3xl">
-          Een vendor-specifieke SNMP-kaart beschermt één UPS en één stack. Met
-          PowerGuardian orkestreer je meerdere UPS’en, merken en locaties in één
-          systeem. Shutdown-sequenties, VLAN-segmentatie en credential-beheer
-          zijn gecentraliseerd, maar je blijft volledig eigenaar van je data.
+          A vendor-specific SNMP card protects one UPS and one environment.
+          PowerGuardian orchestrates multiple UPS units, brands and locations
+          inside a single system. Shutdown sequencing, VLAN segmentation and
+          credential management are centralized — while you keep full ownership
+          of your data.
         </p>
         <div className="grid gap-3 md:grid-cols-3 text-xs text-zinc-400">
           <CompareItem
             title="Multi-vendor"
-            body="Eaton, APC en generieke HID-UPS: allemaal in één dashboard, één rules engine."
+            body="Eaton, APC and generic HID UPS devices — all in one dashboard and rule engine."
           />
           <CompareItem
             title="Infra-aware"
-            body="Koppel UPS-en aan hosts, clusters en VLAN’s in plaats van alleen IP-adressen."
+            body="Map UPS units to hosts, clusters and VLANs instead of plain IP addresses."
           />
           <CompareItem
             title="Future-proof"
-            body="Connector OS images, OTA en R2 downloads maken upgrades beheersbaar."
+            body="Connector OS images, OTA and R2 downloads make upgrades predictable and safe."
           />
         </div>
       </section>
@@ -138,48 +140,48 @@ export default function Home() {
             PowerGuardian capabilities
           </h2>
           <span className="text-xs text-zinc-500">
-            Vanaf dag één gericht op real-world datacenters & homelabs.
+            Designed from day one for real-world datacenters & homelabs.
           </span>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <FeatureCard
             title="UPS autodiscovery"
-            text="Scan USB, SNMP en NMC-kaarten, detecteer model, runtime, batterystatus en capabilities zonder handmatig driver-zoekwerk."
+            text="Scan USB, SNMP and NMC cards; detect model, runtime, battery state and device capabilities without manual driver work."
           />
           <FeatureCard
             title="Rules & shutdown mapping"
-            text="Koppel UPS’en aan hosts en services. Definieer wie als eerste uit gaat, en wie pas vlak voor het einde."
+            text="Link UPS units to hosts and services. Define who powers down first — and who stays online until the last seconds."
           />
           <FeatureCard
             title="VLAN-aware networking"
-            text="Gebruik de dual-NIC controller (bijv. NanoPi R3S) als dedicated management-node voor je power-plane."
+            text="Use a dual-NIC controller (e.g. NanoPi R3S) as a dedicated management node for your power-plane."
           />
           <FeatureCard
             title="Credential vault"
-            text="Versleutelde opslag voor SNMP-communities, SSH-users en API-tokens. Nooit meer wachtwoorden in losse config files."
+            text="Encrypted storage for SNMP communities, SSH users and API tokens. No more loose config files."
           />
           <FeatureCard
             title="R2-powered downloads"
-            text="Connector images, OS-updates en tools worden via Cloudflare R2 en CDN geserveerd voor snelle, globale roll-outs."
+            text="Connector images, OS updates and tools are delivered globally through Cloudflare R2 + CDN."
           />
           <FeatureCard
             title="OTA for Connectors"
-            text="Plan connector-updates via de Controller, met signed packages en anti-cloning checks per node."
+            text="Schedule connector updates via the Controller with signed packages and anti-cloning checks."
           />
         </div>
       </section>
 
-      {/* CTA / NEXT STEPS */}
+      {/* CTA */}
       <section className="pg-card p-6 md:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold tracking-tight">
-            Klaar om je UPS-landschap op te ruimen?
+            Ready to streamline your power infrastructure?
           </h2>
           <p className="text-sm text-zinc-400 max-w-xl">
-            Start met één Controller en één Connector naast je eerste UPS. Breid
-            langzaam uit. PowerGuardian schaalt met je mee, of je nu een
-            homelab, een MKB-rack of een volledig datacenter beheert.
+            Start with one Controller and one Connector next to your first UPS.
+            Expand gradually. PowerGuardian scales with you — from homelab to MKB
+            racks to full datacenter deployments.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -193,81 +195,10 @@ export default function Home() {
             href="/network"
             className="px-5 py-2.5 rounded-full border border-zinc-700 text-sm text-zinc-200 hover:border-[#00C66F] hover:text-white transition"
           >
-            Bekijk network & VLAN design
+            View network & VLAN design
           </a>
         </div>
       </section>
-    </div>
-  );
-}
-
-/* ------- Kleine helper componenten ------- */
-
-function DiagramRow(props: {
-  title: string;
-  subtitle: string;
-  badge: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-white">{props.title}</h3>
-        <span className="rounded-full bg-zinc-900/80 border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-400">
-          {props.badge}
-        </span>
-      </div>
-      <p className="text-xs text-zinc-400">{props.subtitle}</p>
-    </div>
-  );
-}
-
-function ProductCard(props: {
-  label: string;
-  title: string;
-  description: string;
-  bullets: string[];
-  href: string;
-}) {
-  return (
-    <div className="pg-card p-6 space-y-4">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-        {props.label}
-      </div>
-      <h3 className="text-xl font-semibold">{props.title}</h3>
-      <p className="text-sm text-zinc-300">{props.description}</p>
-      <ul className="space-y-2 text-sm text-zinc-400">
-        {props.bullets.map((b) => (
-          <li key={b} className="flex gap-2">
-            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#00C66F]" />
-            <span>{b}</span>
-          </li>
-        ))}
-      </ul>
-      <a
-        href={props.href}
-        className="inline-flex items-center gap-2 text-xs text-[#00C66F] hover:text-[#1af189] mt-2"
-      >
-        Open {props.title}
-        <span className="text-[11px]">↗</span>
-      </a>
-    </div>
-  );
-}
-
-function FeatureCard(props: { title: string; text: string }) {
-  return (
-    <div className="pg-card p-4 space-y-2">
-      <h3 className="text-sm font-semibold text-white">{props.title}</h3>
-      <p className="text-xs text-zinc-400">{props.text}</p>
-    </div>
-  );
-}
-
-function CompareItem(props: { title: string; body: string }) {
-  return (
-    <div className="space-y-1">
-      <div className="text-xs font-semibold text-zinc-200">{props.title}</div>
-      <p className="text-xs text-zinc-500">{props.body}</p>
     </div>
   );
 }
