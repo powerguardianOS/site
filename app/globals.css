@@ -23,12 +23,6 @@ body {
   height: 100%;
 }
 
-/* Zorg dat de outer wrapper ook full-height is
-   (Next.js: body > div is meestal de root app). */
-body > div {
-  min-height: 100%;
-}
-
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
