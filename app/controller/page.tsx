@@ -1,251 +1,227 @@
+// app/controller/page.tsx
+
 export default function ControllerPage() {
   return (
-    <div className="space-y-10 md:space-y-14">
+    <main className="max-w-6xl mx-auto px-4 py-16 space-y-16">
       {/* HERO */}
-      <section className="grid gap-8 md:grid-cols-[3fr,2fr] items-start">
-        <div className="space-y-5">
-          <div className="pg-pill">Control plane · self-hosted</div>
+      <section className="space-y-6">
+        <div className="pg-pill">Control plane · UPS orchestration</div>
 
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-            Controller OS for{" "}
-            <span className="text-[#00C66F]">multi-UPS environments.</span>
-          </h1>
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+          Controller OS – the central brain of your power stack.
+        </h1>
 
-          <p className="text-zinc-400 text-base md:text-lg max-w-2xl">
-            PowerGuardian Controller OS provides a unified, self-hosted control
-            plane for UPS environments across brands, sites and network
-            segments. Zero-touch adoption, a flexible rule engine, VLAN-aware
-            networking and secure OTA updates — all managed from one clean dashboard.
-          </p>
+        <p className="text-zinc-400 max-w-2xl text-sm md:text-base">
+          PowerGuardian Controller OS provides a unified, self-hosted control
+          plane for UPS environments across brands, sites and network
+          segments. Zero-touch adoption of Connector OS nodes, a flexible
+          rule engine, VLAN-aware networking and secure OTA updates — all
+          managed from one clean dashboard.
+        </p>
 
-          <div className="flex flex-wrap gap-3">
-            <a
-              href="/downloads"
-              className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[0_0_30px_rgba(0,198,111,0.4)]"
-            >
-              Download Controller OS
-            </a>
-            <a
-              href="/connector"
-              className="px-5 py-2.5 rounded-full border border-zinc-700 text-sm text-zinc-200 hover:border-[#00C66F] hover:text-white transition"
-            >
-              Explore Connector OS
-            </a>
-          </div>
-        </div>
-
-        {/* ARCHITECTURE SNAPSHOT */}
-        <div className="pg-card p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
-            Architecture snapshot
-          </h2>
-
-          <div className="space-y-4 text-sm text-zinc-300">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
-                  Controller OS
-                </div>
-                <p className="text-xs text-zinc-400">
-                  Central dashboard, rule engine, credential vault, VLAN networking and OTA control.
-                </p>
-              </div>
-              <span className="rounded-full bg-zinc-900/80 border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-400">
-                NanoPi R3S / VM / Docker
-              </span>
-            </div>
-
-            <div className="flex items-center justify-center">
-              <div className="h-px w-10 bg-zinc-700" />
-              <span className="mx-2 text-[10px] tracking-[0.2em] uppercase text-zinc-500">
-                ENCRYPTED SYNC
-              </span>
-              <div className="h-px w-10 bg-zinc-700" />
-            </div>
-
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
-                  Connector OS
-                </div>
-                <p className="text-xs text-zinc-400">
-                  Local UPS daemon, NUT-based, buffered events, local failover rules and OTA client.
-                </p>
-              </div>
-              <span className="rounded-full bg-zinc-900/80 border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-400">
-                NanoPi Neo3 / Pi
-              </span>
-            </div>
-          </div>
-
-          <p className="text-[11px] text-zinc-500 border-t border-zinc-800 pt-3">
-            Controller OS orchestrates Connectors and UPS devices across sites.
-            One control plane for discovery, rules, shutdown sequencing and updates.
-          </p>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="/downloads"
+            className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[0_0_32px_rgba(0,198,111,0.35)]"
+          >
+            Download Controller OS image
+          </a>
+          <a
+            href="/connector"
+            className="px-5 py-2.5 rounded-full border border-zinc-700 text-sm text-zinc-200 hover:border-[#00C66F] hover:text-white transition"
+          >
+            Explore Connector OS
+          </a>
         </div>
       </section>
 
-      {/* CAPABILITIES + RULE ENGINE */}
+      {/* ARCHITECTURE SNAPSHOT */}
+      <section className="space-y-6">
+        <h2 className="text-xs font-semibold tracking-[0.25em] text-zinc-500 uppercase">
+          Architecture snapshot
+        </h2>
+
+        <div className="pg-card p-6 md:p-7 space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-3 text-sm text-zinc-300">
+              <h3 className="text-sm font-semibold text-white">Controller OS</h3>
+              <p className="text-zinc-400 text-sm">
+                Runs as your central dashboard and rule engine. Discovers
+                Connectors, keeps an inventory of UPS devices and enforces
+                shutdown policies across racks, rooms and sites.
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-zinc-400">
+                <li>Central rule engine for shutdown sequencing and policies</li>
+                <li>Inventory of UPS devices, hosts and racks</li>
+                <li>Credential vault for SNMP, SSH and API tokens</li>
+                <li>Secure OTA controller for Connector OS nodes</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3 text-sm text-zinc-300">
+              <h3 className="text-sm font-semibold text-white">
+                Connectors &amp; encrypted sync
+              </h3>
+              <p className="text-zinc-400 text-sm">
+                Connector OS runs next to each UPS and talks to Controller OS
+                over an encrypted sync channel. Even if the Controller is
+                temporarily unreachable, local rules continue to protect your
+                equipment.
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-zinc-400">
+                <li>One Controller can manage many Connectors and UPS devices</li>
+                <li>Buffered events and state sync when links come back</li>
+                <li>Safe shutdown even if parts of the network are down</li>
+                <li>Designed for multi-site / multi-rack environments</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* HARDWARE & DEPLOYMENT */}
       <section className="grid gap-6 md:grid-cols-2">
-        <div className="pg-card p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
-            Core capabilities
+        <div className="pg-card p-6 md:p-7 space-y-4">
+          <h2 className="text-sm font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+            Preferred platforms
           </h2>
           <p className="text-sm text-zinc-300">
-            Controller OS is designed to be your central power orchestration layer.
+            Controller OS is built to run on small, reliable platforms with
+            dual-NIC capability or as a lightweight VM.
           </p>
-          <ul className="space-y-2 text-sm text-zinc-400">
-            <li>• Unified control plane for multi-vendor UPS environments</li>
-            <li>• Zero-touch discovery and adoption of Connector OS nodes</li>
-            <li>• Central rule engine for shutdown sequencing and policies</li>
-            <li>• Global runtime and battery-health visibility</li>
-            <li>• Backups, updates and config handled from one interface</li>
+          <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-zinc-400">
+            <li>NanoPi R3S as a fanless, dual-NIC controller node</li>
+            <li>Virtual machine on your hypervisor (Proxmox, ESXi, etc.)</li>
+            <li>Container or Docker-based deployments for labs and CI</li>
+            <li>
+              Designed for 24/7 uptime with minimal CPU, RAM and storage
+              requirements
+            </li>
           </ul>
         </div>
 
-        <div className="pg-card p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
+        <div className="pg-card p-6 md:p-7 space-y-4">
+          <h2 className="text-sm font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+            Core capabilities
+          </h2>
+          <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-zinc-400">
+            <li>Unified control plane for multi-vendor UPS environments</li>
+            <li>
+              Zero-touch discovery and adoption of Connector OS nodes on the
+              network
+            </li>
+            <li>
+              Rule engine for ordered shutdown, delays and dependency-aware
+              logic
+            </li>
+            <li>
+              Global view of runtime, battery health and recent power events
+            </li>
+            <li>
+              Credential vault, MFA-ready design and role-based access control
+              (RBAC)
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      {/* NETWORKING & VLAN DESIGN */}
+      <section className="pg-card p-6 md:p-7 space-y-4">
+        <h2 className="text-sm font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+          Networking &amp; VLAN design
+        </h2>
+        <p className="text-sm text-zinc-300 max-w-3xl">
+          Controller OS is designed to live on a dedicated management network,
+          so that power control stays reachable even when the rest of your
+          infrastructure is under maintenance or misconfigured.
+        </p>
+
+        <div className="grid gap-6 md:grid-cols-2 text-sm text-zinc-300">
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
+              Single-LAN setups
+            </h3>
+            <p className="text-xs md:text-sm text-zinc-400">
+              In a simple deployment, LAN 1 behaves like any normal interface.
+              As long as Connectors and UPS management cards live in the same
+              network, Controller OS will discover them automatically. Manual
+              addition of network-based management cards is supported if needed.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
+              Segmented &amp; dual-NIC setups
+            </h3>
+            <p className="text-xs md:text-sm text-zinc-400">
+              Prefer to keep your IoT or UPS devices in a separate segment?
+              Controller OS understands VLANs and handles tagged and untagged
+              traffic on the same port. You can:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-zinc-400">
+              <li>Expose multiple VLANs on a single NIC (tagged / untagged)</li>
+              <li>
+                Use LAN 1 for your regular homelab network and LAN 2 for a
+                dedicated UPS / IoT segment
+              </li>
+              <li>
+                Keep the power-plane reachable through VPN or a jump-host, even
+                when production routing is broken
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* RULE ENGINE & OTA */}
+      <section className="grid gap-6 md:grid-cols-2">
+        <div className="pg-card p-6 md:p-7 space-y-3">
+          <h2 className="text-sm font-semibold tracking-[0.18em] text-zinc-500 uppercase">
             Rule engine
           </h2>
           <p className="text-sm text-zinc-300">
             Define exactly how your infrastructure reacts during power events.
           </p>
-          <ul className="space-y-2 text-sm text-zinc-400">
-            <li>• Multi-host shutdown ordering and delays</li>
-            <li>• Cluster-aware logic for hypervisors, NAS and switches</li>
-            <li>• Battery-level and runtime thresholds</li>
-            <li>• UPS-to-host mapping per room, rack or site</li>
-            <li>• Dry-run testing mode</li>
+          <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-zinc-400">
+            <li>
+              Multi-stage shutdown ordering with delays between hosts and
+              services
+            </li>
+            <li>
+              Cluster-aware behaviour for hypervisors, NAS systems and switches
+            </li>
+            <li>
+              Battery-level and runtime thresholds for different emergency modes
+            </li>
+            <li>
+              Rules that continue to work locally via Connectors if the
+              Controller is temporarily offline
+            </li>
           </ul>
         </div>
-      </section>
 
-      {/* VLAN + SECURITY */}
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="pg-card p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
-            VLAN &amp; network design
+        <div className="pg-card p-6 md:p-7 space-y-3">
+          <h2 className="text-sm font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+            Updates, backups &amp; security
           </h2>
-
           <p className="text-sm text-zinc-300">
-            Love network segmentation? PowerGuardian has you covered.
+            Controller OS keeps your power stack maintainable without handing
+            control to an external cloud.
           </p>
-
-          <p className="text-sm text-zinc-400">
-            In a basic setup, LAN 1 behaves like a normal management interface.
-            If the Controller is in the same network, it will discover Connectors
-            and UPS management cards automatically (manual SNMP card entry is always possible).
-          </p>
-
-          <p className="text-sm text-zinc-400">
-            Prefer isolating power management on a separate VLAN or IoT segment?
-            Controller OS fully supports that.
-          </p>
-
-          <ul className="space-y-2 text-sm text-zinc-400">
-            <li>• Tagged + untagged VLAN support</li>
-            <li>• Multiple VLANs on a single port (trunk mode)</li>
-            <li>• Dual-NIC mode: LAN 1 + LAN 2 = separate networks</li>
+          <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-zinc-400">
+            <li>Signed OTA updates for Connector OS nodes</li>
+            <li>Versioned configuration and scheduled backups</li>
+            <li>
+              Optional off-site backups to providers such as Google Drive or
+              S3-compatible storage
+            </li>
+            <li>
+              Clear separation between management network and production
+              workloads
+            </li>
           </ul>
-
-          <p className="text-xs text-zinc-500">
-            Goal: keep power control reachable even if the main network is under
-            maintenance or partially down.
-          </p>
-        </div>
-
-        <div className="pg-card p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
-            Security, updates &amp; lifecycle
-          </h2>
-
-          <p className="text-sm text-zinc-300">
-            Controller OS is built as a long-lived, secure appliance.
-          </p>
-
-          <ul className="space-y-2 text-sm text-zinc-400">
-            <li>• Encrypted Controller ↔ Connector sync</li>
-            <li>• Credential vault for SNMP, SSH and API tokens</li>
-            <li>• Optional MFA + role-based access</li>
-            <li>• Signed OTA updates (Controller + Connector)</li>
-            <li>• Automatic backups to S3-compatible storage</li>
-          </ul>
-
-          <p className="text-xs text-zinc-500">
-            No mandatory cloud accounts. You stay fully in control.
-          </p>
         </div>
       </section>
-
-      {/* PLATFORM CARD */}
-      <section className="pg-card p-6 md:p-7 space-y-4">
-        <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
-          Where Controller OS runs best
-        </h2>
-
-        <p className="text-sm text-zinc-300">
-          Recommended platform: NanoPi R3S (dual-NIC) for a dedicated power-management plane.
-          But Controller OS also runs perfectly on VMs and Docker environments.
-        </p>
-
-        <div className="grid gap-4 md:grid-cols-3 text-sm text-zinc-400">
-          <div>
-            <div className="text-xs font-semibold text-zinc-200 mb-1">
-              NanoPi R3S
-            </div>
-            <p className="text-xs">
-              Low-power, dual-NIC, perfect dedicated management node.
-            </p>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold text-zinc-200 mb-1">
-              Virtual machine
-            </div>
-            <p className="text-xs">
-              Ideal when you already run a UPS-backed hypervisor cluster.
-            </p>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold text-zinc-200 mb-1">
-              Docker / Container
-            </div>
-            <p className="text-xs">
-              Integrates well into existing infrastructure or lab setups.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="pg-card p-6 md:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold tracking-tight">
-            Ready to clean up your UPS landscape?
-          </h2>
-          <p className="text-sm text-zinc-400 max-w-xl">
-            Start with one Controller and one Connector next to your first UPS.
-            Scale from homelab to multi-site. PowerGuardian grows with you.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <a
-            href="/downloads"
-            className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition"
-          >
-            Get Controller OS image
-          </a>
-
-          <a
-            href="/connector"
-            className="px-5 py-2.5 rounded-full border border-zinc-700 text-sm text-zinc-200 hover:border-[#00C66F] hover:text-white transition"
-          >
-            Review Connector setup
-          </a>
-        </div>
-      </section>
-    </div>
+    </main>
   );
 }
