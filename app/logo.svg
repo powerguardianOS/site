@@ -23,15 +23,15 @@
     fill="#050811"
   />
 
-  <!-- Slim lightning bolt in the center -->
+  <!-- Slim lightning bolt (much thinner version) -->
   <path
-    d="M118 68
-       L96 120
-       H116
-       L104 174
-       L134 126
-       H114
-       L118 68Z"
+    d="M112 70
+       L95 115
+       H112
+       L100 165
+       L125 120
+       H108
+       L112 70Z"
     fill="#00C66F"
   />
 </svg>
