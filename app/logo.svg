@@ -1,28 +1,37 @@
 <svg width="220" height="260" viewBox="0 0 220 260" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Shield outline -->
+  <!-- Outer green shield -->
   <path
-    d="M110 15
-       L185 55
-       V130
-       C185 180 155 215 110 240
-       C65 215 35 180 35 130
-       V55
-       L110 15Z"
-    stroke="#00C66F"
-    stroke-width="18"
-    stroke-linejoin="round"
-    fill="none"
+    d="M110 8
+       L190 40
+       V132
+       C190 182 155 220 110 244
+       C65 220 30 182 30 132
+       V40
+       L110 8Z"
+    fill="#00C66F"
   />
 
-  <!-- Slim lightning bolt -->
+  <!-- Inner dark area to create the outline effect -->
   <path
-    d="M118 70
-       L96 122
-       H118
-       L100 190
-       L122 135
-       H102
-       L118 70Z"
+    d="M110 28
+       L172 54
+       V132
+       C172 168 147 197 110 216
+       C73 197 48 168 48 132
+       V54
+       L110 28Z"
+    fill="#050811"
+  />
+
+  <!-- Slim lightning bolt in the center -->
+  <path
+    d="M118 68
+       L96 120
+       H116
+       L104 174
+       L134 126
+       H114
+       L118 68Z"
     fill="#00C66F"
   />
 </svg>
