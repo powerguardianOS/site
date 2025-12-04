@@ -180,7 +180,7 @@ export default function Home() {
           </h2>
           <p className="text-sm text-zinc-400 max-w-xl">
             Start with one Controller and one Connector next to your first UPS.
-            Expand gradually. PowerGuardian scales with you — from homelab to MKB
+            Expand gradually. PowerGuardian scales with you — from homelab to SMB
             racks to full datacenter deployments.
           </p>
         </div>
@@ -199,6 +199,77 @@ export default function Home() {
           </a>
         </div>
       </section>
+    </div>
+  );
+}
+
+/* ------- Helper components ------- */
+
+function DiagramRow(props: {
+  title: string;
+  subtitle: string;
+  badge: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-white">{props.title}</h3>
+        <span className="rounded-full bg-zinc-900/80 border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-400">
+          {props.badge}
+        </span>
+      </div>
+      <p className="text-xs text-zinc-400">{props.subtitle}</p>
+    </div>
+  );
+}
+
+function ProductCard(props: {
+  label: string;
+  title: string;
+  description: string;
+  bullets: string[];
+  href: string;
+}) {
+  return (
+    <div className="pg-card p-6 space-y-4">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+        {props.label}
+      </div>
+      <h3 className="text-xl font-semibold">{props.title}</h3>
+      <p className="text-sm text-zinc-300">{props.description}</p>
+      <ul className="space-y-2 text-sm text-zinc-400">
+        {props.bullets.map((b) => (
+          <li key={b} className="flex gap-2">
+            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#00C66F]" />
+            <span>{b}</span>
+          </li>
+        ))}
+      </ul>
+      <a
+        href={props.href}
+        className="inline-flex items-center gap-2 text-xs text-[#00C66F] hover:text-[#1af189] mt-2"
+      >
+        Open {props.title}
+        <span className="text-[11px]">↗</span>
+      </a>
+    </div>
+  );
+}
+
+function FeatureCard(props: { title: string; text: string }) {
+  return (
+    <div className="pg-card p-4 space-y-2">
+      <h3 className="text-sm font-semibold text-white">{props.title}</h3>
+      <p className="text-xs text-zinc-400">{props.text}</p>
+    </div>
+  );
+}
+
+function CompareItem(props: { title: string; body: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-semibold text-zinc-200">{props.title}</div>
+      <p className="text-xs text-zinc-500">{props.body}</p>
     </div>
   );
 }
