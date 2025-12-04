@@ -94,7 +94,7 @@ function ShieldLogo() {
     <img
       src="/logo.svg"
       alt="PowerGuardian Logo"
-      className="h-10 w-10 drop-shadow-[0_0_12px_rgba(0,198,111,0.6)]"
+      className="h-8 w-8"
     />
   );
 }
