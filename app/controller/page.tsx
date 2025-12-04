@@ -125,53 +125,51 @@ export default function ControllerPage() {
         </div>
       </section>
 
-      {/* NETWORKING & VLAN DESIGN */}
-      <section className="pg-card p-6 md:p-7 space-y-4">
-        <h2 className="text-sm font-semibold tracking-[0.18em] text-zinc-500 uppercase">
-          Networking &amp; VLAN design
-        </h2>
-        <p className="text-sm text-zinc-300 max-w-3xl">
-          Controller OS is designed to live on a dedicated management network,
-          so that power control stays reachable even when the rest of your
-          infrastructure is under maintenance or misconfigured.
-        </p>
+      {/* VLAN & NETWORK DESIGN */}
+<section className="pg-card p-6 md:p-7 space-y-4">
+  <h2 className="pg-section-title">VLAN &amp; Network Design</h2>
 
-        <div className="grid gap-6 md:grid-cols-2 text-sm text-zinc-300">
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
-              Single-LAN setups
-            </h3>
-            <p className="text-xs md:text-sm text-zinc-400">
-              In a simple deployment, LAN 1 behaves like any normal interface.
-              As long as Connectors and UPS management cards live in the same
-              network, Controller OS will discover them automatically. Manual
-              addition of network-based management cards is supported if needed.
-            </p>
-          </div>
+  <p className="text-sm text-zinc-300 max-w-3xl">
+    Controller OS keeps your power-management layer reachable even when the rest
+    of your network changes, reboots or breaks. Whether you run a simple LAN or
+    a segmented enterprise-style setup — PowerGuardian fully understands it.
+  </p>
 
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400">
-              Segmented &amp; dual-NIC setups
-            </h3>
-            <p className="text-xs md:text-sm text-zinc-400">
-              Prefer to keep your IoT or UPS devices in a separate segment?
-              Controller OS understands VLANs and handles tagged and untagged
-              traffic on the same port. You can:
-            </p>
-            <ul className="list-disc list-inside space-y-1 text-xs md:text-sm text-zinc-400">
-              <li>Expose multiple VLANs on a single NIC (tagged / untagged)</li>
-              <li>
-                Use LAN 1 for your regular homelab network and LAN 2 for a
-                dedicated UPS / IoT segment
-              </li>
-              <li>
-                Keep the power-plane reachable through VPN or a jump-host, even
-                when production routing is broken
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
+  <ul className="space-y-2 text-sm text-zinc-400 mt-3">
+    <li>
+      • <span className="font-medium text-white">Simple mode (LAN1):</span>
+      Works like any normal interface. If Controller OS and your Connectors/UPS
+      management cards are in the same network, discovery is automatic.
+      <span className="text-zinc-500"> Manual add is always supported.</span>
+    </li>
+
+    <li>
+      • <span className="font-medium text-white">VLAN-aware mode:</span>
+      Controller OS understands both <span className="text-white">tagged</span> and{" "}
+      <span className="text-white">untagged</span> VLANs.  
+      Present multiple VLANs on one switchport and the controller listens on
+      every network you expose — ideal for IoT, UPS-only or restricted segments.
+    </li>
+
+    <li>
+      • <span className="font-medium text-white">Dual-NIC isolation:</span>
+      Running on hardware like the NanoPi R3S, you can fully isolate traffic:
+      <br />
+      <span className="text-white">LAN1 → Main LAN / homelab</span>
+      <br />
+      <span className="text-white">LAN2 → UPS / IoT / management VLAN</span>
+      <br />
+      Perfect when you want power control reachable even if your main LAN is
+      down or under maintenance.
+    </li>
+  </ul>
+
+  <p className="text-xs text-zinc-500 mt-3 max-w-2xl">
+    The idea is simple: the Controller should always be reachable — even when
+    routing breaks, VLANs change, or noisy devices misbehave. Your power
+    orchestration layer stays stable, no matter what happens around it.
+  </p>
+</section>
 
       {/* RULE ENGINE & OTA */}
       <section className="grid gap-6 md:grid-cols-2">
