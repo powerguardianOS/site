@@ -12,7 +12,7 @@ export default function Home() {
           </h1>
 
           <p className="text-zinc-400 text-lg max-w-xl">
-            PowerGuardian is your UniFi-style control plane for UPS devices:
+            PowerGuardian is your Zero toutch control plane for UPS devices:
             one dashboard, zero vendor lock-in, full control over shutdown
             rules, VLAN-aware networking and OTA updates.
           </p>
