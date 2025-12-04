@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
         <div className="min-h-screen flex flex-col">
           {/* DESKTOP TOP NAVIGATION (hidden on mobile) */}
-          <header className="hidden sm:block border-b border-zinc-900/80 bg-[#020617]/90 backdrop-blur">
+          <header className="hidden md:block border-b border-zinc-900/80 bg-[#020617]/90 backdrop-blur">
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-3 md:px-6">
               {/* Brand */}
               <Link href="/" className="flex items-center gap-3">
