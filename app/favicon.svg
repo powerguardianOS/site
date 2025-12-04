@@ -1,6 +1,12 @@
-<svg width="180" height="200" viewBox="0 0 180 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M90 0L170 35V110C170 160 135 190 90 200C45 190 10 160 10 110V35L90 0Z" fill="#00C66F"/>
-  <path d="M90 150c-28 0-50-22-50-50 0-20 12-38 30-45" stroke="black" stroke-width="14" stroke-linecap="round" fill="none"/>
-  <path d="M110 55c18 7 30 25 30 45 0 28-22 50-50 50" stroke="black" stroke-width="14" stroke-linecap="round" fill="none"/>
-  <line x1="90" y1="40" x2="90" y2="90" stroke="black" stroke-width="14" stroke-linecap="round"/>
+<svg width="200" height="220" viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shield outline -->
+  <path d="M100 0L180 40V120C180 170 140 205 100 220C60 205 20 170 20 120V40L100 0Z" 
+        stroke="#00C66F" 
+        stroke-width="16" 
+        fill="none" 
+        stroke-linejoin="round"/>
+
+  <!-- Lightning bolt -->
+  <path d="M115 60L90 110H115L85 160L105 110H80L115 60Z"
+        fill="#00C66F"/>
 </svg>
