@@ -91,30 +91,10 @@ function NavLink({
  */
 function ShieldLogo() {
   return (
-    <div className="h-10 w-10">
-      <svg
-        viewBox="0 0 40 40"
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-full w-full drop-shadow-[0_0_12px_rgba(0,198,111,0.6)]"
-      >
-        {/* Schild-vorm */}
-        <path
-          d="M20 3 L31 7.5 C31.8 7.8 32.3 8.6 32.3 9.5 V20.5C32.3 26.9 27.9 32.7 21.6 34.3L20 34.7L18.4 34.3C12.1 32.7 7.7 26.9 7.7 20.5V9.5C7.7 8.6 8.2 7.8 9 7.5L20 3Z"
-          fill="#00C66F"
-        />
-        {/* Power-symbool */}
-        <g
-          stroke="#0E0E0E"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          {/* Rechte lijn van power-knop */}
-          <line x1="20" y1="11" x2="20" y2="18" />
-          {/* Boog van power-knop */}
-          <path d="M14.2 18.8C13.3 19.8 12.7 21.1 12.7 22.6C12.7 25.7 15.1 28.1 18.2 28.1H21.8C24.9 28.1 27.3 25.7 27.3 22.6C27.3 21.1 26.7 19.8 25.8 18.8" />
-        </g>
-      </svg>
-    </div>
+    <img
+      src="/logo.svg"
+      alt="PowerGuardian Logo"
+      className="h-10 w-10 drop-shadow-[0_0_12px_rgba(0,198,111,0.6)]"
+    />
   );
 }
