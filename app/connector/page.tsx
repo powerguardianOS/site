@@ -24,7 +24,7 @@ export default function ConnectorPage() {
           <img
             src="/neo3.png"
             alt="NanoPi Neo3"
-            className="rounded-xl border border-zinc-800 w-full max-w-xs"
+            className="w-[380px] md:w-[420px] lg:w-[480px] rounded-xl shadow-2xl"
           />
         </div>
 
