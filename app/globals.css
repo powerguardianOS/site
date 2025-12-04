@@ -1,4 +1,3 @@
-/* Tailwind v3 manier */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,7 +6,7 @@
   color-scheme: dark;
 }
 
-/* Basis body-styling in gewone CSS */
+/* Base body styling */
 body {
   background-color: #0e0e0e; /* Deep Black */
   color: #ffffff;
@@ -17,7 +16,7 @@ body {
     sans-serif;
 }
 
-/* Scrollbar iets netter op desktop */
+/* Scrollbar styling (optional) */
 *::-webkit-scrollbar {
   width: 8px;
 }
@@ -31,7 +30,7 @@ body {
   background: #3f3f46;
 }
 
-/* Kleine helper classes zonder @apply */
+/* PowerGuardian helper classes */
 .pg-card {
   background: rgba(24, 24, 27, 0.9);
   border-radius: 0.75rem;
