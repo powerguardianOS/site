@@ -1,65 +1,123 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="space-y-16">
+      
+      {/* HERO SECTION */}
+      <section className="text-center space-y-6 py-10">
+        <h1 className="text-4xl md:text-5xl font-extrabold">
+          Power orchestration for{" "}
+          <span className="text-[#00C66F]">UPS & Energy Systems</span>.
+        </h1>
+
+        <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
+          PowerGuardian is a next-generation platform for UPS management,
+          connector orchestration, automation rules, secure shutdown chains,
+          VLAN-aware networking & OTA updates. Designed for professionals.
+        </p>
+
+        <div className="flex flex-wrap gap-4 justify-center pt-4">
+          <a
+            href="/controller"
+            className="px-6 py-3 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00d979] transition"
+          >
+            Explore Controller OS
+          </a>
+
+          <a
+            href="/connector"
+            className="px-6 py-3 rounded-xl border border-zinc-700 hover:border-[#00C66F] text-zinc-300 hover:text-white transition"
+          >
+            Explore Connector OS
+          </a>
+        </div>
+      </section>
+
+
+      {/* FEATURES SECTION */}
+      <section className="grid md:grid-cols-3 gap-6">
+        <Card 
+          title="UPS Autodiscovery" 
+          text="USB, HID & SNMP UPS detection without manual drivers or configuration." 
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <Card 
+          title="Zero-Touch Connector Adoption" 
+          text="Connectors announce themselves automatically and securely connect to the Controller." 
+        />
+        <Card 
+          title="Rules & Automations" 
+          text="Create shutdown workflows, device priorities, NAS protection rules and event triggers." 
+        />
+      </section>
+
+
+      {/* LIVE TOPOLOGY PREVIEW (FAKE DEMO) */}
+      <section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <h2 className="text-xl font-semibold mb-3 text-[#00C66F]">
+          Live Topology Preview
+        </h2>
+
+        <p className="text-zinc-400 text-sm mb-4">
+          A visual preview of how PowerGuardian orchestrates your power
+          infrastructure across Connectors, Controllers and UPS devices.
+        </p>
+
+        <div className="grid gap-4 text-sm">
+          <DeviceCard
+            name="Connector-NEO3-01"
+            desc="APC Smart-UPS USB"
+            status="Online"
+            runtime="42 min"
+          />
+          <DeviceCard
+            name="Connector-NEO3-02"
+            desc="Eaton 5P SNMP"
+            status="On Battery"
+            runtime="Rule: shutdown NAS @ 5 min"
+          />
+          <DeviceCard
+            name="ControllerOS"
+            desc="Vault, OTA, VLAN, Automation Engine"
+            status="Healthy"
+            runtime="Backup: 3 minutes ago"
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </section>
+    </div>
+  );
+}
+
+
+function Card({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="bg-zinc-900/60 border border-zinc-800 p-6 rounded-xl shadow-lg hover:border-[#00C66F] transition">
+      <h3 className="text-lg font-semibold mb-2 text-[#00C66F]">{title}</h3>
+      <p className="text-zinc-400 text-sm leading-relaxed">{text}</p>
+    </div>
+  );
+}
+
+function DeviceCard({
+  name,
+  desc,
+  status,
+  runtime,
+}: {
+  name: string;
+  desc: string;
+  status: string;
+  runtime: string;
+}) {
+  return (
+    <div className="bg-black/40 border border-zinc-800 rounded-xl px-5 py-3 flex items-center justify-between">
+      <div>
+        <div className="font-medium">{name}</div>
+        <div className="text-zinc-500 text-xs">{desc}</div>
+      </div>
+
+      <div className="text-right">
+        <div className="font-semibold text-[#00C66F]">{status}</div>
+        <div className="text-zinc-500 text-xs">{runtime}</div>
+      </div>
     </div>
   );
 }
