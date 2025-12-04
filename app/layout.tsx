@@ -5,13 +5,14 @@ export const metadata = {
   title: "PowerGuardian",
   icons: {
     icon: [
-      { url: "/logo.svg" },
-      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-64.png", sizes: "64x64", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
     ],
-    apple: "/apple-touch-icon.png",
+    apple: "/favicon-180.png", // of: "/apple-touch-icon.png" als je 'm zo noemt
   },
 };
-
 export default function RootLayout({
   children,
 }: {
