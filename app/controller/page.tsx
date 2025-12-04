@@ -128,4 +128,29 @@ export default function ControllerPage() {
       {/* Security / access */}
       <section className="grid gap-6 md:grid-cols-2">
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 space-y-3">
-          <h2 className="text-lg font-semibold tracking-tight">Security model</
+          <h2 className="text-lg font-semibold tracking-tight">Security model</h2>
+          <ul className="space-y-1 text-sm text-zinc-400">
+            <li>• Encrypted credential vault</li>
+            <li>• Role-based access: admin, operator, viewer</li>
+            <li>• SSH access policy per role and per connector</li>
+            <li>• Node tokens and anti-cloning checks for connectors</li>
+          </ul>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 space-y-3">
+          <h3 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
+            Where to run Controller OS
+          </h3>
+          <p className="text-sm text-zinc-400">
+            You can run Controller OS on a NanoPi R3S, a dedicated x86 box or a
+            VM / container. The idea is simple: treat it as a core piece of
+            infrastructure for your power layer.
+          </p>
+          <p className="text-xs text-zinc-500">
+            In many setups, running it on a small, low-power board or out-of-band
+            VM is ideal—independent from your main hypervisor.
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}
