@@ -6,7 +6,6 @@ import Link from "next/link";
 import "./globals.css";
 import MobileNav from "./components/MobileNav";
 
-
 export const metadata: Metadata = {
   title: {
     default: "PowerGuardian",
@@ -46,15 +45,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="bg-[#020617] text-white antialiased">
-        <body className="bg-black text-white antialiased">
-  <MobileNav />
+        {/* Mobile navigation bar (only visible on small screens) */}
+        <MobileNav />
 
-  <main className="pt-4">
-    {children}
-  </main>
-</body>
         <div className="min-h-screen flex flex-col">
-          {/* Top navigation */}
+          {/* Desktop top navigation */}
           <header className="border-b border-zinc-900/80 bg-[#020617]/90 backdrop-blur">
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-3 md:px-6">
               {/* Brand */}
@@ -78,7 +73,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 </div>
               </Link>
 
-              {/* Nav */}
+              {/* Nav links: hidden on mobile, visible from md and up */}
               <nav className="hidden md:flex items-center gap-6">
                 <NavLink href="/" label="Overview" />
                 <NavLink href="/connector" label="Connector OS" />
