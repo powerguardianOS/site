@@ -10,12 +10,9 @@ export default function MobileNav() {
     <>
       {/* MOBILE TOP BAR */}
       <div className="md:hidden flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#020617]/95 backdrop-blur">
-        <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 rounded-sm bg-[#00C66F]" />
-          <span className="text-white font-semibold tracking-tight">
-            PowerGuardian
-          </span>
-        </div>
+        <div class="flex items-center space-x-2"><div class="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C66F]/10">
+<img alt="PowerGuardian logo" width="28" height="28" decoding="async" data-nimg="1" style="color:transparent" src="/logo.svg">
+</div><span class="text-white font-semibold tracking-tight">PowerGuardian</span></div>
 
         {/* HAMBURGER BUTTON */}
         <button
