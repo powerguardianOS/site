@@ -1,53 +1,42 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* app/globals.css */
 
+/* 1. Load Tailwind v4 via the PostCSS plugin */
+@import "tailwindcss";
+
+/* 2. Your global theme + layout */
 :root {
-  color-scheme: dark;
+  --pg-bg: #020617;        /* very dark navy */
+  --pg-bg-soft: #020617;
+  --pg-fg: #f9fafb;
+  --pg-muted: #64748b;
+  --pg-accent: #00c66f;
 }
 
-/* Base body styling */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
 body {
-  background-color: #0e0e0e; /* Deep Black */
-  color: #ffffff;
-  -webkit-font-smoothing: antialiased;
+  height: 100%;
+}
+
+body {
+  margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "SF Pro Display", ui-sans-serif, -ui-sans-serif, "Helvetica Neue", Arial,
-    sans-serif;
+    "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #020617 0, #020617 40%, #000 100%);
+  color: var(--pg-fg);
 }
 
-/* Scrollbar styling (optional) */
-*::-webkit-scrollbar {
-  width: 8px;
-}
-*::-webkit-scrollbar-track {
-  background: #050505;
-}
-*::-webkit-scrollbar-thumb {
-  background: #27272a;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+/* Optional: smooth scrolling & selection color */
+html {
+  scroll-behavior: smooth;
 }
 
-/* PowerGuardian helper classes */
-.pg-card {
-  background: rgba(24, 24, 27, 0.9);
-  border-radius: 0.75rem;
-  border: 1px solid #27272a;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.7);
-}
-
-.pg-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(63, 63, 70, 0.8);
-  background: rgba(24, 24, 27, 0.9);
-  padding: 0.25rem 0.75rem;
-  font-size: 0.7rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #a1a1aa;
+::selection {
+  background: rgba(0, 198, 111, 0.35);
+  color: #f9fafb;
 }
