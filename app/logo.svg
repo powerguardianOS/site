@@ -1,37 +1,30 @@
 <svg width="220" height="260" viewBox="0 0 220 260" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Outer green shield -->
+
+  <!-- Shield outline (accurate proportions + rounded corners) -->
   <path
-    d="M110 8
-       L190 40
-       V132
-       C190 182 155 220 110 244
-       C65 220 30 182 30 132
-       V40
-       L110 8Z"
+    d="M110 20
+       L178 55
+       V125
+       C178 170 145 210 110 230
+       C75 210 42 170 42 125
+       V55
+       L110 20Z"
+    stroke="#00C66F"
+    stroke-width="14"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- Lightning bolt (correct weight, shape, and proportions) -->
+  <path
+    d="M120 70
+       L90 125
+       H115
+       L95 185
+       L135 120
+       H110
+       L120 70Z"
     fill="#00C66F"
   />
 
-  <!-- Inner dark area to create the outline effect -->
-  <path
-    d="M110 28
-       L172 54
-       V132
-       C172 168 147 197 110 216
-       C73 197 48 168 48 132
-       V54
-       L110 28Z"
-    fill="#050811"
-  />
-
-  <!-- Slim lightning bolt (much thinner version) -->
-  <path
-    d="M112 70
-       L95 115
-       H112
-       L100 165
-       L125 120
-       H108
-       L112 70Z"
-    fill="#00C66F"
-  />
 </svg>
