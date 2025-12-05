@@ -59,7 +59,7 @@ export default function HomePage() {
             <DiagramRow
               title="Controller OS"
               subtitle="Central dashboard · rule engine · credential vault · VLAN segmentation"
-              badge="NanoPi R3S · VM · Docker"
+              badge="NanoPi R3S"
             />
             <div className="flex items-center justify-center">
               <div className="h-px w-12 bg-zinc-700" />
@@ -71,7 +71,7 @@ export default function HomePage() {
             <DiagramRow
               title="Connector OS"
               subtitle="Local UPS agent · NUT-based · buffered events, OTA-managed"
-              badge="NanoPi Neo3 · Raspberry Pi"
+              badge="NanoPi Neo3"
             />
           </div>
           <p className="text-xs text-zinc-500 border-t border-zinc-800 pt-3">
