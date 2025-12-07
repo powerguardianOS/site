@@ -4,11 +4,12 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <div className="space-y-16">
-    <section className="pg-card p-3 text-sm text-zinc-400 border border-zinc-800 mb-8">
-     🚧 <span className="text-white font-medium">PowerGuardian is actively under construction.</span> 
-     New features, pages and UI improvements are being added continuously. at this moment we are in full development. 
-     we keep you posted. we will setup channels to get in touch with us
-    </section>
+      <section className="pg-card p-4 text-sm text-zinc-300 border border-zinc-800">
+      <span className="font-medium text-white">🚧 PowerGuardian is actively under construction.</span>
+      <br />
+      New features and UI improvements are being added continuously. More pages, documentation 
+      and community channels will be launched soon.
+      </section>
       {/* HERO */}
       <section className="grid gap-10 md:grid-cols-[3fr,2fr] items-center">
         <div className="space-y-6">
