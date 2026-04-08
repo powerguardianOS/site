@@ -10,6 +10,9 @@
   --pg-fg: #f9fafb;
   --pg-muted: #64748b;
   --pg-accent: #00c66f;
+  --pg-glow: 0 0 35px rgba(0, 198, 111, 0.45);
+  --pg-card-border: 1px solid rgba(255, 255, 255, 0.06);
+  --pg-cta-shadow: 0 0 35px rgba(0, 198, 111, 0.45);
 }
 
 *,
@@ -28,17 +31,7 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "Segoe UI", sans-serif;
 
-  /* verbeterde, vloeiende achtergrond */
-  background:
-    radial-gradient(
-      ellipse at top,
-      #020617 0,
-      #020617 40%,
-      #020617 65%,
-      #000000 100%
-    );
   background-color: #020617;
-  background-attachment: fixed;
 
   color: var(--pg-fg);
 }

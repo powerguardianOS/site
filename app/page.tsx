@@ -4,12 +4,6 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <div className="space-y-16">
-      <section className="pg-card p-4 text-sm text-zinc-300 border border-zinc-800">
-      <span className="font-medium text-white">🚧 PowerGuardian is actively under construction.</span>
-      <br />
-      New features and UI improvements are being added continuously. More pages, documentation 
-      and community channels will be launched soon.
-      </section>
       {/* HERO */}
       <section className="grid gap-10 md:grid-cols-[3fr,2fr] items-center">
         <div className="space-y-6">
@@ -24,17 +18,15 @@ export default function HomePage() {
           </h1>
 
           <p className="text-zinc-400 text-lg max-w-xl">
-            PowerGuardian gives you a zero-touch control plane for UPS devices:
-            one dashboard, multi-vendor support, safe shutdown rules and
-            OTA-managed connectors. No cloud lock-in, no fragile scripts.
+            One dashboard, multi-vendor support, safe shutdown rules and OTA-managed connectors — runs on €30 hardware, no cloud required.
           </p>
 
           <div className="flex flex-wrap gap-3">
             <Link
               href="/downloads"
-              className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[0_0_35px_rgba(0,198,111,0.45)]"
+              className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[var(--pg-cta-shadow)]"
             >
-              Download Connector OS images
+              Get Started →
             </Link>
             <Link
               href="/controller"
@@ -47,11 +39,15 @@ export default function HomePage() {
           <div className="flex flex-wrap gap-4 text-xs text-zinc-500">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#00C66F]" />
-              <span>USB · SNMP · NMC autodiscovery</span>
+              <span>Self-hosted · runs on €30 NanoPi hardware</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#00C66F]" />
-              <span>Self-hosted, encrypted and rule-driven</span>
+              <span>NUT · SNMP · USB autodiscovery</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[#00C66F]" />
+              <span>From €5/mo — no vendor lock-in</span>
             </div>
           </div>
         </div>

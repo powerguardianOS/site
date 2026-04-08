@@ -78,9 +78,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <NavLink href="/" label="Overview" />
                 <NavLink href="/connector" label="Connector OS" />
                 <NavLink href="/controller" label="Controller OS" />
-                <NavLink href="/downloads" label="Downloads" />
-                <NavLink href="/roadmap" label="Roadmap" />
+                <NavLink href="/pricing" label="Pricing" />
               </nav>
+
+              {/* CTA */}
+              <Link
+                href="/downloads"
+                className="px-4 py-1.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[var(--pg-cta-shadow)]"
+              >
+                Get Started →
+              </Link>
             </div>
           </header>
 
@@ -95,6 +102,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <footer className="border-t border-zinc-900/80 bg-black/60">
             <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-zinc-500">
               <span>© {new Date().getFullYear()} PowerGuardian</span>
+              <nav className="flex items-center gap-4">
+                <Link href="/downloads" className="hover:text-zinc-300 transition-colors">Downloads</Link>
+                <Link href="/roadmap" className="hover:text-zinc-300 transition-colors">Roadmap</Link>
+              </nav>
               <span className="text-[11px]">
                 Self-hosted UPS &amp; power orchestration · no vendor lock-in
               </span>
