@@ -79,6 +79,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <NavLink href="/connector" label="Connector OS" />
                 <NavLink href="/controller" label="Controller OS" />
                 <NavLink href="/pricing" label="Pricing" />
+                <NavLink href="/downloads" label="Downloads" />
+                <NavLink href="/roadmap" label="Roadmap" />
               </nav>
 
               {/* CTA */}
