@@ -3,9 +3,9 @@ import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <div className="space-y-16">
+    <div>
       {/* HERO */}
-      <section className="grid gap-10 md:grid-cols-[3fr,2fr] items-center">
+      <section className="py-20 md:py-24 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         <div className="space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -52,8 +52,43 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Architecture side card */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 space-y-5">
+        {/* Hero visual — dashboard mockup (qwen3.5) */}
+        <div className="font-mono text-xs bg-zinc-950 border border-zinc-800 rounded-xl p-5 overflow-hidden">
+          <div className="flex justify-between items-center mb-4">
+            <span className="font-bold text-zinc-400">PowerGuardian</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-emerald-400">● online</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-4 border-b border-zinc-800 pb-4">
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold text-zinc-300">Main UPS</span>
+              <div className="flex justify-between"><span className="text-zinc-500">Battery</span><span className="text-emerald-400">98%</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Load</span><span className="text-zinc-400">42%</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Runtime</span><span className="text-zinc-400">120 min</span></div>
+            </div>
+            <div className="flex flex-col gap-1 bg-red-950/20 p-2 rounded border border-red-900/30">
+              <span className="font-semibold text-red-400">Backup UPS</span>
+              <div className="flex justify-between"><span className="text-zinc-500">Battery</span><span className="text-red-400">14%</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Load</span><span className="text-red-400">89%</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">Runtime</span><span className="text-red-400">8 min ⚠</span></div>
+            </div>
+          </div>
+          <div className="mb-3">
+            <span className="text-zinc-500 block mb-2">Connectors</span>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />rack-01.local</div>
+              <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />rack-02.local</div>
+              <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />nas-01.local <span className="text-red-400 ml-1">unreachable</span></div>
+            </div>
+          </div>
+          <div className="text-zinc-600 border-t border-zinc-800 pt-2">
+            [09:14] Backup UPS battery critical — shutdown queued
+          </div>
+        </div>
+      </section>
+
+      {/* ARCHITECTURE — eigen sectie onder hero */}
+      <section className="py-10 bg-gradient-to-b from-zinc-950/0 to-zinc-900/60">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 space-y-5 max-w-2xl mx-auto">
           <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
             ARCHITECTURE
           </h2>
@@ -85,7 +120,7 @@ export default function HomePage() {
       </section>
 
       {/* CONNECTOR VS CONTROLLER */}
-      <section className="grid gap-6 md:grid-cols-2">
+      <section className="py-20 md:py-24 grid gap-6 md:grid-cols-2">
         <ProductCard
           label="Edge agent"
           title="Connector OS"
@@ -113,7 +148,7 @@ export default function HomePage() {
       </section>
 
       {/* WHY NOT JUST A UPS CARD? */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 md:p-7 space-y-4">
+      <section className="py-20 md:py-24 bg-zinc-900/40 rounded-xl border border-zinc-800 p-6 md:p-7 space-y-4">
         <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
           WHY NOT JUST A VENDOR UPS CARD?
         </h2>
@@ -140,7 +175,7 @@ export default function HomePage() {
       </section>
 
       {/* CAPABILITIES GRID */}
-      <section className="space-y-5">
+      <section className="py-20 md:py-24 space-y-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold tracking-tight">
             PowerGuardian capabilities
@@ -150,36 +185,39 @@ export default function HomePage() {
           </span>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <FeatureCard
-            title="UPS autodiscovery"
-            text="Scan USB, SNMP and NMC cards to detect model, runtime, battery status and capabilities without manual driver hunting."
-          />
-          <FeatureCard
-            title="Rule-based shutdown"
-            text="Map UPS devices to hosts and services. Define who powers down first and who stays up until the last minute."
-          />
-          <FeatureCard
-            title="VLAN-aware design"
-            text="Use a dual-NIC controller as a dedicated management node for your power plane, separate from production traffic."
-          />
-          <FeatureCard
-            title="Encrypted credential vault"
-            text="Store SNMP communities, SSH users and API tokens in an encrypted vault. No more passwords in random config files."
-          />
-          <FeatureCard
-            title="Cloudflare R2 distribution"
-            text="Serve connector images and updates from Cloudflare R2 with global CDN performance."
-          />
-          <FeatureCard
-            title="OTA for connectors"
-            text="Plan connector upgrades from the controller with signed packages and anti-cloning checks per node."
-          />
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="bg-zinc-950/70 border border-zinc-800 border-l-2 border-l-emerald-500 rounded-xl p-6 space-y-4">
+            <div className="text-2xl">🔍</div>
+            <h3 className="text-base font-semibold text-white">Discovery &amp; Network</h3>
+            <p className="text-sm text-zinc-400">Scan USB, SNMP and NMC cards to detect model, runtime and battery status without manual driver hunting.</p>
+            <ul className="space-y-1 text-xs text-zinc-500">
+              <li className="flex gap-2"><span className="text-emerald-500">→</span> UPS autodiscovery over USB, SNMP and NMC</li>
+              <li className="flex gap-2"><span className="text-emerald-500">→</span> Dual-NIC VLAN-aware management plane</li>
+            </ul>
+          </div>
+          <div className="bg-zinc-950/70 border border-zinc-800 border-l-2 border-l-blue-500 rounded-xl p-6 space-y-4">
+            <div className="text-2xl">🛡️</div>
+            <h3 className="text-base font-semibold text-white">Protection &amp; Security</h3>
+            <p className="text-sm text-zinc-400">Define shutdown sequences per host and rack. Store all credentials in an encrypted vault — no passwords in config files.</p>
+            <ul className="space-y-1 text-xs text-zinc-500">
+              <li className="flex gap-2"><span className="text-blue-500">→</span> Rule-based shutdown with priority ordering</li>
+              <li className="flex gap-2"><span className="text-blue-500">→</span> Encrypted vault for SNMP, SSH and API tokens</li>
+            </ul>
+          </div>
+          <div className="bg-zinc-950/70 border border-zinc-800 border-l-2 border-l-amber-500 rounded-xl p-6 space-y-4">
+            <div className="text-2xl">🚀</div>
+            <h3 className="text-base font-semibold text-white">Updates &amp; Distribution</h3>
+            <p className="text-sm text-zinc-400">Serve connector images from Cloudflare R2 and push signed OTA updates with anti-cloning checks per node.</p>
+            <ul className="space-y-1 text-xs text-zinc-500">
+              <li className="flex gap-2"><span className="text-amber-500">→</span> Cloudflare R2 CDN for connector images</li>
+              <li className="flex gap-2"><span className="text-amber-500">→</span> OTA upgrades with signed packages per node</li>
+            </ul>
+          </div>
         </div>
       </section>
 
       {/* USE CASES */}
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="py-20 md:py-24 bg-zinc-900/40 grid gap-4 md:grid-cols-3">
         <UseCaseCard
           title="Homelab"
           text="One UPS, one Connector, one Controller VM. Clean shutdown for your NAS, hypervisor and router without manual scripting."
@@ -195,7 +233,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ / BOTTOM CTA */}
-      <section className="grid gap-10 md:grid-cols-[3fr,2fr] items-start">
+      <section className="py-20 md:py-24 grid gap-10 md:grid-cols-[3fr,2fr] items-start">
         <div className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">FAQ</h2>
           <FaqItem
@@ -297,14 +335,6 @@ function ProductCard(props: {
   );
 }
 
-function FeatureCard(props: { title: string; text: string }) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 space-y-2">
-      <h3 className="text-sm font-semibold text-white">{props.title}</h3>
-      <p className="text-xs text-zinc-400">{props.text}</p>
-    </div>
-  );
-}
 
 function CompareItem(props: { title: string; body: string }) {
   return (
