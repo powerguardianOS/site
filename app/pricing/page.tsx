@@ -102,7 +102,7 @@ export default function PricingPage() {
             onClick={() => setAnnual(!annual)}
             className={`relative h-5 w-9 rounded-full transition-colors ${annual ? "bg-[#00C66F]" : "bg-zinc-700"}`}
           >
-            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${annual ? "translate-x-4" : "translate-x-0.5"}`} />
+            <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${annual ? "translate-x-4" : "translate-x-0"}`} />
           </button>
           <span className={annual ? "text-white font-medium" : "text-zinc-500"}>
             Annual <span className="text-[#00C66F] text-xs">save ~20%</span>
