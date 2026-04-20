@@ -68,6 +68,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { NAV_LINKS } from "./lib/nav";
+
 function NavLink(props: { href: string; label: string }) {
   return (
     <Link
@@ -113,12 +115,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
               {/* Desktop nav links */}
               <nav className="flex items-center gap-6">
-                <NavLink href="/" label="Overview" />
-                <NavLink href="/connector" label="Connector OS" />
-                <NavLink href="/controller" label="Controller OS" />
-                <NavLink href="/pricing" label="Pricing" />
-                <NavLink href="/pricing" label="Pricing" />
-                <NavLink href="/roadmap" label="Roadmap" />
+                {NAV_LINKS.map((l) => <NavLink key={l.href} href={l.href} label={l.label} />)}
               </nav>
 
               {/* CTA */}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { NAV_LINKS } from "../lib/nav";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
@@ -83,45 +84,16 @@ export default function MobileNav() {
 
         {/* NAV LINKS */}
         <nav className="flex flex-col p-6 space-y-4 text-lg">
-          <Link
-            href="/"
-            onClick={() => setOpen(false)}
-            className="text-zinc-300 hover:text-[#00C66F] transition"
-          >
-            Overview
-          </Link>
-
-          <Link
-            href="/connector"
-            onClick={() => setOpen(false)}
-            className="text-zinc-300 hover:text-[#00C66F] transition"
-          >
-            Connector OS
-          </Link>
-
-          <Link
-            href="/controller"
-            onClick={() => setOpen(false)}
-            className="text-zinc-300 hover:text-[#00C66F] transition"
-          >
-            Controller OS
-          </Link>
-
-          <Link
-            href="/pricing"
-            onClick={() => setOpen(false)}
-            className="text-zinc-300 hover:text-[#00C66F] transition"
-          >
-            Pricing
-          </Link>
-
-          <Link
-            href="/roadmap"
-            onClick={() => setOpen(false)}
-            className="text-zinc-300 hover:text-[#00C66F] transition"
-          >
-            Roadmap
-          </Link>
+          {NAV_LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={() => setOpen(false)}
+              className="text-zinc-300 hover:text-[#00C66F] transition"
+            >
+              {l.label}
+            </Link>
+          ))}
         </nav>
       </div>
     </>
