@@ -9,7 +9,7 @@ export default function HomePage() {
         <div className="space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            Self-hosted UPS orchestration
+            One layer for all your UPS — no vendor cards
           </div>
 
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight">
@@ -18,7 +18,7 @@ export default function HomePage() {
           </h1>
 
           <p className="text-zinc-400 text-lg max-w-xl">
-            One dashboard, multi-vendor support, safe shutdown rules and OTA-managed connectors — runs on €30 hardware, no cloud required.
+            Multi-vendor UPS monitoring, safe shutdown rules and OTA updates — built on NUT, runs on €30 hardware. Cloud access is optional.
           </p>
 
           <div className="flex flex-wrap gap-3">
@@ -47,7 +47,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#00C66F]" />
-              <span>From €5/mo — no vendor lock-in</span>
+              <span>From €5/mo · built on NUT · open protocol</span>
             </div>
           </div>
         </div>
@@ -153,10 +153,10 @@ export default function HomePage() {
           WHY NOT JUST A VENDOR UPS CARD?
         </h2>
         <p className="text-zinc-300 text-sm md:text-base max-w-3xl">
-          A vendor-specific SNMP card protects one UPS and one stack. With
-          PowerGuardian you orchestrate multiple UPS units, brands and racks in
-          one system. Shutdown sequences, VLAN segmentation and credentials are
-          centralized—while you stay fully in control of your data.
+          A vendor SNMP card protects one UPS, one stack, one brand. PowerGuardian
+          runs on open NUT protocols and orchestrates every UPS across all your racks
+          in one place — shutdown sequences, credentials and VLAN segmentation
+          included. Your hardware, your data, your rules.
         </p>
         <div className="grid gap-3 md:grid-cols-3 text-xs text-zinc-400">
           <CompareItem
@@ -238,7 +238,7 @@ export default function HomePage() {
           <h2 className="text-lg font-semibold tracking-tight">FAQ</h2>
           <FaqItem
             q="Do I need internet access for PowerGuardian?"
-            a="No. PowerGuardian runs fully on your own hardware. Internet is only needed for license validation and OTA updates — both work fine on air-gapped networks with a grace period."
+            a="No. PowerGuardian runs fully on your own hardware, always. Internet is optional — add cloud for remote access and license sync. Air-gapped setups work with a 30-day grace period."
           />
           <FaqItem
             q="Which UPS brands are supported?"
