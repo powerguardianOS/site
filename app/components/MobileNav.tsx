@@ -116,14 +116,6 @@ export default function MobileNav() {
           </Link>
 
           <Link
-            href="/pricing"
-            onClick={() => setOpen(false)}
-            className="text-zinc-300 hover:text-[#00C66F] transition"
-          >
-            Pricing
-          </Link>
-
-          <Link
             href="/roadmap"
             onClick={() => setOpen(false)}
             className="text-zinc-300 hover:text-[#00C66F] transition"
