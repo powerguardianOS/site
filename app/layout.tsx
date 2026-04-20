@@ -72,7 +72,7 @@ function NavLink(props: { href: string; label: string }) {
   return (
     <Link
       href={props.href}
-      className="text-sm text-zinc-400 hover:text-white transition-colors"
+      className="text-xs md:text-sm text-zinc-400 hover:text-white transition-colors whitespace-nowrap"
     >
       {props.label}
     </Link>
@@ -133,7 +133,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
           {/* Main content */}
           <main className="flex-1">
-            <div className="mx-auto max-w-6xl px-4 py-10 md:px-6 md:py-14 space-y-16">
+            <div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-10 space-y-16">
               {children}
             </div>
           </main>
