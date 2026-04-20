@@ -105,7 +105,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   <span className="text-sm font-semibold tracking-tight">
                     PowerGuardian
                   </span>
-                  <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+                  <span className="hidden lg:block text-[10px] uppercase tracking-[0.22em] text-zinc-500">
                     UPS orchestration platform
                   </span>
                 </div>
@@ -133,7 +133,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
           {/* Main content */}
           <main className="flex-1">
-            <div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-10 space-y-16">
+            <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
               {children}
             </div>
           </main>
