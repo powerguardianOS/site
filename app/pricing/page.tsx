@@ -19,7 +19,7 @@ const plans = [
       { label: "Alert rules", ok: true },
     ],
     cta: "Get Started",
-    ctaHref: "/downloads",
+    ctaHref: "https://accounts.powerguardian.cloud",
     highlight: false,
   },
   {
@@ -37,7 +37,7 @@ const plans = [
       { label: "Alert rules", ok: true },
     ],
     cta: "Get Pro",
-    ctaHref: "/downloads",
+    ctaHref: "https://accounts.powerguardian.cloud",
     highlight: true,
     badge: "Most Popular",
   },
