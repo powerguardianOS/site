@@ -23,10 +23,10 @@ export default function HomePage() {
 
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/downloads"
+              href="/pricing"
               className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[var(--pg-cta-shadow)]"
             >
-              Get Started →
+              View Plans →
             </Link>
             <Link
               href="/controller"
@@ -207,10 +207,10 @@ export default function HomePage() {
           <div className="bg-zinc-950/70 border border-zinc-800 border-l-2 border-l-amber-500 rounded-xl p-6 space-y-4">
             <div className="text-2xl">🚀</div>
             <h3 className="text-base font-semibold text-white">Updates &amp; Distribution</h3>
-            <p className="text-sm text-zinc-400">Serve connector images from Cloudflare R2 and push signed OTA updates with anti-cloning checks per node.</p>
+            <p className="text-sm text-zinc-400">Push signed OTA updates to every connector from the Controller. One-click upgrades, rollback support, no manual SSH.</p>
             <ul className="space-y-1 text-xs text-zinc-500">
-              <li className="flex gap-2"><span className="text-amber-500">→</span> Cloudflare R2 CDN for connector images</li>
-              <li className="flex gap-2"><span className="text-amber-500">→</span> OTA upgrades with signed packages per node</li>
+              <li className="flex gap-2"><span className="text-amber-500">→</span> Signed OTA packages with anti-cloning checks</li>
+              <li className="flex gap-2"><span className="text-amber-500">→</span> Controller serves images to all connected nodes</li>
             </ul>
           </div>
         </div>
@@ -264,16 +264,16 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/downloads"
+              href="/pricing"
               className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition"
             >
-              Get Connector OS images
+              View Plans & Pricing →
             </Link>
             <Link
-              href="/controller"
+              href="/downloads"
               className="px-5 py-2.5 rounded-full border border-zinc-700 text-sm text-zinc-200 hover:border-[#00C66F] hover:text-white transition"
             >
-              Learn more about Controller OS
+              Downloads
             </Link>
           </div>
         </div>

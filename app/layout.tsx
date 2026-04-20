@@ -123,7 +123,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
               {/* CTA */}
               <Link
-                href="/downloads"
+                href="/pricing"
                 className="px-4 py-1.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[var(--pg-cta-shadow)]"
               >
                 Get Started →
