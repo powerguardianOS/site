@@ -25,10 +25,10 @@ export default function ControllerPage() {
             See how Connector OS fits in
           </Link>
           <Link
-            href="/downloads"
+            href="/pricing"
             className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition"
           >
-            Download images
+            Get a License →
           </Link>
         </div>
       </section>

@@ -26,10 +26,10 @@ export default function ConnectorPage() {
           </ul>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/downloads"
+              href="/pricing"
               className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition"
             >
-              Get Connector OS images
+              Get a License →
             </Link>
             <Link
               href="/controller"

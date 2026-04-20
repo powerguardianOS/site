@@ -169,7 +169,7 @@ export default function HomePage() {
           />
           <CompareItem
             title="Future-ready"
-            body="Connector images, OTA updates and R2 downloads keep upgrades manageable."
+            body="Push signed OTA updates to every connector from the Controller. No manual SSH, no version drift."
           />
         </div>
       </section>
@@ -238,7 +238,7 @@ export default function HomePage() {
           <h2 className="text-lg font-semibold tracking-tight">FAQ</h2>
           <FaqItem
             q="Do I need internet access for PowerGuardian?"
-            a="No. PowerGuardian is designed to be fully self-hosted. Internet is only needed for downloading images and updates, which can also be mirrored internally."
+            a="No. PowerGuardian runs fully on your own hardware. Internet is only needed for license validation and OTA updates — both work fine on air-gapped networks with a grace period."
           />
           <FaqItem
             q="Which UPS brands are supported?"
@@ -270,10 +270,10 @@ export default function HomePage() {
               View Plans & Pricing →
             </Link>
             <Link
-              href="/downloads"
+              href="/pricing"
               className="px-5 py-2.5 rounded-full border border-zinc-700 text-sm text-zinc-200 hover:border-[#00C66F] hover:text-white transition"
             >
-              Downloads
+              See all plans
             </Link>
           </div>
         </div>
