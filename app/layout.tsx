@@ -72,7 +72,7 @@ function NavLink(props: { href: string; label: string }) {
   return (
     <Link
       href={props.href}
-      className="text-xs md:text-sm text-zinc-400 hover:text-white transition-colors whitespace-nowrap"
+      className="text-sm text-zinc-400 hover:text-white transition-colors"
     >
       {props.label}
     </Link>
@@ -88,8 +88,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
         <div className="min-h-screen flex flex-col">
           {/* DESKTOP TOP NAVIGATION (hidden on mobile) */}
-          <header className="hidden md:block border-b border-zinc-900/80 bg-[#020617]/90 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 md:gap-4 px-4 py-3 md:px-6">
+          <header className="hidden lg:block border-b border-zinc-900/80 bg-[#020617]/90 backdrop-blur">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-3 lg:px-6">
               {/* Brand */}
               <Link href="/" className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C66F]/10">
@@ -112,7 +112,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </Link>
 
               {/* Desktop nav links */}
-              <nav className="flex items-center gap-3 md:gap-4">
+              <nav className="flex items-center gap-6">
                 <NavLink href="/" label="Overview" />
                 <NavLink href="/connector" label="Connector OS" />
                 <NavLink href="/controller" label="Controller OS" />
