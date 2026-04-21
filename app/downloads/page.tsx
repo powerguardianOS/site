@@ -52,7 +52,7 @@ const downloads = [
 
 export default function DownloadsPage() {
   return (
-    <div className="space-y-10">
+    <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Downloads</h1>
         <p className="text-zinc-400 max-w-2xl">

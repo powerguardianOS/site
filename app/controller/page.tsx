@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function ControllerPage() {
   return (
-    <div className="space-y-12">
+    <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
       {/* Hero */}
       <section className="space-y-5">
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">

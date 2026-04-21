@@ -1,7 +1,7 @@
 // app/roadmap/page.tsx
 export default function RoadmapPage() {
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
       <section className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight">Roadmap</h1>
         <p className="text-sm md:text-base text-zinc-400 max-w-2xl">

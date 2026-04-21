@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function ConnectorPage() {
   return (
-    <div className="space-y-12">
+    <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
       {/* Hero */}
       <section className="grid gap-8 md:grid-cols-[3fr,2fr] items-start">
         <div className="space-y-5">

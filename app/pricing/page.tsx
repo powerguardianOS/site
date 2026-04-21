@@ -85,7 +85,7 @@ export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
 
   return (
-    <div className="space-y-14">
+    <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
       {/* Header */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-semibold tracking-tight">
