@@ -90,30 +90,22 @@ export default function ControllerPage() {
             Where to run it
           </h3>
           <p className="text-sm text-zinc-400 leading-relaxed">
-            Controller OS runs on the NanoPi R3S as the primary reference board,
-            but any x86 box, VM, or container works too. The key design principle:
-            it should run independently of your main hypervisor, so a power event
-            doesn't take down the Controller before the shutdown is complete.
+            Controller OS currently runs exclusively on the{" "}
+            <span className="text-zinc-300 font-medium">NanoPi R3S</span>.
+            The image is built around its eMMC storage for reliability — no SD
+            card, no wear-out issues. Support for additional hardware platforms
+            is on the roadmap.
           </p>
-          <div className="space-y-1 text-sm text-zinc-400 pt-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[#00C66F]">●</span>
-              <span className="font-medium text-zinc-300">NanoPi R3S</span>
-              <span className="text-zinc-600 text-xs">— primary platform</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-600">○</span>
-              <span>Dedicated x86 mini PC or server</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-600">○</span>
-              <span>Out-of-band VM (on a separate hypervisor or UPS)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-600">○</span>
-              <span>LXC container or Docker (advanced setups)</span>
-            </div>
+          <div className="flex items-center gap-2 text-sm mt-2">
+            <span className="text-[#00C66F]">●</span>
+            <span className="font-medium text-zinc-300">NanoPi R3S</span>
+            <span className="text-zinc-600 text-xs">— only supported platform right now</span>
           </div>
+          <p className="text-xs text-zinc-600 pt-2">
+            More platforms coming — follow the{" "}
+            <a href="/roadmap" className="underline hover:text-zinc-400 transition">roadmap</a>{" "}
+            for updates.
+          </p>
         </div>
       </section>
 
