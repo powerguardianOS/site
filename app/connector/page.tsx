@@ -109,32 +109,21 @@ export default function ConnectorPage() {
           <h3 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
             Hardware it runs on
           </h3>
-          <p className="text-sm text-zinc-400">
-            The primary reference platform is the NanoPi Neo3 — small, silent,
-            and built for 24/7 operation. Connector OS also runs on any ARM or
-            x86 board with stable storage and a network interface.
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            Connector OS runs on the{" "}
+            <span className="text-zinc-300 font-medium">NanoPi Neo3</span> —
+            small, silent, and built for 24/7 duty next to a UPS. At €30 it is
+            the most cost-effective way to add a dedicated edge agent per UPS.
           </p>
-          <div className="space-y-1 text-sm text-zinc-400">
-            <div className="flex items-center gap-2">
-              <span className="text-[#00C66F]">●</span>
-              <span className="font-medium text-zinc-300">NanoPi Neo3</span>
-              <span className="text-zinc-600 text-xs">— primary platform (€30)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-600">○</span>
-              <span>Raspberry Pi 3 / 4 / Zero 2</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-600">○</span>
-              <span>Other NanoPi and Orange Pi boards</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-600">○</span>
-              <span>Small x86 thin clients or VMs</span>
-            </div>
+          <div className="flex items-center gap-2 text-sm mt-2">
+            <span className="text-[#00C66F]">●</span>
+            <span className="font-medium text-zinc-300">NanoPi Neo3</span>
+            <span className="text-zinc-600 text-xs">— only supported platform right now</span>
           </div>
-          <p className="text-xs text-zinc-600 pt-1">
-            Support for more platforms is added based on demand.
+          <p className="text-xs text-zinc-600 pt-2">
+            More platforms coming — follow the{" "}
+            <a href="/roadmap" className="underline hover:text-zinc-400 transition">roadmap</a>{" "}
+            for updates.
           </p>
         </div>
       </section>
