@@ -1,12 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { NAV_LINKS } from "../lib/nav";
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const focusableElements = menuRef.current?.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusableElements?.length) focusableElements[0].focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpen(false); return; }
+      if (e.key !== "Tab" || !focusableElements?.length) return;
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [open]);
 
   return (
     <>
@@ -33,6 +62,8 @@ export default function MobileNav() {
           onClick={() => setOpen(true)}
           className="text-white p-2 hover:text-[#00C66F] transition"
           aria-label="Open navigation"
+          aria-expanded={open}
+          aria-controls="mobile-nav-menu"
         >
           <span className="block w-6 h-[2px] bg-white mb-1 rounded" />
           <span className="block w-6 h-[2px] bg-white mb-1 rounded" />
@@ -45,11 +76,18 @@ export default function MobileNav() {
         <div
           onClick={() => setOpen(false)}
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          aria-hidden="true"
         />
       )}
 
       {/* SLIDE-IN MENU */}
       <div
+        id="mobile-nav-menu"
+        ref={menuRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        aria-hidden={!open}
         className={`fixed top-0 right-0 h-full w-72 bg-[#0E0E0E] border-l border-zinc-800 z-50 transform transition-transform duration-300 lg:hidden ${
           open ? "translate-x-0" : "translate-x-full"
         }`}

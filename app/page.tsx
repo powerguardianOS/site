@@ -5,6 +5,7 @@ export default function HomePage() {
   return (
     <div>
       {/* HERO */}
+      <div className="mx-auto max-w-6xl px-4 md:px-6">
       <section className="py-8 md:py-12 lg:py-16 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 lg:gap-12 items-center">
         <div className="space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
@@ -85,6 +86,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      </div>
 
       {/* ARCHITECTURE — eigen sectie onder hero */}
       <section className="py-10 bg-gradient-to-b from-zinc-950/0 to-zinc-900/60">

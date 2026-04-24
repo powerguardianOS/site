@@ -1,6 +1,12 @@
 // app/connector/page.tsx
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Connector OS",
+  description: "Lightweight edge agent for Linux machines, supporting USB, SNMP, and NUT communication on NanoPi Neo3 and R3S hardware.",
+};
 
 export default function ConnectorPage() {
   return (

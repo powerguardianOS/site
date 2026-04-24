@@ -1,5 +1,11 @@
 // app/controller/page.tsx
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Controller OS",
+  description: "Centralized UPS management: adopt connectors, map racks, and manage staged shutdowns via a single global dashboard.",
+};
 
 export default function ControllerPage() {
   return (
