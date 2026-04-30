@@ -1,7 +1,8 @@
 // app/pricing/page.tsx
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 const plans = [
   {
@@ -19,9 +20,9 @@ const plans = [
       { label: "OTA updates", ok: true },
       { label: "Alert rules", ok: true },
     ],
-    cta: "Early Access",
-    ctaHref: "mailto:hello@powerguardian.cloud",
+    cta: "Get Started",
     highlight: false,
+    stripe: true,
   },
   {
     id: "pro",
@@ -38,10 +39,10 @@ const plans = [
       { label: "OTA updates", ok: true },
       { label: "Alert rules", ok: true },
     ],
-    cta: "Early Access",
-    ctaHref: "mailto:hello@powerguardian.cloud",
+    cta: "Get Started",
     highlight: true,
     badge: "Most Popular",
+    stripe: true,
   },
   {
     id: "enterprise",
@@ -60,6 +61,7 @@ const plans = [
     cta: "Contact Us",
     ctaHref: "mailto:hello@powerguardian.cloud",
     highlight: false,
+    stripe: false,
   },
   {
     id: "lifetime",
@@ -80,14 +82,48 @@ const plans = [
     ctaHref: "mailto:hello@powerguardian.cloud",
     highlight: false,
     badge: "Limited",
+    stripe: false,
   },
 ];
 
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const params = useSearchParams();
+
+  useEffect(() => {
+    if (params.get("success") === "1") setSuccess(true);
+  }, [params]);
+
+  async function handleCheckout(planId: string) {
+    setLoading(planId);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planId, billing: annual ? "annual" : "monthly" }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("Stripe checkout error:", data.error);
+        setLoading(null);
+      }
+    } catch {
+      setLoading(null);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
+      {success && (
+        <div className="rounded-xl border border-[#00C66F]/40 bg-[#00C66F]/10 px-6 py-4 text-center text-sm text-[#00C66F]">
+          Payment successful — check your email for your license key.
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-semibold tracking-tight">
@@ -118,6 +154,7 @@ export default function PricingPage() {
           const price = plan.monthly === null
             ? null
             : annual ? plan.annual : plan.monthly;
+          const isLoading = loading === plan.id;
 
           return (
             <div
@@ -162,16 +199,30 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                href={plan.ctaHref}
-                className={`block text-center rounded-full py-2 text-sm font-medium transition ${
-                  plan.highlight
-                    ? "bg-[#00C66F] text-black hover:bg-[#00b564] shadow-[var(--pg-cta-shadow)]"
-                    : "border border-zinc-700 text-zinc-200 hover:border-[#00C66F] hover:text-white"
-                }`}
-              >
-                {plan.cta}
-              </Link>
+              {plan.stripe ? (
+                <button
+                  onClick={() => handleCheckout(plan.id)}
+                  disabled={isLoading}
+                  className={`block w-full text-center rounded-full py-2 text-sm font-medium transition disabled:opacity-60 ${
+                    plan.highlight
+                      ? "bg-[#00C66F] text-black hover:bg-[#00b564] shadow-[var(--pg-cta-shadow)]"
+                      : "border border-zinc-700 text-zinc-200 hover:border-[#00C66F] hover:text-white"
+                  }`}
+                >
+                  {isLoading ? "Redirecting…" : plan.cta}
+                </button>
+              ) : (
+                <Link
+                  href={plan.ctaHref!}
+                  className={`block text-center rounded-full py-2 text-sm font-medium transition ${
+                    plan.highlight
+                      ? "bg-[#00C66F] text-black hover:bg-[#00b564] shadow-[var(--pg-cta-shadow)]"
+                      : "border border-zinc-700 text-zinc-200 hover:border-[#00C66F] hover:text-white"
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
+              )}
             </div>
           );
         })}
