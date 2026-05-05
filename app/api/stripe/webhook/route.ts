@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest } from 'next/server';
 import Stripe from 'stripe';
 import { getStripeClient } from '@/app/lib/stripe';

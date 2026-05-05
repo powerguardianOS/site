@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getLicenses, updateLicense, revokeLicense } from '@/app/lib/license-db';
 

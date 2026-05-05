@@ -35,9 +35,9 @@ export async function getLicenses(): Promise<LicenseRecord[]> {
   return readDb();
 }
 
-export async function getLicenseByEmail(email: string): Promise<LicenseRecord | null> {
+export async function getLicenseByToken(token: string): Promise<LicenseRecord | null> {
   const licenses = await readDb();
-  return licenses.find(l => l.email.toLowerCase() === email.toLowerCase()) ?? null;
+  return licenses.find(l => l.token.toLowerCase() === token.toLowerCase()) ?? null;
 }
 
 export async function createLicense(data: Omit<LicenseRecord, 'id' | 'created_at' | 'token' | 'status'>): Promise<LicenseRecord> {

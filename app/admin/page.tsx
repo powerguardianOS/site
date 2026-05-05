@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { getLicenses } from '@/app/lib/license-db';
 
 export const dynamic = 'force-dynamic';
