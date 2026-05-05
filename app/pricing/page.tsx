@@ -1,6 +1,6 @@
 // app/pricing/page.tsx
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -86,7 +86,7 @@ const plans = [
   },
 ];
 
-export default function PricingPage() {
+function PricingContent() {
   const [annual, setAnnual] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -238,5 +238,13 @@ export default function PricingPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense>
+      <PricingContent />
+    </Suspense>
   );
 }
