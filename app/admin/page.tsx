@@ -1,4 +1,4 @@
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 import { getLicenses } from '@/app/lib/license-db';
 
 export const dynamic = 'force-dynamic';

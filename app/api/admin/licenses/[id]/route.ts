@@ -1,4 +1,4 @@
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { getLicenses, updateLicense, revokeLicense } from '@/app/lib/license-db';
 

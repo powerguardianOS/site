@@ -1,4 +1,4 @@
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 import { NextRequest } from 'next/server';
 import Stripe from 'stripe';
 import { getStripeClient } from '@/app/lib/stripe';
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = getStripeClient().webhooks.constructEvent(rawBody, sig, secret);
+    event = await getStripeClient().webhooks.constructEventAsync(rawBody, sig, secret);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'unknown';
     console.error('[stripe webhook] signature failed:', msg);
