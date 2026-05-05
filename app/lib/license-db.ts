@@ -1,5 +1,3 @@
-import { getRequestContext } from '@cloudflare/next-on-pages';
-
 export type LicenseRecord = {
   id: string;
   email: string;
@@ -12,11 +10,26 @@ export type LicenseRecord = {
   token: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getKV(): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { env } = getRequestContext() as any;
-  return env.LICENSES;
+const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
+const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
+const TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
+const BASE = () =>
+  `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
+
+async function kvGet(key: string): Promise<string | null> {
+  const r = await fetch(`${BASE()}/values/${encodeURIComponent(key)}`, {
+    headers: { Authorization: `Bearer ${TOKEN()}` },
+  });
+  if (r.status === 404) return null;
+  return r.text();
+}
+
+async function kvPut(key: string, value: string): Promise<void> {
+  await fetch(`${BASE()}/values/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${TOKEN()}`, 'Content-Type': 'text/plain' },
+    body: value,
+  });
 }
 
 function randomHex(bytes: number): string {
@@ -26,27 +39,26 @@ function randomHex(bytes: number): string {
 }
 
 export async function getLicenses(): Promise<LicenseRecord[]> {
-  const kv = getKV();
-  const idsJson: string | null = await kv.get('index:all');
+  const idsJson = await kvGet('index:all');
   if (!idsJson) return [];
   const ids: string[] = JSON.parse(idsJson);
   const records = await Promise.all(
-    ids.map((id: string) => kv.get(`license:${id}`).then((v: string | null) => v ? JSON.parse(v) as LicenseRecord : null))
+    ids.map(id => kvGet(`license:${id}`).then(v => (v ? JSON.parse(v) as LicenseRecord : null)))
   );
-  return (records as (LicenseRecord | null)[]).filter(Boolean) as LicenseRecord[];
+  return records.filter(Boolean) as LicenseRecord[];
 }
 
 export async function getLicenseByToken(token: string): Promise<LicenseRecord | null> {
-  const kv = getKV();
-  const id: string | null = await kv.get(`index:token:${token.toLowerCase()}`);
+  const id = await kvGet(`index:token:${token.toLowerCase()}`);
   if (!id) return null;
-  const json: string | null = await kv.get(`license:${id}`);
+  const json = await kvGet(`license:${id}`);
   if (!json) return null;
   return JSON.parse(json);
 }
 
-export async function createLicense(data: Omit<LicenseRecord, 'id' | 'created_at' | 'token' | 'status'>): Promise<LicenseRecord> {
-  const kv = getKV();
+export async function createLicense(
+  data: Omit<LicenseRecord, 'id' | 'created_at' | 'token' | 'status'>
+): Promise<LicenseRecord> {
   const record: LicenseRecord = {
     ...data,
     id: crypto.randomUUID(),
@@ -55,32 +67,30 @@ export async function createLicense(data: Omit<LicenseRecord, 'id' | 'created_at
     token: randomHex(16),
   };
 
-  await kv.put(`license:${record.id}`, JSON.stringify(record));
-  await kv.put(`index:token:${record.token.toLowerCase()}`, record.id);
+  await kvPut(`license:${record.id}`, JSON.stringify(record));
+  await kvPut(`index:token:${record.token.toLowerCase()}`, record.id);
 
-  const idsJson: string | null = await kv.get('index:all');
+  const idsJson = await kvGet('index:all');
   const ids: string[] = idsJson ? JSON.parse(idsJson) : [];
   ids.push(record.id);
-  await kv.put('index:all', JSON.stringify(ids));
+  await kvPut('index:all', JSON.stringify(ids));
 
   return record;
 }
 
 export async function updateLicense(id: string, patch: Partial<LicenseRecord>): Promise<LicenseRecord | null> {
-  const kv = getKV();
-  const json: string | null = await kv.get(`license:${id}`);
+  const json = await kvGet(`license:${id}`);
   if (!json) return null;
   const updated = { ...JSON.parse(json) as LicenseRecord, ...patch };
-  await kv.put(`license:${id}`, JSON.stringify(updated));
+  await kvPut(`license:${id}`, JSON.stringify(updated));
   return updated;
 }
 
 export async function revokeLicense(id: string): Promise<boolean> {
-  const kv = getKV();
-  const json: string | null = await kv.get(`license:${id}`);
+  const json = await kvGet(`license:${id}`);
   if (!json) return false;
   const record = JSON.parse(json) as LicenseRecord;
   record.status = 'revoked';
-  await kv.put(`license:${id}`, JSON.stringify(record));
+  await kvPut(`license:${id}`, JSON.stringify(record));
   return true;
 }
