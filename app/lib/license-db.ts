@@ -48,6 +48,11 @@ export async function getLicenses(): Promise<LicenseRecord[]> {
   return records.filter(Boolean) as LicenseRecord[];
 }
 
+export async function getLicenseByEmail(email: string): Promise<LicenseRecord | null> {
+  const licenses = await getLicenses();
+  return licenses.find(l => l.email.toLowerCase() === email.toLowerCase() && l.status === 'active') ?? null;
+}
+
 export async function getLicenseByToken(token: string): Promise<LicenseRecord | null> {
   const id = await kvGet(`index:token:${token.toLowerCase()}`);
   if (!id) return null;
