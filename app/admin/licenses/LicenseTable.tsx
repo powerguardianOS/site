@@ -61,13 +61,27 @@ export default function LicenseTable({ licenses }: { licenses: License[] }) {
     });
   }, [licenses, search, filterPlan, filterStatus]);
 
-  async function revoke(id: string) {
-    if (!confirm("Revoke this license?")) return;
+  async function patch(id: string, body: object) {
     await fetch(`/api/admin/licenses/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "revoked" }),
+      body: JSON.stringify(body),
     });
+    router.refresh();
+  }
+
+  async function revoke(id: string) {
+    if (!confirm("Revoke this license?")) return;
+    await patch(id, { status: "revoked" });
+  }
+
+  async function restore(id: string) {
+    await patch(id, { status: "active" });
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Permanently delete this license? This cannot be undone.")) return;
+    await fetch(`/api/admin/licenses/${id}`, { method: "DELETE" });
     router.refresh();
   }
 
@@ -147,17 +161,24 @@ export default function LicenseTable({ licenses }: { licenses: License[] }) {
                       {l.status}
                     </span>
                   </td>
-                  <td className="px-5 py-3 flex items-center gap-3 justify-end">
-                    <Link href={`/admin/licenses/${l.id}`} className="text-xs text-zinc-500 hover:text-white transition-colors">
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => revoke(l.id)}
-                      disabled={l.status === "revoked"}
-                      className="text-xs text-zinc-500 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Revoke
-                    </button>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3 justify-end">
+                      <Link href={`/admin/licenses/${l.id}`} className="text-xs text-zinc-500 hover:text-white transition-colors">
+                        Edit
+                      </Link>
+                      {l.status === "revoked" ? (
+                        <button onClick={() => restore(l.id)} className="text-xs text-[#00C66F] hover:text-emerald-300 transition-colors">
+                          Restore
+                        </button>
+                      ) : (
+                        <button onClick={() => revoke(l.id)} className="text-xs text-zinc-500 hover:text-amber-400 transition-colors">
+                          Revoke
+                        </button>
+                      )}
+                      <button onClick={() => remove(l.id)} className="text-xs text-zinc-600 hover:text-red-400 transition-colors">
+                        Remove
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
