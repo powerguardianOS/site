@@ -99,3 +99,42 @@ export async function revokeLicense(id: string): Promise<boolean> {
   await kvPut(`license:${id}`, JSON.stringify(record));
   return true;
 }
+
+export async function deleteLicense(id: string): Promise<boolean> {
+  const json = await kvGet(`license:${id}`);
+  if (!json) return false;
+  const record = JSON.parse(json) as LicenseRecord;
+  // Remove token index
+  await fetch(`${BASE()}/values/${encodeURIComponent(`index:token:${record.token.toLowerCase()}`)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${TOKEN()}` },
+  });
+  // Remove record
+  await fetch(`${BASE()}/values/${encodeURIComponent(`license:${id}`)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${TOKEN()}` },
+  });
+  // Remove from ID list
+  const idsJson = await kvGet('index:all');
+  if (idsJson) {
+    const ids: string[] = JSON.parse(idsJson).filter((i: string) => i !== id);
+    await kvPut('index:all', JSON.stringify(ids));
+  }
+  return true;
+}
+
+export async function regenToken(id: string): Promise<LicenseRecord | null> {
+  const json = await kvGet(`license:${id}`);
+  if (!json) return null;
+  const record = JSON.parse(json) as LicenseRecord;
+  // Remove old token index
+  await fetch(`${BASE()}/values/${encodeURIComponent(`index:token:${record.token.toLowerCase()}`)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${TOKEN()}` },
+  });
+  // Generate new token
+  record.token = randomHex(16);
+  await kvPut(`license:${id}`, JSON.stringify(record));
+  await kvPut(`index:token:${record.token.toLowerCase()}`, id);
+  return record;
+}

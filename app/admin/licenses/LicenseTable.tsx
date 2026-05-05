@@ -63,7 +63,11 @@ export default function LicenseTable({ licenses }: { licenses: License[] }) {
 
   async function revoke(id: string) {
     if (!confirm("Revoke this license?")) return;
-    await fetch(`/api/admin/licenses/${id}`, { method: "DELETE" });
+    await fetch(`/api/admin/licenses/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "revoked" }),
+    });
     router.refresh();
   }
 
