@@ -1,7 +1,8 @@
 export type LicenseRecord = {
   id: string;
   email: string;
-  plan: "home" | "pro" | "enterprise" | "lifetime" | "founder";
+  plan: "home" | "pro" | "founder" | "addon_connector";
+  site_id: string;
   connector_limit: number;
   expires_at: string | null;
   status: "active" | "revoked" | "expired";
@@ -48,6 +49,23 @@ export async function getLicenses(): Promise<LicenseRecord[]> {
   return records.filter(Boolean) as LicenseRecord[];
 }
 
+export async function getLicensesByEmail(email: string): Promise<LicenseRecord[]> {
+  const licenses = await getLicenses();
+  return licenses.filter(l => l.email.toLowerCase() === email.toLowerCase() && l.status === 'active');
+}
+
+export async function getAccountSummary(email: string): Promise<{email: string, licenses: LicenseRecord[], total_connectors: number, total_sites: number}> {
+  const licenses = await getLicensesByEmail(email);
+  const total_connectors = licenses.reduce((sum, l) => sum + l.connector_limit, 0);
+  const site_ids = new Set(licenses.map(l => l.site_id));
+  return {
+    email,
+    licenses,
+    total_connectors,
+    total_sites: site_ids.size
+  };
+}
+
 export async function getLicenseByEmail(email: string): Promise<LicenseRecord | null> {
   const licenses = await getLicenses();
   return licenses.find(l => l.email.toLowerCase() === email.toLowerCase() && l.status === 'active') ?? null;
@@ -70,6 +88,7 @@ export async function createLicense(
     status: 'active',
     created_at: new Date().toISOString(),
     token: randomHex(16),
+    site_id: 'default-site',
   };
 
   await kvPut(`license:${record.id}`, JSON.stringify(record));

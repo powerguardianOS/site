@@ -133,6 +133,15 @@ export default function MobileNav() {
             </Link>
           ))}
         </nav>
+        <div className="px-6 pb-6">
+          <Link
+            href="/account"
+            onClick={() => setOpen(false)}
+            className="block w-full text-center py-2.5 rounded-lg bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition"
+          >
+            My Account
+          </Link>
+        </div>
       </div>
     </>
   );

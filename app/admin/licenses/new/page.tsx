@@ -4,15 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 const PLAN_LIMITS: Record<string, number> = {
-  home: 10, pro: 0, enterprise: 0, lifetime: 0, founder: 0,
+  home: 1, pro: 5, founder: 0,
 };
 
 const PLAN_LABELS: Record<string, string> = {
-  home: "Home — max 10 connectors · €5/mo",
-  pro: "Pro — unlimited connectors · €15/mo",
-  enterprise: "Enterprise — custom",
-  lifetime: "Lifetime — one-time",
-  founder: "Founder — internal",
+  home: 'Home — 1 connector · €4.99/mo',
+  pro: 'Pro — 5 connectors · €14.99/mo',
+  founder: 'Founder — internal',
 };
 
 export default function NewLicensePage() {
@@ -91,7 +89,7 @@ export default function NewLicensePage() {
             onChange={e => setLimit(Number(e.target.value))}
             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#00C66F]"
           />
-          {plan === 'home' && <p className="text-xs text-zinc-600">Home plan default: 10</p>}
+          {plan === 'home' && <p className="text-xs text-zinc-600">Home plan: 1 connector</p>}
         </div>
 
         <div className="space-y-1">

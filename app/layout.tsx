@@ -118,6 +118,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 {NAV_LINKS.map((l) => <NavLink key={l.href} href={l.href} label={l.label} />)}
               </nav>
 
+              <Link href="/account" className="text-sm text-zinc-400 hover:text-white transition-colors">Account</Link>
               {/* CTA */}
               <Link
                 href="/pricing"

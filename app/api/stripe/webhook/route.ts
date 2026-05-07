@@ -2,7 +2,9 @@ export const runtime = 'edge';
 import { NextRequest } from 'next/server';
 import Stripe from 'stripe';
 import { getStripeClient } from '@/app/lib/stripe';
-import { createLicense } from '@/app/lib/license-db';
+import { createLicense, getLicenseByEmail, updateLicense } from '@/app/lib/license-db';
+import { Resend } from 'resend';
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
@@ -29,14 +31,44 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      if (session.metadata?.plan === 'addon_connector') {
+        // haal bestaande licentie op en verhoog connector_limit met 1
+        // (we nemen aan dat getLicenseByEmail en updateLicense beschikbaar zijn)
+        const existing = await getLicenseByEmail(email);
+        if (existing) {
+          await updateLicense(existing.id, { connector_limit: existing.connector_limit + 1 });
+          console.log(`[stripe webhook] license updated: ${email}`);
+          return new Response(null, { status: 200 });
+        }
+      }
+
       await createLicense({
         email,
         plan,
-        connector_limit: plan === 'home' ? 10 : 999,
+        site_id: 'default-site',
+        connector_limit: plan === 'home' ? 1 : 5,
         expires_at: null,
         notes: `stripe:${session.id}`,
       });
       console.log(`[stripe webhook] license created: ${email} / ${plan}`);
+      await resend.emails.send({
+        from: 'PowerGuardian <noreply@powerguardian.cloud>',
+        to: [email],
+        subject: 'Your PowerGuardian license is active',
+        text: `Hi,
+
+Your PowerGuardian ${plan === 'home' ? 'Home' : 'Pro'} license is now active.
+
+To link your controller:
+1. Open your PowerGuardian controller
+2. Go to Settings → License
+3. Click "Link License" and enter this email address
+4. Enter the 6-digit code we send you
+
+Manage your account at: https://powerguardian.cloud/account
+
+— PowerGuardian`
+      });
     } catch (err) {
       console.error('[stripe webhook] createLicense failed:', err);
     }

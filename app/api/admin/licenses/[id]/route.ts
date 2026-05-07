@@ -1,6 +1,6 @@
 export const runtime = 'edge';
-import { NextResponse } from 'next/server';
-import { getLicenses, updateLicense, deleteLicense } from '@/app/lib/license-db';
+import { NextRequest, NextResponse } from 'next/server';
+import { getLicenses, revokeLicense, updateLicense } from '@/app/lib/license-db';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -20,10 +20,10 @@ export async function PATCH(req: Request, { params }: Ctx) {
   return NextResponse.json(license);
 }
 
-export async function DELETE(_req: Request, { params }: Ctx) {
+export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { id } = await params;
-  const ok = await deleteLicense(id);
-  if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const ok = await revokeLicense(id);
+  if (!ok) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 

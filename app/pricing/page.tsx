@@ -3,20 +3,20 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import PayPalCheckoutButton from '../components/PayPalCheckoutButton';
+import PayPalSubscribeButton from '../components/PayPalSubscribeButton';
 
 const plans = [
   {
     id: "home",
     name: "Home",
-    desc: "For small setups and home labs.",
-    monthly: 5,
-    annual: 4,
-    connectors: "Up to 10",
+    desc: "Single site, single connector.",
+    monthly: 4.99,
+    annual: 45,
+    connectors: "1 connector included",
     features: [
       { label: "Remote access", ok: true },
       { label: "Encrypted vault", ok: true },
-      { label: "Multi-site", ok: false },
-      { label: "White-label", ok: false },
       { label: "OTA updates", ok: true },
       { label: "Alert rules", ok: true },
     ],
@@ -27,15 +27,14 @@ const plans = [
   {
     id: "pro",
     name: "Pro",
-    desc: "For professionals and growing teams.",
-    monthly: 15,
-    annual: 12,
-    connectors: "Unlimited",
+    desc: "Multiple sites and connectors.",
+    monthly: 14.99,
+    annual: 140,
+    connectors: "3 sites · 5 connectors",
     features: [
       { label: "Remote access", ok: true },
       { label: "Encrypted vault", ok: true },
-      { label: "Multi-site", ok: false },
-      { label: "White-label", ok: false },
+      { label: "Multi-site", ok: true },
       { label: "OTA updates", ok: true },
       { label: "Alert rules", ok: true },
     ],
@@ -43,46 +42,6 @@ const plans = [
     highlight: true,
     badge: "Most Popular",
     stripe: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    desc: "Custom deployments for large environments.",
-    monthly: null,
-    annual: null,
-    connectors: "Unlimited",
-    features: [
-      { label: "Remote access", ok: true },
-      { label: "Multi-site", ok: true },
-      { label: "White-label", ok: true },
-      { label: "OTA updates", ok: true },
-      { label: "Priority support", ok: true },
-    ],
-    cta: "Contact Us",
-    ctaHref: "mailto:hello@powerguardian.cloud",
-    highlight: false,
-    stripe: false,
-  },
-  {
-    id: "lifetime",
-    name: "Lifetime",
-    desc: "Pay once, own it forever.",
-    monthly: null,
-    annual: null,
-    connectors: "Unlimited",
-    price_label: "One-time · contact founder",
-    features: [
-      { label: "Remote access", ok: true },
-      { label: "Multi-site", ok: true },
-      { label: "White-label", ok: true },
-      { label: "All future updates", ok: true },
-      { label: "Priority support", ok: true },
-    ],
-    cta: "Contact Founder",
-    ctaHref: "mailto:hello@powerguardian.cloud",
-    highlight: false,
-    badge: "Limited",
-    stripe: false,
   },
 ];
 
@@ -143,7 +102,7 @@ function PricingContent() {
             <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${annual ? "translate-x-4" : "translate-x-0"}`} />
           </button>
           <span className={annual ? "text-white font-medium" : "text-zinc-500"}>
-            Annual <span className="text-[#00C66F] text-xs">save ~20%</span>
+            Annual <span className="text-[#00C66F] text-xs">save ~30%</span>
           </span>
         </div>
       </div>
@@ -180,10 +139,10 @@ function PricingContent() {
                 {price !== null ? (
                   <div className="flex items-end gap-1">
                     <span className="text-3xl font-bold">€{price}</span>
-                    <span className="text-zinc-500 text-sm mb-1">/mo</span>
+                    <span className="text-zinc-500 text-sm mb-1">{annual ? '/yr' : '/mo'}</span>
                   </div>
                 ) : (
-                  <p className="text-sm text-zinc-400">{plan.price_label ?? "Custom pricing"}</p>
+                  <p className="text-sm text-zinc-400">Custom pricing</p>
                 )}
               </div>
 
@@ -199,34 +158,18 @@ function PricingContent() {
                 ))}
               </ul>
 
-              {plan.stripe ? (
-                <button
-                  onClick={() => handleCheckout(plan.id)}
-                  disabled={isLoading}
-                  className={`block w-full text-center rounded-full py-2 text-sm font-medium transition disabled:opacity-60 ${
-                    plan.highlight
-                      ? "bg-[#00C66F] text-black hover:bg-[#00b564] shadow-[var(--pg-cta-shadow)]"
-                      : "border border-zinc-700 text-zinc-200 hover:border-[#00C66F] hover:text-white"
-                  }`}
-                >
-                  {isLoading ? "Redirecting…" : plan.cta}
-                </button>
-              ) : (
-                <Link
-                  href={plan.ctaHref!}
-                  className={`block text-center rounded-full py-2 text-sm font-medium transition ${
-                    plan.highlight
-                      ? "bg-[#00C66F] text-black hover:bg-[#00b564] shadow-[var(--pg-cta-shadow)]"
-                      : "border border-zinc-700 text-zinc-200 hover:border-[#00C66F] hover:text-white"
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
-              )}
+              <div className="space-y-2">
+                {annual
+                  ? <PayPalCheckoutButton plan={plan.id as 'home' | 'pro' | 'addon_connector'} highlight={plan.highlight} />
+                  : <PayPalSubscribeButton plan={plan.id as 'home' | 'pro' | 'addon_connector'} highlight={plan.highlight} />
+                }
+              </div>
             </div>
           );
         })}
       </div>
+
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6"><div><h3 className="text-base font-semibold mb-1">Add a connector</h3><p className="text-sm text-zinc-400">Already have a license? Add one extra connector to your existing plan.</p><p className="text-xs text-zinc-500 mt-1">€25 one-time · links to your existing license email</p></div><div className="w-full md:w-56 shrink-0">{annual ? <PayPalCheckoutButton plan="addon_connector" /> : <PayPalSubscribeButton plan="addon_connector" />}</div></div>
 
       {/* Trust row */}
       <div className="flex flex-wrap justify-center gap-6 text-xs text-zinc-500">
