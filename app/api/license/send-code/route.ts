@@ -1,9 +1,7 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getLicenseByEmail } from '@/app/lib/license-db';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendEmail } from '@/app/lib/email';
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
@@ -36,12 +34,11 @@ export async function POST(req: NextRequest) {
   const expires = Date.now() + 15 * 60 * 1000;
   await kvPut(`otp:${email.toLowerCase()}`, JSON.stringify({ code, expires }));
 
-  await resend.emails.send({
-    from: 'PowerGuardian <noreply@powerguardian.cloud>',
-    to: [email],
-    subject: 'Your PowerGuardian activation code',
-    text: `Your activation code is: ${code}\n\nEnter this code in Settings → License on your controller.\nThis code expires in 15 minutes.\n\n— PowerGuardian`,
-  });
+  await sendEmail(
+    email,
+    'Your PowerGuardian activation code',
+    `Your activation code is: ${code}\n\nEnter this code in Settings → License on your controller.\nThis code expires in 15 minutes.\n\n— PowerGuardian`,
+  );
 
   return NextResponse.json({ sent: true });
 }

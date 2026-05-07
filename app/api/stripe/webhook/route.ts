@@ -3,8 +3,7 @@ import { NextRequest } from 'next/server';
 import Stripe from 'stripe';
 import { getStripeClient } from '@/app/lib/stripe';
 import { createLicense, getLicenseByEmail, updateLicense } from '@/app/lib/license-db';
-import { Resend } from 'resend';
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendEmail } from '@/app/lib/email';
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
@@ -51,24 +50,11 @@ export async function POST(req: NextRequest) {
         notes: `stripe:${session.id}`,
       });
       console.log(`[stripe webhook] license created: ${email} / ${plan}`);
-      await resend.emails.send({
-        from: 'PowerGuardian <noreply@powerguardian.cloud>',
-        to: [email],
-        subject: 'Your PowerGuardian license is active',
-        text: `Hi,
-
-Your PowerGuardian ${plan === 'home' ? 'Home' : 'Pro'} license is now active.
-
-To link your controller:
-1. Open your PowerGuardian controller
-2. Go to Settings → License
-3. Click "Link License" and enter this email address
-4. Enter the 6-digit code we send you
-
-Manage your account at: https://powerguardian.cloud/account
-
-— PowerGuardian`
-      });
+      await sendEmail(
+        email,
+        'Your PowerGuardian license is active',
+        `Hi,\n\nYour PowerGuardian ${plan === 'home' ? 'Home' : 'Pro'} license is now active.\n\nTo link your controller:\n1. Open your PowerGuardian controller\n2. Go to Settings → License\n3. Click "Link License" and enter this email address\n4. Enter the 6-digit code we send you\n\nManage your account at: https://powerguardian.cloud/account\n\n— PowerGuardian`,
+      );
     } catch (err) {
       console.error('[stripe webhook] createLicense failed:', err);
     }

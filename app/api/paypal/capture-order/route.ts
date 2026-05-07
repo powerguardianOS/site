@@ -2,9 +2,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { capturePayPalOrder } from '@/app/lib/paypal';
 import { createLicense, getLicenseByEmail, updateLicense } from '@/app/lib/license-db';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendEmail } from '@/app/lib/email';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -30,12 +28,11 @@ export async function POST(req: NextRequest) {
       notes: `paypal:${orderID}`,
     });
 
-    await resend.emails.send({
-      from: 'PowerGuardian <noreply@powerguardian.cloud>',
-      to: [result.email],
-      subject: 'Your PowerGuardian license is active',
-      text: `Hi,\n\nYour PowerGuardian ${plan === 'home' ? 'Home' : 'Pro'} license is now active.\n\nTo link your controller:\n1. Open your PowerGuardian controller\n2. Go to Settings → License\n3. Click "Link License" and enter this email address\n4. Enter the 6-digit code we send you\n\nManage your account at: https://powerguardian.cloud/account\n\n— PowerGuardian`,
-    });
+    await sendEmail(
+      result.email,
+      'Your PowerGuardian license is active',
+      `Hi,\n\nYour PowerGuardian ${plan === 'home' ? 'Home' : 'Pro'} license is now active.\n\nTo link your controller:\n1. Open your PowerGuardian controller\n2. Go to Settings → License\n3. Click "Link License" and enter this email address\n4. Enter the 6-digit code we send you\n\nManage your account at: https://powerguardian.cloud/account\n\n— PowerGuardian`,
+    );
 
     return NextResponse.json({ ok: true, email: result.email });
   } catch {
