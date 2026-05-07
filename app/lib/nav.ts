@@ -4,4 +4,6 @@ export const NAV_LINKS = [
   { href: "/controller", label: "Controller OS" },
   { href: "/pricing", label: "Pricing" },
   { href: "/roadmap", label: "Roadmap" },
+  { href: "/docs", label: "Docs" },
+  { href: "/faq", label: "FAQ" },
 ];
