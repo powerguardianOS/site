@@ -88,6 +88,18 @@ export default function HomePage() {
       </section>
       </div>
 
+      {/* TRUST BAR */}
+      <section className="py-6 border-y border-zinc-800/50">
+        <div className="flex flex-wrap justify-center gap-6 md:gap-10 text-sm text-zinc-500">
+          {["Self-hosted on your hardware","No cloud lock-in","NUT & SNMP RFC 1628","OTA updates","Encrypted vault","Open protocol"].map(t => (
+            <div key={t} className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#00C66F] shrink-0" />
+              {t}
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ARCHITECTURE — eigen sectie onder hero */}
       <section className="py-10 bg-gradient-to-b from-zinc-950/0 to-zinc-900/60">
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 space-y-5 max-w-2xl mx-auto">
