@@ -37,9 +37,10 @@ export default function LoginPage() {
 
         {/* Brand hint */}
         <div className="text-center space-y-1">
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#00C66F]/10 border border-[#00C66F]/20 mb-3">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00C66F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#00C66F]/10 border border-[#00C66F]/20 mb-3">
+            <svg width="28" height="32" viewBox="0 0 128 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M64 8 L112 28 V72 C112 100 94 122 64 132 C34 122 16 100 16 72 V28 L64 8Z" fill="none" stroke="#00C66F" strokeWidth="10" strokeLinejoin="round"/>
+              <path d="M72 32 L48 72 H62 L52 108 L80 68 H66 L72 32Z" fill="#00C66F"/>
             </svg>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">Sign in to PowerGuardian</h1>
