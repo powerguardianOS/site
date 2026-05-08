@@ -3,11 +3,15 @@ export const runtime = 'edge';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { getSession } from '@/app/lib/session';
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
-  const email = cookieStore.get('pg_session')?.value;
-
+  const sessionId = cookieStore.get('pg_session')?.value;
+  if (!sessionId) {
+    redirect('/login');
+  }
+  const email = await getSession(sessionId);
   if (!email) {
     redirect('/login');
   }

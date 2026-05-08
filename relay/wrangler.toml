@@ -1,0 +1,13 @@
+name = "pg-relay"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[durable_objects]
+bindings = [{ name = "RELAY", class_name = "ControllerRelay" }]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ControllerRelay"]
+
+[vars]
+CLOUD_BASE = "https://powerguardian.cloud"

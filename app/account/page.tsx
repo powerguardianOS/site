@@ -1,13 +1,15 @@
 import { cookies } from 'next/headers';
 import { getAccountSummary, getLicensesByEmail } from '@/app/lib/license-db';
 import UnderlicensedBanner from './components/UnderlicensedBanner';
+import { getSession } from '@/app/lib/session';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
   const cookieStore = await cookies();
-  const email = cookieStore.get('pg_session')?.value ?? '';
+  const sessionId = cookieStore.get('pg_session')?.value ?? '';
+  const email = (await getSession(sessionId)) ?? '';
   const summary = await getAccountSummary(email);
 
   return (
@@ -24,6 +26,55 @@ export default async function AccountPage() {
             <p className="text-white font-medium">{summary.total_sites}</p>
           </div>
         </div>
+      </div>
+
+      {/* Controller Status */}
+      <div className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-white">Controller Status</h2>
+        {summary.licenses.length === 0 && (
+          <p className="text-xs text-zinc-500">Connect a controller to start monitoring your UPS.</p>
+        )}
+        {summary.licenses.length > 0 && (
+          <div className="space-y-3">
+            {summary.licenses.map((lic) => (
+              <div key={lic.id} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className={`
+                    w-2 h-2 rounded-full ${
+                      lic.status === 'active' && (lic.plan === 'pro' || lic.plan === 'founder')
+                        ? 'bg-green-400' : 'bg-zinc-500'
+                    }
+                  `} />
+                  <span className="text-white/80">
+                    {lic.status === 'active' && (lic.plan === 'pro' || lic.plan === 'founder')
+                      ? 'Controller online'
+                      : 'Controller not connected'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {lic.status === 'active' && (lic.plan === 'pro' || lic.plan === 'founder') ? (
+                    <a
+                      href={`https://pg-relay.powerguardian.workers.dev/console/${lic.token}`}
+                      target="_blank"
+                      className="text-[#00C66F] hover:underline"
+                    >
+                      Open Console →
+                    </a>
+                  ) : lic.plan === 'home' ? (
+                    <span className="text-zinc-500">
+                      Pro feature — upgrade to unlock
+                      <a href="/pricing" className="text-xs text-zinc-500 underline ml-1">
+                        Learn more
+                      </a>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-zinc-500">Install the controller OS and enter your license token to connect.</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Licenses */}
