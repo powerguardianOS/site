@@ -94,7 +94,7 @@ function PricingContent() {
             key={plan.id}
             className={`relative rounded-xl border p-6 flex flex-col gap-5 ${
               plan.highlight
-                ? "border-[#00C66F]/50 bg-[#00C66F]/5 shadow-[0_0_35px_rgba(0,198,111,0.10)]"
+                ? "border-[#00C66F]/50 bg-[#00C66F]/5 shadow-[0_0_35px_rgba(0,198,111,0.10)] mt-4"
                 : "border-zinc-800 bg-zinc-950/70"
             }`}
           >
