@@ -1,4 +1,3 @@
-// app/pricing/page.tsx
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
@@ -13,16 +12,17 @@ const plans = [
     desc: "Single site, single connector.",
     monthly: 4.99,
     annual: 45,
+    annualMonthly: 3.75,
     connectors: "1 connector included",
     features: [
       { label: "Remote access", ok: true },
       { label: "Encrypted vault", ok: true },
       { label: "OTA updates", ok: true },
       { label: "Alert rules", ok: true },
+      { label: "Multi-site", ok: false },
     ],
     cta: "Get Started",
     highlight: false,
-    stripe: true,
   },
   {
     id: "pro",
@@ -30,24 +30,23 @@ const plans = [
     desc: "Multiple sites and connectors.",
     monthly: 14.99,
     annual: 140,
+    annualMonthly: 11.67,
     connectors: "3 sites · 5 connectors",
     features: [
       { label: "Remote access", ok: true },
       { label: "Encrypted vault", ok: true },
-      { label: "Multi-site", ok: true },
       { label: "OTA updates", ok: true },
       { label: "Alert rules", ok: true },
+      { label: "Multi-site", ok: true },
     ],
     cta: "Get Started",
     highlight: true,
     badge: "Most Popular",
-    stripe: true,
   },
 ];
 
 function PricingContent() {
   const [annual, setAnnual] = useState(false);
-  const [loading, setLoading] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const params = useSearchParams();
 
@@ -55,28 +54,8 @@ function PricingContent() {
     if (params.get("success") === "1") setSuccess(true);
   }, [params]);
 
-  async function handleCheckout(planId: string) {
-    setLoading(planId);
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planId, billing: annual ? "annual" : "monthly" }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        console.error("Stripe checkout error:", data.error);
-        setLoading(null);
-      }
-    } catch {
-      setLoading(null);
-    }
-  }
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
+    <div className="mx-auto max-w-5xl px-4 py-8 md:px-6 md:py-12 space-y-14">
       {success && (
         <div className="rounded-xl border border-[#00C66F]/40 bg-[#00C66F]/10 px-6 py-4 text-center text-sm text-[#00C66F]">
           Payment successful — check your email for your license key.
@@ -97,6 +76,7 @@ function PricingContent() {
           <span className={!annual ? "text-white font-medium" : "text-zinc-500"}>Monthly</span>
           <button
             onClick={() => setAnnual(!annual)}
+            aria-label="Toggle billing period"
             className={`relative h-5 w-9 rounded-full transition-colors ${annual ? "bg-[#00C66F]" : "bg-zinc-700"}`}
           >
             <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${annual ? "translate-x-4" : "translate-x-0"}`} />
@@ -107,69 +87,94 @@ function PricingContent() {
         </div>
       </div>
 
-      {/* Pricing grid */}
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {plans.map((plan) => {
-          const price = plan.monthly === null
-            ? null
-            : annual ? plan.annual : plan.monthly;
-          const isLoading = loading === plan.id;
+      {/* Pricing grid — 2 centered cards */}
+      <div className="grid gap-6 md:grid-cols-2 max-w-3xl mx-auto">
+        {plans.map((plan) => (
+          <div
+            key={plan.id}
+            className={`relative rounded-xl border p-6 flex flex-col gap-5 ${
+              plan.highlight
+                ? "border-[#00C66F]/50 bg-[#00C66F]/5 shadow-[0_0_35px_rgba(0,198,111,0.10)]"
+                : "border-zinc-800 bg-zinc-950/70"
+            }`}
+          >
+            {plan.badge && (
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-[#00C66F]/40 bg-[#00C66F]/10 px-3 py-0.5 text-xs font-medium text-[#00C66F]">
+                {plan.badge}
+              </span>
+            )}
 
-          return (
-            <div
-              key={plan.id}
-              className={`relative rounded-xl border p-6 flex flex-col gap-5 transition-colors ${
-                plan.highlight
-                  ? "border-[#00C66F]/50 bg-[#00C66F]/5 shadow-[0_0_35px_rgba(0,198,111,0.12)]"
-                  : "border-zinc-800 bg-zinc-950/70"
-              }`}
-            >
-              {plan.badge && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-[#00C66F]/40 bg-[#00C66F]/10 px-3 py-0.5 text-xs font-medium text-[#00C66F]">
-                  {plan.badge}
-                </span>
-              )}
-
-              <div className="space-y-1">
-                <h2 className="text-lg font-semibold">{plan.name}</h2>
-                <p className="text-xs text-zinc-500">{plan.desc}</p>
-              </div>
-
-              <div>
-                {price !== null ? (
-                  <div className="flex items-end gap-1">
-                    <span className="text-3xl font-bold">€{price}</span>
-                    <span className="text-zinc-500 text-sm mb-1">{annual ? '/yr' : '/mo'}</span>
-                  </div>
-                ) : (
-                  <p className="text-sm text-zinc-400">Custom pricing</p>
-                )}
-              </div>
-
-              <ul className="space-y-2 flex-1">
-                <li className="text-xs font-medium text-zinc-400 uppercase tracking-wider">{plan.connectors} connectors</li>
-                {plan.features.map((f) => (
-                  <li key={f.label} className="flex items-center gap-2 text-sm">
-                    <span className={f.ok ? "text-[#00C66F]" : "text-zinc-700"}>
-                      {f.ok ? "✓" : "✗"}
-                    </span>
-                    <span className={f.ok ? "text-zinc-300" : "text-zinc-600"}>{f.label}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="space-y-2">
-                {annual
-                  ? <PayPalCheckoutButton plan={plan.id as 'home' | 'pro' | 'addon_connector'} highlight={plan.highlight} />
-                  : <PayPalSubscribeButton plan={plan.id as 'home' | 'pro' | 'addon_connector'} highlight={plan.highlight} />
-                }
-              </div>
+            {/* Name + desc */}
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold">{plan.name}</h2>
+              <p className="text-xs text-zinc-500">{plan.desc}</p>
             </div>
-          );
-        })}
+
+            {/* Price */}
+            <div>
+              <div className="flex items-end gap-1">
+                <span className="text-3xl font-bold">
+                  €{annual ? plan.annualMonthly : plan.monthly}
+                </span>
+                <span className="text-zinc-500 text-sm mb-1">/mo</span>
+              </div>
+              {annual && (
+                <p className="text-xs text-zinc-500 mt-0.5">billed as €{plan.annual}/yr</p>
+              )}
+            </div>
+
+            {/* Connector count */}
+            <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">{plan.connectors}</p>
+
+            {/* Feature list with divider */}
+            <ul className="space-y-2 flex-1 border-t border-zinc-800 pt-4">
+              {plan.features.map((f) => (
+                <li key={f.label} className="flex items-center gap-2 text-sm">
+                  <span className={f.ok ? "text-[#00C66F]" : "text-zinc-700"}>
+                    {f.ok ? "✓" : "✗"}
+                  </span>
+                  <span className={f.ok ? "text-zinc-300" : "text-zinc-600"}>{f.label}</span>
+                </li>
+              ))}
+            </ul>
+
+            {/* CTA */}
+            <div>
+              {annual
+                ? <PayPalCheckoutButton plan={plan.id as 'home' | 'pro'} highlight={plan.highlight} />
+                : <PayPalSubscribeButton plan={plan.id as 'home' | 'pro'} highlight={plan.highlight} />
+              }
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6"><div><h3 className="text-base font-semibold mb-1">Add a connector</h3><p className="text-sm text-zinc-400">Already have a license? Add one extra connector to your existing plan.</p><p className="text-xs text-zinc-500 mt-1">€25 one-time · links to your existing license email</p></div><div className="w-full md:w-56 shrink-0">{annual ? <PayPalCheckoutButton plan="addon_connector" /> : <PayPalSubscribeButton plan="addon_connector" />}</div></div>
+      {/* Add a connector — prominent section */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 md:p-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <div className="text-[11px] uppercase tracking-widest text-zinc-500 mb-2">Add-on</div>
+            <h3 className="text-lg font-semibold">Extra Connector</h3>
+            <p className="text-sm text-zinc-400 max-w-sm">
+              Already have a Home or Pro license? Add one extra connector to your existing plan.
+            </p>
+            <div className="flex items-baseline gap-2 pt-2">
+              <span className="text-2xl font-bold">€2.99</span>
+              <span className="text-zinc-500 text-sm">/mo</span>
+              <span className="text-zinc-600 text-xs">or €25 one-time</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 w-full md:w-60 shrink-0">
+            {annual
+              ? <PayPalCheckoutButton plan="addon_connector" />
+              : <PayPalSubscribeButton plan="addon_connector" />
+            }
+            <Link href="/account" className="text-xs text-zinc-500 hover:text-zinc-300 text-center transition-colors">
+              Manage existing license →
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {/* Trust row */}
       <div className="flex flex-wrap justify-center gap-6 text-xs text-zinc-500">
