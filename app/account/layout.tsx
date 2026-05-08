@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -11,25 +13,19 @@ export default async function AccountLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-white/50 hover:text-white text-sm transition-colors">
-            ← powerguardian.cloud
-          </Link>
-          <span className="text-white/20">|</span>
-          <span className="text-sm text-white/70">{email}</span>
+    <div className="mx-auto max-w-4xl px-4 py-8 md:px-6 md:py-12 space-y-6">
+      {/* Account sub-header */}
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div className="flex items-center gap-2 text-sm text-zinc-500">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#00C66F]" />
+          <span>{email}</span>
         </div>
-        <Link
-          href="/api/auth/logout"
-          className="text-sm text-white/50 hover:text-white transition-colors"
-        >
+        <Link href="/api/auth/logout" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
           Sign out
         </Link>
-      </header>
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        {children}
-      </main>
+      </div>
+
+      {children}
     </div>
   );
 }
