@@ -12,11 +12,19 @@ export async function POST(request: NextRequest) {
 
   const token = await createMagicToken(email);
   const magicUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://powerguardian.cloud') + '/api/auth/verify?token=' + token;
-  await sendEmail(
-    email,
-    'Sign in to PowerGuardian',
-    'Click the link below to sign in to your PowerGuardian account:\n\n' + magicUrl + '\n\nThis link expires in 15 minutes. If you did not request this, ignore this email.\n\n— PowerGuardian',
-  );
+
+  try {
+    await sendEmail(
+      email,
+      'Sign in to PowerGuardian',
+      'Click the link below to sign in to your PowerGuardian account:\n\n' + magicUrl + '\n\nThis link expires in 15 minutes. If you did not request this, ignore this email.\n\n— PowerGuardian',
+    );
+  } catch (err) {
+    // Log magic URL to CF Workers logs so login still works during email setup
+    console.error('[magic] Email send failed:', err);
+    console.log('[magic] FALLBACK URL:', magicUrl);
+    // Still return ok so user sees success screen; check CF logs for the link
+  }
 
   return NextResponse.json({ ok: true });
 }

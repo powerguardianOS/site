@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 
 export async function sendEmail(to: string, subject: string, text: string): Promise<void> {
-  await fetch('https://api.brevo.com/v3/smtp/email', {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
       'api-key': process.env.BREVO_API_KEY ?? '',
@@ -14,4 +14,10 @@ export async function sendEmail(to: string, subject: string, text: string): Prom
       textContent: text,
     }),
   });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '(no body)');
+    console.error(`[email] Brevo error ${res.status}: ${body}`);
+    throw new Error(`Email failed: ${res.status}`);
+  }
 }
