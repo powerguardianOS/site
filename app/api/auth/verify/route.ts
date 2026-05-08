@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   response.cookies.set('pg_session', email, {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: 86400,
   });
 
