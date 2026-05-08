@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -14,16 +14,13 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const r = await fetch('/api/auth/magic', {
+      const r = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      if (!r.ok) {
-        setError('Something went wrong — try again.')
-      } else {
-        setSent(true)
-      }
+      if (!r.ok) setError('Something went wrong — try again.')
+      else setSent(true)
     } catch {
       setError('Something went wrong — try again.')
     } finally {
@@ -34,8 +31,6 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col items-center justify-center px-4 py-24 md:py-32">
       <div className="w-full max-w-sm space-y-6">
-
-        {/* Brand hint */}
         <div className="text-center space-y-1">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#00C66F]/10 border border-[#00C66F]/20 mb-3">
             <svg width="28" height="32" viewBox="0 0 128 140" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -43,25 +38,18 @@ export default function LoginPage() {
               <path d="M72 32 L48 72 H62 L52 108 L80 68 H66 L72 32Z" fill="#00C66F"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in to PowerGuardian</h1>
-          <p className="text-sm text-zinc-500">Enter your email — we&apos;ll send you a sign-in link.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+          <p className="text-sm text-zinc-500">Enter your email to get started.</p>
         </div>
 
-        {/* Form / Sent state */}
         {sent ? (
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 text-center space-y-3">
             <div className="text-2xl">📬</div>
             <p className="text-sm text-zinc-300 font-medium">Check your inbox</p>
             <p className="text-xs text-zinc-500">
               We sent a sign-in link to <span className="text-zinc-300">{email}</span>.
-              <br />The link expires in 15 minutes.
+              <br />Click it to activate your account.
             </p>
-            <button
-              onClick={() => { setSent(false); setEmail('') }}
-              className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
-            >
-              Use a different email
-            </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -78,16 +66,16 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-[#00C66F] text-black font-medium py-3 rounded-lg text-sm hover:bg-[#00b564] transition-colors disabled:opacity-50"
             >
-              {loading ? 'Sending…' : 'Send sign-in link'}
+              {loading ? 'Creating account…' : 'Create account'}
             </button>
             {error && <p className="text-xs text-red-400">{error}</p>}
           </form>
         )}
 
         <p className="text-center text-xs text-zinc-600">
-          No account yet?{' '}
-          <Link href="/register" className="text-zinc-400 hover:text-white transition-colors">
-            Create account
+          Already have an account?{' '}
+          <Link href="/login" className="text-zinc-400 hover:text-white transition-colors">
+            Sign in
           </Link>
         </p>
       </div>

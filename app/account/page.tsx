@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { getAccountSummary } from '@/app/lib/license-db';
+import { getAccountSummary, getLicensesByEmail } from '@/app/lib/license-db';
 import UnderlicensedBanner from './components/UnderlicensedBanner';
 
 export const runtime = 'edge';
@@ -29,9 +29,14 @@ export default async function AccountPage() {
       {/* Licenses */}
       <div className="space-y-4">
         {summary.licenses.length === 0 && (
-          <div className="rounded-xl border border-white/10 p-6 text-white/50 text-sm">
-            No active licenses found.{' '}
-            <a href="/pricing" className="text-[#00C66F] hover:underline">View plans →</a>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-8 text-center space-y-4">
+            <h2 className="text-xl font-semibold text-white">No active license</h2>
+            <p className="text-sm text-zinc-400 max-w-sm mx-auto">
+              Your account is created but you don't have an active plan yet. Choose a plan to start monitoring your UPS infrastructure.
+            </p>
+            <a href="/pricing" className="inline-flex px-6 py-3 rounded-full bg-[#00C66F] text-black font-medium text-sm hover:bg-[#00b564] transition">
+              Upgrade now
+            </a>
           </div>
         )}
 
