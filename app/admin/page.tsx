@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { getAccounts } from '@/app/lib/accounts';
 import { getLicenses } from '@/app/lib/license-db';
 import type { LicenseRecord } from '@/app/lib/license-db';
+import { ExportButton } from './ExportButton';
 
 export default async function AdminPage() {
   const [accounts, licenses] = await Promise.all([getAccounts(), getLicenses()]);
@@ -19,7 +20,10 @@ export default async function AdminPage() {
     <div className="mx-auto max-w-5xl px-4 py-8 md:px-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Admin</h1>
-        <p className="text-sm text-zinc-400">{accounts.length} accounts · {licenses.filter(l => l.status === 'active').length} active licenses</p>
+        <div className="flex items-center gap-2">
+          <ExportButton />
+          <p className="text-sm text-zinc-400">{accounts.length} accounts · {licenses.filter(l => l.status === 'active').length} active licenses</p>
+        </div>
       </div>
 
       <div className="rounded-xl border border-zinc-800 overflow-hidden">

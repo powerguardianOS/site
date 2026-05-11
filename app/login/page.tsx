@@ -14,7 +14,7 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const r = await fetch('/api/auth/magic', {
+      const r = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -43,8 +43,8 @@ export default function LoginPage() {
               <path d="M72 32 L48 72 H62 L52 108 L80 68 H66 L72 32Z" fill="#00C66F"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in to PowerGuardian</h1>
-          <p className="text-sm text-zinc-500">Enter your email — we&apos;ll send you a sign-in link.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Sign in or create account</h1>
+          <p className="text-sm text-zinc-500">Enter your email to sign in or create a free account.</p>
         </div>
 
         {/* Form / Sent state */}
