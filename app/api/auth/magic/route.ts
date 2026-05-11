@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createMagicToken } from '@/app/lib/magic-link';
 import { sendEmail } from '@/app/lib/email';
+import { getAccount, createAccount } from '@/app/lib/accounts';
 
 // KV helpers for rate limiting
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
@@ -43,6 +44,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Too many requests — try again in 10 minutes.' }, { status: 429 });
   }
   await kvPut(rateLimitKey, String(count + 1));
+
+  // Upsert account if it doesn't exist yet (preserves created_at on repeat requests)
+  const existingAccount = await getAccount(email);
+  if (!existingAccount) {
+    await createAccount(email);
+  }
 
   const token = await createMagicToken(email);
   const magicUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://powerguardian.cloud') + '/api/auth/verify?token=' + token;
