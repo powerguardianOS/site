@@ -2,8 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import PayPalCheckoutButton from '../components/PayPalCheckoutButton';
-import PayPalSubscribeButton from '../components/PayPalSubscribeButton';
+import StripeCheckoutButton from '../components/StripeCheckoutButton';
 
 const plans = [
   {
@@ -140,10 +139,7 @@ function PricingContent() {
 
             {/* CTA */}
             <div>
-              {annual
-                ? <PayPalCheckoutButton plan={plan.id as 'home' | 'pro'} highlight={plan.highlight} />
-                : <PayPalSubscribeButton plan={plan.id as 'home' | 'pro'} highlight={plan.highlight} />
-              }
+              <StripeCheckoutButton plan={plan.id as 'home' | 'pro'} annual={annual} highlight={plan.highlight} />
             </div>
           </div>
         ))}
@@ -165,10 +161,7 @@ function PricingContent() {
             </div>
           </div>
           <div className="flex flex-col gap-3 w-full md:w-60 shrink-0">
-            {annual
-              ? <PayPalCheckoutButton plan="addon_connector" />
-              : <PayPalSubscribeButton plan="addon_connector" />
-            }
+            <StripeCheckoutButton plan="addon_connector" annual={annual} />
             <Link href="/account" className="text-xs text-zinc-500 hover:text-zinc-300 text-center transition-colors">
               Manage existing license →
             </Link>
