@@ -44,9 +44,9 @@ export default function ConnectorPage() {
           <Image
             src="/neo3.png"
             alt="NanoPi Neo3 board"
-            width={420}
-            height={260}
-            className="rounded-lg w-full"
+            width={200}
+            height={124}
+            className="rounded-lg mx-auto"
           />
           <div className="font-mono text-xs space-y-1 text-zinc-500">
             <div className="flex justify-between">
