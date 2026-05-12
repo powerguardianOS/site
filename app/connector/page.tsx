@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -41,13 +40,6 @@ export default function ConnectorPage() {
 
         <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-5 space-y-3">
           <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Reference hardware</div>
-          <Image
-            src="/neo3.png"
-            alt="NanoPi Neo3 board"
-            width={200}
-            height={124}
-            className="rounded-lg mx-auto"
-          />
           <div className="font-mono text-xs space-y-1 text-zinc-500">
             <div className="flex justify-between">
               <span>Model</span><span className="text-zinc-300">NanoPi Neo3</span>
