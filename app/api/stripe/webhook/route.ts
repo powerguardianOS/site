@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createLicense, getLicenses, updateLicense } from '@/app/lib/license-db';
+import { createLicense, getLicenses, getLicenseByEmail, updateLicense } from '@/app/lib/license-db';
 import { sendEmail } from '@/app/lib/email';
 
 export const runtime = 'edge';
@@ -107,41 +107,35 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      const licenseData = {
+      const isSubscription = session.mode === 'subscription';
+      const notes = isSubscription
+        ? `stripe-sub:${session.subscription}`
+        : `stripe:${session.id}`;
+
+      if (plan === 'addon_connector') {
+        const existing = await getLicenseByEmail(email);
+        if (existing) {
+          await updateLicense(existing.id, {
+            connector_limit: existing.connector_limit + 1,
+            notes: existing.notes ? `${existing.notes} ${notes}` : notes,
+          });
+        }
+      } else {
+        await createLicense({
+          email,
+          plan,
+          site_id: 'default-site',
+          connector_limit: plan === 'home' ? 1 : 5,
+          expires_at: null,
+          notes,
+        });
+      }
+
+      await sendEmail(
         email,
-        plan,
-        site_id: 'default-site',
-        connector_limit: plan === 'home' ? 1 : 5,
-        expires_at: null,
-        notes: `stripe:${session.id}`,
-      };
-
-      await createLicense(licenseData);
-
-      // Send welcome email
-      const welcomeSubject = 'Your PowerGuardian license is active';
-      const welcomeBody = `
-        Welcome to PowerGuardian!
-
-        Your license is now active. To get started:
-
-        1. Log in to your dashboard
-        2. Go to Settings → License
-        3. Click "Link License"
-        4. Enter your email: ${email}
-        5. Enter the 6-digit code sent to your inbox
-
-        If you have any questions, reply to this email.
-
-        Best regards,
-        The PowerGuardian Team
-      `;
-
-      await sendEmail({
-        to: email,
-        subject: welcomeSubject,
-        body: welcomeBody,
-      });
+        'Your PowerGuardian license is active',
+        `Welcome to PowerGuardian!\n\nYour license is now active. To get started:\n\n1. Log in to your dashboard\n2. Go to Settings → License\n3. Click "Link License"\n4. Enter your email: ${email}\n5. Enter the 6-digit code sent to your inbox\n\nBest regards,\nThe PowerGuardian Team`
+      );
 
       return NextResponse.json({ received: true });
     }
@@ -150,7 +144,6 @@ export async function POST(request: NextRequest) {
       const subscription = event.data.object;
       const subscriptionId = subscription.id;
 
-      // Find license by notes containing stripe-sub:${subscription.id}
       const licenses = await getLicenses();
       const matchingLicense = licenses.find(l => l.notes?.includes(`stripe-sub:${subscriptionId}`));
 
@@ -161,24 +154,11 @@ export async function POST(request: NextRequest) {
 
       await updateLicense(matchingLicense.id, { status: 'expired' });
 
-      // Send expiration email
-      const expirySubject = 'Your PowerGuardian license has expired';
-      const expiryBody = `
-        Hello,
-
-        We're sorry to see you go. Your PowerGuardian license has expired as of ${new Date().toLocaleDateString()}.
-
-        If this was a mistake or you'd like to re-activate, please reply to this email.
-
-        Best regards,
-        The PowerGuardian Team
-      `;
-
-      await sendEmail({
-        to: matchingLicense.email,
-        subject: expirySubject,
-        body: expiryBody,
-      });
+      await sendEmail(
+        matchingLicense.email,
+        'Your PowerGuardian license has expired',
+        `Hello,\n\nYour PowerGuardian license has expired. If this was a mistake or you'd like to re-activate, please visit powerguardian.cloud/pricing.\n\nBest regards,\nThe PowerGuardian Team`
+      );
 
       return NextResponse.json({ received: true });
     }
