@@ -43,7 +43,7 @@ export default function StripeCheckoutButton({ plan, annual, highlight = false }
     }
   }
 
-  const baseClasses = 'w-full py-2.5 rounded-full font-medium text-sm transition'
+  const baseClasses = 'w-full py-2.5 rounded-lg font-semibold text-sm transition'
   const highlightClasses = 'bg-[#00C66F] text-black hover:bg-[#00b564]'
   const defaultClasses = 'border border-zinc-700 bg-transparent text-white hover:bg-zinc-800'
 

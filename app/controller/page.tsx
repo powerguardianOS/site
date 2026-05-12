@@ -1,185 +1,211 @@
-// app/controller/page.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Controller OS",
-  description: "Centralized UPS management: adopt connectors, map racks, and manage staged shutdowns via a single global dashboard.",
+  description: "Centralized UPS management: adopt connectors, run staged shutdowns, and manage your full power layer from one dashboard.",
 };
 
 export default function ControllerPage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
+    <div className="mx-auto max-w-6xl px-4 md:px-6 pt-12 pb-20 space-y-14">
+
       {/* Hero */}
-      <section className="space-y-5">
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-          Controller OS
-        </div>
-        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-          The central control plane<br className="hidden md:block" /> for your power layer.
+      <section className="space-y-6">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Controller OS</div>
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight leading-[1.15]">
+          The central control plane<br /> for your power layer.
         </h1>
-        <p className="text-sm md:text-base text-zinc-400 max-w-2xl leading-relaxed">
-          Controller OS is where everything comes together. It adopts your
-          Connectors, maps UPS devices to hosts and racks, runs the rule engine
-          for staged shutdowns, and gives you a single dashboard across all
-          sites and all UPS devices — running entirely on your own hardware.
+        <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
+          Controller OS adopts your Connectors, maps UPS devices to hosts, runs the staged-shutdown
+          rule engine, and provides a unified dashboard across all sites. Runs entirely on your own
+          hardware. No SaaS control plane required.
         </p>
         <div className="flex flex-wrap gap-3 pt-1">
           <Link
             href="/pricing"
-            className="px-5 py-2.5 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[var(--pg-cta-shadow)]"
+            className="px-5 py-2.5 rounded-lg bg-[#00C66F] text-black text-sm font-semibold hover:bg-[#00b564] transition shadow-[0_0_24px_rgba(0,198,111,0.4)]"
           >
-            Get a License →
+            View pricing
           </Link>
           <Link
             href="/connector"
-            className="px-5 py-2.5 rounded-full border border-zinc-700 text-sm text-zinc-200 hover:border-[#00C66F] hover:text-white transition"
+            className="px-5 py-2.5 rounded-lg border border-zinc-700 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white transition"
           >
-            See Connector OS →
+            Connector OS →
           </Link>
         </div>
       </section>
 
-      {/* What it does */}
-      <section className="space-y-5">
-        <h2 className="text-xl font-semibold tracking-tight">What Controller OS does</h2>
+      {/* Core functions */}
+      <section className="space-y-6">
+        <div className="space-y-2">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Core functions</div>
+          <h2 className="text-xl font-semibold tracking-tight">What Controller OS does</h2>
+        </div>
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 space-y-2">
-            <div className="text-[#00C66F] text-lg font-bold">01</div>
-            <h3 className="text-sm font-semibold text-white">Adopt &amp; manage connectors</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Connectors register with a secure one-time token. Once adopted,
-              you assign them to sites, racks, and UPS devices from a single
-              place. Add, remove or update connectors without touching the
-              command line.
-            </p>
-          </div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 space-y-2">
-            <div className="text-[#00C66F] text-lg font-bold">02</div>
-            <h3 className="text-sm font-semibold text-white">Map power to infrastructure</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Link UPS devices to the hosts and services they power. Define
-              which systems are critical, which are sacrificial, and in what
-              order they should shut down when runtime gets low.
-            </p>
-          </div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 space-y-2">
-            <div className="text-[#00C66F] text-lg font-bold">03</div>
-            <h3 className="text-sm font-semibold text-white">Run the rule engine</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Set threshold-based rules: when UPS battery drops below X%, run
-              this shutdown sequence in this order. Rules can be global or
-              per-site, and are pushed to the relevant Connectors automatically.
-            </p>
-          </div>
+          {[
+            {
+              n: "01",
+              title: "Adopt & manage connectors",
+              body: "Connectors register with a secure one-time token. Once adopted, assign them to sites and UPS devices from a single interface. Add, remove or update connectors without touching the command line.",
+              tags: ["TOFU token", "Zero-touch", "Revoke + re-adopt"],
+            },
+            {
+              n: "02",
+              title: "Map power to infrastructure",
+              body: "Link UPS devices to the hosts and services they power. Define priority order: which systems are critical, which are sacrificial, and at what battery threshold each shutdown stage kicks in.",
+              tags: ["Priority ordering", "Per-threshold", "SSH + NUT"],
+            },
+            {
+              n: "03",
+              title: "Run the rule engine",
+              body: "Threshold-based alert rules fire confirmations before triggering. Rules can push shutdown sequences to Connectors automatically. Automation flows add SSH steps, WoL, webhooks, and email actions.",
+              tags: ["Confirmation window", "Push to connector", "Automation flows"],
+            },
+          ].map(c => (
+            <div key={c.n} className="border border-zinc-800 bg-zinc-950/50 rounded-lg p-5 space-y-3">
+              <div className="text-[#00C66F] font-mono text-sm font-bold">{c.n}</div>
+              <h3 className="text-sm font-semibold text-white">{c.title}</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">{c.body}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {c.tags.map(t => (
+                  <span key={t} className="text-[10px] border border-zinc-800 text-zinc-500 px-2 py-0.5 rounded font-mono">{t}</span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Core capabilities */}
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 space-y-3">
-          <h2 className="text-base font-semibold tracking-tight">Capabilities</h2>
+      {/* Capabilities + Hardware */}
+      <section className="grid md:grid-cols-2 gap-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-6 space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">Capabilities</h2>
           <ul className="space-y-2 text-sm text-zinc-400">
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Zero-touch connector adoption with secure tokens</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Multi-site dashboard — all UPS in one view</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Rule engine for staged, ordered shutdown sequences</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Encrypted credential vault (SNMP, SSH, APIs)</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> OTA updates — push signed packages to all connectors</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Role-based access: admin, operator, viewer</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Optional cloud proxy for remote access</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Automated backups to Google Drive</li>
+            {[
+              "Zero-touch connector adoption with secure tokens",
+              "Multi-site dashboard — all UPS in one view",
+              "Staged, ordered shutdown sequences",
+              "AES-256-GCM encrypted credential vault",
+              "X25519 ECDH end-to-end payload encryption",
+              "Signed OTA packages pushed to all connectors",
+              "Role-based access: Owner / Admin / Viewer",
+              "TOTP MFA for vault and admin operations",
+              "Dynamic DNS — 29 providers, background sync",
+              "Google Drive backup scheduler",
+              "VLAN-aware networking (802.1Q)",
+              "Optional cloud proxy for remote access",
+            ].map(f => (
+              <li key={f} className="flex gap-2">
+                <span className="text-[#00C66F] shrink-0">✓</span> {f}
+              </li>
+            ))}
           </ul>
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 space-y-3">
-          <h3 className="text-sm font-semibold text-zinc-200 uppercase tracking-[0.18em]">
-            Where to run it
-          </h3>
-          <p className="text-sm text-zinc-400 leading-relaxed">
-            Controller OS currently runs exclusively on the{" "}
-            <span className="text-zinc-300 font-medium">NanoPi R3S</span>.
-            The image is built around its eMMC storage for reliability — no SD
-            card, no wear-out issues. Support for additional hardware platforms
-            is on the roadmap.
-          </p>
-          <div className="flex items-center gap-2 text-sm mt-2">
-            <span className="text-[#00C66F]">●</span>
-            <span className="font-medium text-zinc-300">NanoPi R3S</span>
-            <span className="text-zinc-600 text-xs">— only supported platform right now</span>
+        <div className="space-y-6">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-6 space-y-4">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">Reference hardware</h2>
+            <div className="font-mono text-xs space-y-2 text-zinc-500">
+              {[
+                ["Model",    "NanoPi R3S"],
+                ["SoC",      "RK3568 · ARM64"],
+                ["RAM",      "2 GB LPDDR4"],
+                ["Storage",  "eMMC (no SD card wear)"],
+                ["Ports",    "USB 3.0 · 2× GbE"],
+                ["OS",       "Debian 12 Bookworm"],
+                ["Price",    "~€50"],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between border-b border-zinc-800/60 pb-1.5">
+                  <span>{k}</span><span className="text-zinc-300">{v}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="text-xs text-zinc-600 pt-2">
-            More platforms coming — follow the{" "}
-            <a href="/roadmap" className="underline hover:text-zinc-400 transition">roadmap</a>{" "}
-            for updates.
-          </p>
-        </div>
-      </section>
 
-      {/* Rule engine detail */}
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 space-y-4">
-        <h2 className="text-base font-semibold tracking-tight">
-          Rules and shutdown mapping
-        </h2>
-        <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
-          Instead of a simple UPS → IP mapping, Controller OS lets you think in
-          terms of racks, hosts and services. Define which systems are critical,
-          which can go first, and at what battery level each stage kicks in.
-        </p>
-        <div className="grid gap-3 md:grid-cols-3 text-xs text-zinc-500">
-          <div className="rounded-lg border border-zinc-800 p-3 space-y-1">
-            <div className="text-zinc-300 font-medium">Homelab</div>
-            <div>Prioritize router and hypervisor. Gracefully shut down NAS and lab VMs first.</div>
-          </div>
-          <div className="rounded-lg border border-zinc-800 p-3 space-y-1">
-            <div className="text-zinc-300 font-medium">Small business rack</div>
-            <div>Keep core services and primary storage alive longer than dev boxes and non-critical systems.</div>
-          </div>
-          <div className="rounded-lg border border-zinc-800 p-3 space-y-1">
-            <div className="text-zinc-300 font-medium">Multi-UPS environment</div>
-            <div>Different shutdown policies per UPS and per site, all visible from one dashboard.</div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-5 space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">Deployment requirements</h2>
+            <div className="flex flex-wrap gap-2">
+              {["Debian 12 Bookworm", "NanoPi R3S", "eMMC storage", "LAN access", "Caddy reverse proxy", "systemd"].map(r => (
+                <span key={r} className="text-[10px] border border-zinc-800 text-zinc-500 px-2 py-0.5 rounded font-mono">{r}</span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Network & security */}
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 space-y-3">
-          <h2 className="text-base font-semibold tracking-tight">VLAN &amp; network design</h2>
-          <p className="text-sm text-zinc-400 leading-relaxed">
+      {/* VLAN & security */}
+      <section className="grid md:grid-cols-2 gap-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-6 space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">VLAN & network design</h2>
+          <p className="text-xs text-zinc-400 leading-relaxed">
             Controller OS understands VLAN-tagged traffic, so you can keep your
-            power-control layer cleanly segmented without needing extra hardware.
+            power-control layer cleanly segmented without extra hardware.
           </p>
-          <ul className="space-y-1 text-sm text-zinc-400">
-            <li className="flex gap-2">
-              <span className="text-zinc-300 font-medium shrink-0">Simple mode:</span>
-              <span>LAN1 on your main LAN — Connectors and UPS management cards discovered automatically.</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-zinc-300 font-medium shrink-0">VLAN-aware:</span>
-              <span>Tagged and untagged traffic on one port from your switch.</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-zinc-300 font-medium shrink-0">Dual-NIC:</span>
-              <span>LAN1 for your regular network, LAN2 for an isolated UPS/IoT segment.</span>
-            </li>
-          </ul>
+          <div className="space-y-3 text-xs">
+            {[
+              { label: "Simple mode",   desc: "LAN1 on your main LAN. Connectors and UPS management cards discovered automatically." },
+              { label: "VLAN-aware",    desc: "Tagged and untagged traffic on one port from your switch (802.1Q)." },
+              { label: "Dual-NIC",      desc: "LAN1 for your regular network. LAN2 for an isolated UPS/IoT management segment." },
+            ].map(r => (
+              <div key={r.label} className="flex gap-3">
+                <span className="text-zinc-300 font-medium shrink-0 w-24">{r.label}</span>
+                <span className="text-zinc-500">{r.desc}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 space-y-3">
-          <h2 className="text-base font-semibold tracking-tight">Security model</h2>
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-6 space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">Security model</h2>
           <ul className="space-y-2 text-sm text-zinc-400">
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Encrypted credential vault for all secrets</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Role-based access: admin, operator, viewer</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> SSH access policy per role and per connector</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Node tokens with anti-cloning checks</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> Signed OTA packages — no unsigned updates</li>
-            <li className="flex gap-2"><span className="text-[#00C66F] shrink-0">✓</span> All data stays on your hardware by default</li>
+            {[
+              "AES-256-GCM vault — all secrets encrypted at rest",
+              "MFA-protected vault unlock (TOTP + backup codes)",
+              "Role-based access control (Owner / Admin / Viewer)",
+              "Connector tokens with hardware fingerprint binding",
+              "SSH command whitelist on executor (no free-form exec)",
+              "TOFU host key pinning for SSH shutdown targets",
+              "Signed OTA packages — SHA-256 verified before install",
+              "1 MB request body limit, CSP hardened frontend",
+            ].map(f => (
+              <li key={f} className="flex gap-2">
+                <span className="text-[#00C66F] shrink-0">✓</span> {f}
+              </li>
+            ))}
           </ul>
+        </div>
+      </section>
+
+      {/* Shutdown mapping scenarios */}
+      <section className="space-y-4">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Shutdown mapping scenarios</div>
+        <div className="grid gap-3 md:grid-cols-3 text-xs">
+          {[
+            {
+              label: "Homelab",
+              desc: "Prioritize router and hypervisor. Shut down NAS and lab VMs at 40% battery, hypervisor at 20%.",
+            },
+            {
+              label: "Small business rack",
+              desc: "Keep core services and primary storage alive longer than dev boxes and non-critical systems.",
+            },
+            {
+              label: "Multi-UPS environment",
+              desc: "Different shutdown policies per UPS and per site, all visible and configurable from one dashboard.",
+            },
+          ].map(s => (
+            <div key={s.label} className="rounded-lg border border-zinc-800 p-4 space-y-1.5">
+              <div className="text-zinc-300 font-semibold">{s.label}</div>
+              <div className="text-zinc-500 leading-relaxed">{s.desc}</div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* CTA */}
-      <section className="rounded-xl border border-[#00C66F]/20 bg-[#00C66F]/5 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <section className="rounded-lg border border-zinc-800 p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="text-sm font-semibold text-white">One control plane for your entire power layer.</div>
           <div className="text-xs text-zinc-400">Pick a plan and start managing UPS devices across every site.</div>
@@ -187,18 +213,19 @@ export default function ControllerPage() {
         <div className="flex flex-wrap gap-3 shrink-0">
           <Link
             href="/pricing"
-            className="px-5 py-2 rounded-full bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] transition shadow-[var(--pg-cta-shadow)]"
+            className="px-5 py-2.5 rounded-lg bg-[#00C66F] text-black text-sm font-semibold hover:bg-[#00b564] transition shadow-[0_0_24px_rgba(0,198,111,0.35)]"
           >
-            View Plans →
+            View pricing
           </Link>
           <Link
             href="/connector"
-            className="px-5 py-2 rounded-full border border-zinc-700 text-sm text-zinc-200 hover:border-[#00C66F] hover:text-white transition"
+            className="px-5 py-2.5 rounded-lg border border-zinc-700 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white transition"
           >
-            Connector OS
+            Connector OS →
           </Link>
         </div>
       </section>
+
     </div>
   );
 }
