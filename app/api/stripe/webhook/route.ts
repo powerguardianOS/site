@@ -4,11 +4,7 @@ import { sendEmail } from '@/app/lib/email';
 
 export const runtime = 'edge';
 
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-
-if (!WEBHOOK_SECRET) {
-  throw new Error('STRIPE_WEBHOOK_SECRET is not set');
-}
+const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
 // Parse Stripe signature header: "t=...,v1=..."
 function parseSignature(header: string | null): { timestamp: string; signature: string } {
