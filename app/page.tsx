@@ -45,10 +45,8 @@ export default function HomePage() {
           <div className="text-[11px] font-mono uppercase tracking-[0.28em] text-[#00C66F]/65">
             UPS Orchestration Platform
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight leading-[1.05]">
-            <span className="text-white">Power protection,</span>
-            <br />
-            <span className="pg-gradient-text">under your control.</span>
+          <h1 className="text-5xl md:text-6xl font-bold tracking-tight leading-[1.05] text-white">
+            Power protection,<br />under your control.
           </h1>
           <p className="text-lg text-zinc-400 leading-relaxed max-w-md">
             Replace scattered NUT configs and manual shutdown scripts with a single self-hosted control plane. Built for homelabs and server rooms that can&apos;t afford unplanned downtime.
@@ -56,13 +54,13 @@ export default function HomePage() {
           <div className="flex flex-wrap gap-4">
             <Link
               href="/pricing"
-              className="px-7 py-3.5 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_40px_rgba(0,198,111,0.4)] hover:shadow-[0_0_56px_rgba(0,198,111,0.6)]"
+              className="px-7 py-3.5 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition-all"
             >
               View pricing
             </Link>
             <Link
               href="/docs"
-              className="px-7 py-3.5 rounded-xl border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white transition-all"
+              className="px-7 py-3.5 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all"
             >
               Documentation →
             </Link>
@@ -135,7 +133,7 @@ export default function HomePage() {
           ].map(f => (
             <div
               key={f.title}
-              className="rounded-2xl border border-white/[0.06] bg-[#0d1321] p-6 space-y-4 hover:border-[#00C66F]/20 hover:shadow-[0_0_32px_rgba(0,198,111,0.06)] transition-all"
+              className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-6 space-y-4 hover:border-zinc-700 transition-colors"
             >
               <h3 className="text-base font-semibold text-white">{f.title}</h3>
               <p className="text-sm text-zinc-400 leading-relaxed">{f.body}</p>
@@ -198,14 +196,14 @@ export default function HomePage() {
       {/* FINAL CTA */}
       <section className="py-32 text-center space-y-6 max-w-2xl mx-auto">
         <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight">
-          Ready to take control of your <span className="pg-gradient-text">power layer?</span>
+          Ready to take control of your power layer?
         </h2>
         <p className="text-lg text-zinc-400">
           Self-hosted. No per-device fees. Runs on €30 hardware.
         </p>
         <Link
           href="/pricing"
-          className="inline-block px-9 py-4 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_48px_rgba(0,198,111,0.4)] hover:shadow-[0_0_64px_rgba(0,198,111,0.6)]"
+          className="inline-block px-9 py-4 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition-all"
         >
           View pricing →
         </Link>

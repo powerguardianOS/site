@@ -4,10 +4,10 @@
 :root {
   --pg-bg: #060a14;
   --pg-bg-soft: #090d1a;
-  --pg-surface: #0d1321;
-  --pg-surface-hover: #111827;
-  --pg-border: rgba(255, 255, 255, 0.07);
-  --pg-border-hover: rgba(255, 255, 255, 0.13);
+  --pg-surface: rgba(24, 24, 27, 0.6);
+  --pg-surface-hover: #27272a;
+  --pg-border: #27272a;
+  --pg-border-hover: #3f3f46;
   --pg-fg: #f0f4ff;
   --pg-muted: #64748b;
   --pg-accent: #00c66f;
@@ -15,7 +15,7 @@
   --pg-accent-dim: rgba(0, 198, 111, 0.08);
   --pg-danger: #ef4444;
   --pg-warning: #f59e0b;
-  --pg-font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --pg-font-sans: var(--font-sans), system-ui, -apple-system, sans-serif;
   --pg-font-mono: var(--font-mono), 'JetBrains Mono', monospace;
 }
 
@@ -36,7 +36,7 @@ body {
 .pg-glow-sm  { box-shadow: 0 0 16px var(--pg-accent-glow); }
 
 /* Card */
-.pg-card            { background: var(--pg-surface); border: 1px solid var(--pg-border); border-radius: 12px; }
+.pg-card            { background: var(--pg-surface); border: 1px solid var(--pg-border); border-radius: 8px; }
 .pg-card:hover      { border-color: var(--pg-border-hover); }
 
 /* Gradient text (white → green) */

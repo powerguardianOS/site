@@ -23,13 +23,13 @@ export default function ConnectorPage() {
           <div className="flex flex-wrap gap-4 pt-2">
             <Link
               href="/pricing"
-              className="px-6 py-3 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_32px_rgba(0,198,111,0.35)] hover:shadow-[0_0_48px_rgba(0,198,111,0.55)]"
+              className="px-6 py-3 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition-all"
             >
               View pricing
             </Link>
             <Link
               href="/controller"
-              className="px-6 py-3 rounded-xl border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white transition-all"
+              className="px-6 py-3 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all"
             >
               Controller OS →
             </Link>
@@ -37,7 +37,7 @@ export default function ConnectorPage() {
         </div>
 
         {/* Specs card */}
-        <div className="rounded-2xl border border-white/[0.07] bg-[#0d1321] p-6 font-mono text-sm space-y-2.5">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-6 font-mono text-sm space-y-2.5">
           <div className="text-[11px] uppercase tracking-[0.2em] text-[#00C66F]/60 mb-4">Reference hardware</div>
           {[
             ['Model',     'NanoPi Neo3'],
@@ -62,7 +62,7 @@ export default function ConnectorPage() {
           <h2 className="text-3xl font-bold text-white tracking-tight">What Connector OS does</h2>
         </div>
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="rounded-2xl border border-white/[0.06] bg-[#0d1321] p-6 space-y-3 hover:border-[#00C66F]/15 hover:shadow-[0_0_24px_rgba(0,198,111,0.05)] transition-all">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-6 space-y-3 hover:border-zinc-700 transition-colors">
             <h3 className="text-base font-semibold text-white">Core capabilities</h3>
             <ul className="space-y-2.5 text-sm text-zinc-400">
               {[
@@ -83,7 +83,7 @@ export default function ConnectorPage() {
             </ul>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-[#0d1321] p-6 space-y-3 hover:border-[#00C66F]/15 hover:shadow-[0_0_24px_rgba(0,198,111,0.05)] transition-all">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-6 space-y-3 hover:border-zinc-700 transition-colors">
             <h3 className="text-base font-semibold text-white">UPS compatibility</h3>
             <div className="font-mono text-xs space-y-0">
               <div className="flex gap-3 text-zinc-600 pb-2 border-b border-white/[0.05]">
@@ -112,16 +112,16 @@ export default function ConnectorPage() {
 
       {/* CTA */}
       <section className="py-20">
-        <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-r from-[#0d1321] to-[#090d1a] p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-white">Ready to deploy your first connector?</h2>
             <p className="text-sm text-zinc-400">Flash the image, plug it in, adopt from Controller OS in minutes.</p>
           </div>
           <div className="flex flex-wrap gap-4 shrink-0">
-            <Link href="/pricing" className="px-6 py-3 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_32px_rgba(0,198,111,0.35)]">
+            <Link href="/pricing" className="px-6 py-3 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition-all">
               View pricing
             </Link>
-            <Link href="/docs" className="px-6 py-3 rounded-xl border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white transition-all">
+            <Link href="/docs" className="px-6 py-3 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all">
               Documentation →
             </Link>
           </div>

@@ -56,7 +56,7 @@ function PricingContent() {
     <div className="mx-auto max-w-5xl px-4 md:px-6 pt-16 pb-24 space-y-16">
 
       {success && (
-        <div className="rounded-xl border border-[#00C66F]/30 bg-[#00C66F]/[0.06] px-6 py-4 text-sm text-[#00C66F]">
+        <div className="rounded-lg border border-[#00C66F]/30 bg-[#00C66F]/[0.06] px-6 py-4 text-sm text-[#00C66F]">
           Payment received — your license is active. Check your inbox for the activation email.
         </div>
       )}
@@ -73,7 +73,7 @@ function PricingContent() {
         </p>
 
         {/* Billing toggle */}
-        <div className="inline-flex items-center border border-white/[0.08] rounded-xl overflow-hidden text-sm bg-[#0d1321]">
+        <div className="inline-flex items-center border border-zinc-800 rounded-lg overflow-hidden text-sm bg-zinc-900">
           <button
             onClick={() => setAnnual(false)}
             className={`px-5 py-2.5 transition-all ${!annual ? "bg-[#00C66F]/10 text-[#00C66F]" : "text-zinc-500 hover:text-zinc-300"}`}
@@ -94,10 +94,10 @@ function PricingContent() {
         {plans.map(plan => (
           <div
             key={plan.id}
-            className={`relative rounded-2xl border p-7 flex flex-col gap-6 ${
+            className={`relative rounded-lg border p-7 flex flex-col gap-6 ${
               plan.highlight
-                ? "border-[#00C66F]/30 bg-gradient-to-b from-[#00C66F]/[0.06] to-[#0d1321] shadow-[0_0_48px_rgba(0,198,111,0.07)] overflow-hidden"
-                : "border-white/[0.07] bg-[#0d1321]"
+                ? "border-[#00C66F]/30 bg-zinc-900/60 overflow-hidden"
+                : "border-zinc-800 bg-zinc-900/60"
             }`}
           >
             {plan.highlight && (
@@ -152,7 +152,7 @@ function PricingContent() {
       </div>
 
       {/* Add-on */}
-      <div className="rounded-2xl border border-white/[0.07] bg-[#0d1321] p-7">
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-7">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="text-[11px] uppercase tracking-[0.18em] text-[#00C66F]/60 font-mono">Add-on</div>
@@ -183,7 +183,7 @@ function PricingContent() {
           ["Cancel anytime", "Software keeps working"],
           ["No per-UPS fees", "Flat rate per plan tier"],
         ].map(([title, sub]) => (
-          <div key={title} className="rounded-xl border border-white/[0.06] bg-[#0d1321]/60 p-4 space-y-1">
+          <div key={title} className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 space-y-1">
             <div className="text-zinc-300 font-medium text-sm flex items-center gap-2">
               <span className="text-[#00C66F]">✓</span> {title}
             </div>

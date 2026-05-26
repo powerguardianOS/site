@@ -22,13 +22,13 @@ export default function ControllerPage() {
         <div className="flex flex-wrap gap-4">
           <Link
             href="/pricing"
-            className="px-6 py-3 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_32px_rgba(0,198,111,0.35)] hover:shadow-[0_0_48px_rgba(0,198,111,0.55)]"
+            className="px-6 py-3 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition-all"
           >
             View pricing
           </Link>
           <Link
             href="/connector"
-            className="px-6 py-3 rounded-xl border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white transition-all"
+            className="px-6 py-3 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all"
           >
             Connector OS →
           </Link>
@@ -42,7 +42,7 @@ export default function ControllerPage() {
           <h2 className="text-3xl font-bold text-white tracking-tight">What Controller OS does</h2>
         </div>
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="rounded-2xl border border-white/[0.06] bg-[#0d1321] p-6 space-y-3 hover:border-[#00C66F]/15 hover:shadow-[0_0_24px_rgba(0,198,111,0.05)] transition-all">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-6 space-y-3 hover:border-zinc-700 transition-colors">
             <h3 className="text-base font-semibold text-white">Platform capabilities</h3>
             <ul className="space-y-2.5 text-sm text-zinc-400">
               {[
@@ -65,7 +65,7 @@ export default function ControllerPage() {
             </ul>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-[#0d1321] p-6 space-y-3 hover:border-[#00C66F]/15 hover:shadow-[0_0_24px_rgba(0,198,111,0.05)] transition-all">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-6 space-y-3 hover:border-zinc-700 transition-colors">
             <h3 className="text-base font-semibold text-white">Security model</h3>
             <ul className="space-y-2.5 text-sm text-zinc-400">
               {[
@@ -90,16 +90,16 @@ export default function ControllerPage() {
 
       {/* CTA */}
       <section className="py-20">
-        <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-r from-[#0d1321] to-[#090d1a] p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-white">One control plane for your entire power layer.</h2>
             <p className="text-sm text-zinc-400">Pick a plan and manage UPS devices across every site.</p>
           </div>
           <div className="flex flex-wrap gap-4 shrink-0">
-            <Link href="/pricing" className="px-6 py-3 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_32px_rgba(0,198,111,0.35)]">
+            <Link href="/pricing" className="px-6 py-3 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition-all">
               View pricing
             </Link>
-            <Link href="/connector" className="px-6 py-3 rounded-xl border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white transition-all">
+            <Link href="/connector" className="px-6 py-3 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all">
               Connector OS →
             </Link>
           </div>

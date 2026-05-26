@@ -3,14 +3,15 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import MobileNav from "./components/MobileNav";
 import { NAV_LINKS } from "./lib/nav";
 
-const inter = Inter({
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -76,7 +77,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={ibmPlexSans.variable}>
       <body className="bg-[#060a14] text-[#f0f4ff] antialiased">
         <MobileNav />
 
@@ -108,7 +109,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 </Link>
                 <Link
                   href="/pricing"
-                  className="px-4 py-1.5 rounded-lg bg-[#00C66F] text-black text-sm font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_20px_rgba(0,198,111,0.3)] hover:shadow-[0_0_32px_rgba(0,198,111,0.5)]"
+                  className="px-4 py-1.5 rounded-lg bg-[#00C66F] text-black text-sm font-semibold hover:bg-[#00b564] transition-all"
                 >
                   Get Started →
                 </Link>
