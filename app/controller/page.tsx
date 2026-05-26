@@ -11,8 +11,8 @@ export default function ControllerPage() {
     <div className="max-w-5xl mx-auto px-6">
 
       {/* HERO */}
-      <section className="py-32 max-w-3xl space-y-8">
-        <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-zinc-500">Controller OS</div>
+      <section className="py-28 max-w-3xl space-y-8">
+        <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-[#00C66F]/60">Controller OS</div>
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-[1.1] text-white">
           The central control plane<br />for your power layer.
         </h1>
@@ -22,13 +22,13 @@ export default function ControllerPage() {
         <div className="flex flex-wrap gap-4">
           <Link
             href="/pricing"
-            className="px-6 py-3 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition shadow-[0_0_32px_rgba(0,198,111,0.4)]"
+            className="px-6 py-3 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_32px_rgba(0,198,111,0.35)] hover:shadow-[0_0_48px_rgba(0,198,111,0.55)]"
           >
             View pricing
           </Link>
           <Link
             href="/connector"
-            className="px-6 py-3 rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white transition"
+            className="px-6 py-3 rounded-xl border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white transition-all"
           >
             Connector OS →
           </Link>
@@ -38,11 +38,11 @@ export default function ControllerPage() {
       {/* CAPABILITIES */}
       <section className="py-24 space-y-12">
         <div className="space-y-3">
-          <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500">Capabilities</div>
+          <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Capabilities</div>
           <h2 className="text-3xl font-bold text-white tracking-tight">What Controller OS does</h2>
         </div>
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="border border-zinc-800 bg-zinc-950/50 rounded-lg p-6 space-y-3">
+          <div className="rounded-2xl border border-white/[0.06] bg-[#0d1321] p-6 space-y-3 hover:border-[#00C66F]/15 hover:shadow-[0_0_24px_rgba(0,198,111,0.05)] transition-all">
             <h3 className="text-base font-semibold text-white">Platform capabilities</h3>
             <ul className="space-y-2.5 text-sm text-zinc-400">
               {[
@@ -65,7 +65,7 @@ export default function ControllerPage() {
             </ul>
           </div>
 
-          <div className="border border-zinc-800 bg-zinc-950/50 rounded-lg p-6 space-y-3">
+          <div className="rounded-2xl border border-white/[0.06] bg-[#0d1321] p-6 space-y-3 hover:border-[#00C66F]/15 hover:shadow-[0_0_24px_rgba(0,198,111,0.05)] transition-all">
             <h3 className="text-base font-semibold text-white">Security model</h3>
             <ul className="space-y-2.5 text-sm text-zinc-400">
               {[
@@ -90,16 +90,16 @@ export default function ControllerPage() {
 
       {/* CTA */}
       <section className="py-20">
-        <div className="border border-zinc-800 rounded-lg p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-r from-[#0d1321] to-[#090d1a] p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-white">One control plane for your entire power layer.</h2>
             <p className="text-sm text-zinc-400">Pick a plan and manage UPS devices across every site.</p>
           </div>
           <div className="flex flex-wrap gap-4 shrink-0">
-            <Link href="/pricing" className="px-6 py-3 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition shadow-[0_0_24px_rgba(0,198,111,0.35)]">
+            <Link href="/pricing" className="px-6 py-3 rounded-xl bg-[#00C66F] text-black font-semibold hover:bg-[#00e07d] transition-all shadow-[0_0_32px_rgba(0,198,111,0.35)]">
               View pricing
             </Link>
-            <Link href="/connector" className="px-6 py-3 rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white transition">
+            <Link href="/connector" className="px-6 py-3 rounded-xl border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white transition-all">
               Connector OS →
             </Link>
           </div>

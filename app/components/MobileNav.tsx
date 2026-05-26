@@ -40,7 +40,7 @@ export default function MobileNav() {
   return (
     <>
       {/* MOBILE TOP BAR (only < md) */}
-      <div className="lg:hidden flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#020617]/95 backdrop-blur">
+      <div className="lg:hidden flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-[#060a14]/95 backdrop-blur-xl">
         {/* Brand */}
         <div className="flex items-center space-x-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C66F]/10">
@@ -88,12 +88,12 @@ export default function MobileNav() {
         aria-modal="true"
         aria-label="Navigation menu"
         aria-hidden={!open}
-        className={`fixed top-0 right-0 h-full w-72 bg-[#0E0E0E] border-l border-zinc-800 z-50 transform transition-transform duration-300 lg:hidden ${
+        className={`fixed top-0 right-0 h-full w-72 bg-[#0a0f1e] border-l border-white/[0.07] z-50 transform transition-transform duration-300 lg:hidden ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* HEADER */}
-        <div className="flex items-center justify-between p-6 border-b border-zinc-800">
+        <div className="flex items-center justify-between p-6 border-b border-white/[0.06]">
           <div className="flex items-center space-x-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C66F]/10">
               <Image

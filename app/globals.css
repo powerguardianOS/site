@@ -1,47 +1,63 @@
 /* app/globals.css */
-
-/* 1. Load Tailwind v4 via the PostCSS plugin */
 @import "tailwindcss";
 
-/* 2. Your global theme + layout */
 :root {
-  --pg-bg: #020617;        /* very dark navy */
-  --pg-bg-soft: #020617;
-  --pg-fg: #f9fafb;
+  --pg-bg: #060a14;
+  --pg-bg-soft: #090d1a;
+  --pg-surface: #0d1321;
+  --pg-surface-hover: #111827;
+  --pg-border: rgba(255, 255, 255, 0.07);
+  --pg-border-hover: rgba(255, 255, 255, 0.13);
+  --pg-fg: #f0f4ff;
   --pg-muted: #64748b;
   --pg-accent: #00c66f;
-  --pg-glow: 0 0 35px rgba(0, 198, 111, 0.45);
-  --pg-card-border: 1px solid rgba(255, 255, 255, 0.06);
-  --pg-cta-shadow: 0 0 35px rgba(0, 198, 111, 0.45);
+  --pg-accent-glow: rgba(0, 198, 111, 0.35);
+  --pg-accent-dim: rgba(0, 198, 111, 0.08);
+  --pg-danger: #ef4444;
+  --pg-warning: #f59e0b;
+  --pg-font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --pg-font-mono: var(--font-mono), 'JetBrains Mono', monospace;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  height: 100%;
-}
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; height: 100%; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Segoe UI", sans-serif;
-
-  background-color: #020617;
-
+  font-family: var(--pg-font-sans);
+  background: var(--pg-bg);
   color: var(--pg-fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Optional: smooth scrolling & selection color */
-html {
-  scroll-behavior: smooth;
+/* Glow utilities */
+.pg-glow     { box-shadow: 0 0 32px var(--pg-accent-glow), 0 0 64px rgba(0, 198, 111, 0.15); }
+.pg-glow-sm  { box-shadow: 0 0 16px var(--pg-accent-glow); }
+
+/* Card */
+.pg-card            { background: var(--pg-surface); border: 1px solid var(--pg-border); border-radius: 12px; }
+.pg-card:hover      { border-color: var(--pg-border-hover); }
+
+/* Gradient text (white → green) */
+.pg-gradient-text {
+  background: linear-gradient(135deg, #ffffff 0%, var(--pg-accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-::selection {
-  background: rgba(0, 198, 111, 0.35);
-  color: #f9fafb;
-}
+/* Mono helper */
+.mono { font-family: var(--pg-font-mono); }
+
+/* Bento grid base */
+.pg-bento { display: grid; gap: 1rem; }
+
+/* Selection */
+::selection { background: rgba(0, 198, 111, 0.35); color: #f0f4ff; }
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--pg-bg); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--pg-accent); }
