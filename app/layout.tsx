@@ -104,14 +104,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </nav>
 
               <div className="flex items-center gap-3">
-                <Link href="/account" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
-                  Account
-                </Link>
                 <Link
                   href="/pricing"
-                  className="px-4 py-1.5 rounded-lg bg-[#00C66F] text-black text-sm font-semibold hover:bg-[#00b564] transition-all"
+                  className="px-4 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 text-sm font-medium hover:border-zinc-600 hover:text-zinc-300 transition-all"
                 >
-                  Get Started →
+                  Pricing
                 </Link>
               </div>
             </div>

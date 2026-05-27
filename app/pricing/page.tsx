@@ -1,7 +1,5 @@
 "use client";
 import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import StripeCheckoutButton from '../components/StripeCheckoutButton';
 import Link from "next/link";
 
 const plans = [
@@ -49,17 +47,15 @@ const plans = [
 
 function PricingContent() {
   const [annual, setAnnual] = useState(false);
-  const params = useSearchParams();
-  const success = params.get("success") === "1";
 
   return (
     <div className="mx-auto max-w-5xl px-4 md:px-6 pt-16 pb-24 space-y-16">
 
-      {success && (
-        <div className="rounded-lg border border-[#00C66F]/30 bg-[#00C66F]/[0.06] px-6 py-4 text-sm text-[#00C66F]">
-          Payment received — your license is active. Check your inbox for the activation email.
-        </div>
-      )}
+      {/* Development banner */}
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 px-5 py-3.5 text-sm text-zinc-400 flex items-center gap-3">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+        PowerGuardian is currently in development — pricing is indicative and subject to change.
+      </div>
 
       {/* Header */}
       <div className="space-y-6">
@@ -117,6 +113,7 @@ function PricingContent() {
             </div>
 
             <div>
+              <div className="text-[10px] font-mono text-zinc-600 mb-0.5 uppercase tracking-wider">Estimated pricing</div>
               <div className="flex items-end gap-1">
                 <span className="text-4xl font-bold text-white">
                   €{annual ? plan.annualMonthly : plan.monthly}
@@ -146,7 +143,12 @@ function PricingContent() {
               ))}
             </ul>
 
-            <StripeCheckoutButton plan={plan.id as 'home' | 'pro'} annual={annual} highlight={plan.highlight} />
+            <button
+              disabled
+              className="w-full py-2.5 px-4 rounded-lg border border-zinc-700 text-zinc-500 text-sm font-medium cursor-not-allowed"
+            >
+              Not yet available
+            </button>
           </div>
         ))}
       </div>
@@ -161,16 +163,21 @@ function PricingContent() {
               Extend an existing Home or Pro license with one additional connector slot.
             </p>
             <div className="flex items-baseline gap-2 pt-1">
+              <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-0.5">Estimated</div>
+            </div>
+            <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-white">€2.99</span>
               <span className="text-zinc-500 text-sm">/mo</span>
               <span className="text-zinc-600 text-xs">or €25 one-time</span>
             </div>
           </div>
-          <div className="flex flex-col gap-3 w-full md:w-56 shrink-0">
-            <StripeCheckoutButton plan="addon_connector" annual={annual} />
-            <Link href="/account" className="text-xs text-zinc-500 hover:text-zinc-300 text-center transition-colors">
-              Manage existing license →
-            </Link>
+          <div className="w-full md:w-56 shrink-0">
+            <button
+              disabled
+              className="w-full py-2.5 px-4 rounded-lg border border-zinc-700 text-zinc-500 text-sm font-medium cursor-not-allowed"
+            >
+              Not yet available
+            </button>
           </div>
         </div>
       </div>
