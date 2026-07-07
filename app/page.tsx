@@ -37,16 +37,25 @@ function StatusRow({
 
 export default function HomePage() {
   return (
-    <div className="max-w-5xl mx-auto px-6">
+    <div className="relative overflow-hidden">
+
+      {/* Ambient hero glow — full-bleed, behind everything */}
+      <div className="pg-ambient pg-ambient-hero" style={{ height: 820 }} />
+
+      <div className="relative z-10 max-w-5xl mx-auto px-6">
 
       {/* HERO */}
       <section className="py-28 grid lg:grid-cols-2 gap-16 items-center">
         <div className="space-y-8">
-          <div className="text-[11px] font-mono uppercase tracking-[0.28em] text-[#00C66F]/65">
-            UPS Orchestration Platform
+          <div className="inline-flex items-center gap-2">
+            <span className="w-1 h-1 rounded-full bg-[#00C66F] shadow-[0_0_6px_rgba(0,198,111,0.8)]" />
+            <span className="text-[11px] font-mono uppercase tracking-[0.26em] text-zinc-500">
+              UPS Orchestration Platform
+            </span>
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight leading-[1.05] text-white">
-            Power protection,<br />under your control.
+          <h1 className="pg-display text-[3.5rem] md:text-[4.75rem] text-white">
+            Power protection,<br />
+            <em className="text-zinc-400">under your control.</em>
           </h1>
           <p className="text-lg text-zinc-400 leading-relaxed max-w-md">
             Replace scattered NUT configs and manual shutdown scripts with a single self-hosted control plane. Built for homelabs and server rooms that can&apos;t afford unplanned downtime.
@@ -54,13 +63,13 @@ export default function HomePage() {
           <div className="flex flex-wrap gap-4">
             <Link
               href="/pricing"
-              className="px-7 py-3.5 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition-all"
+              className="pg-btn-primary px-7 py-3.5 rounded-lg font-semibold"
             >
               View pricing
             </Link>
             <Link
               href="/docs"
-              className="px-7 py-3.5 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all"
+              className="px-7 py-3.5 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200 hover:border-zinc-700 transition-all"
             >
               Documentation →
             </Link>
@@ -68,7 +77,7 @@ export default function HomePage() {
         </div>
 
         {/* Dashboard mockup */}
-        <div className="rounded-2xl border border-white/[0.07] bg-[#0d1321] overflow-hidden shadow-[0_0_60px_rgba(0,198,111,0.07)]">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0d1321] overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,198,111,0.28),0_0_0_1px_rgba(0,198,111,0.05)]">
           <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-[#090d1a]">
             <span className="font-mono text-xs text-zinc-500">PowerGuardian · Dashboard</span>
             <span className="flex items-center gap-1.5 font-mono text-[11px] text-[#00C66F]">
@@ -111,7 +120,7 @@ export default function HomePage() {
       <section className="py-24 space-y-12">
         <div className="space-y-3">
           <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Core capabilities</div>
-          <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Everything the manual never covered</h2>
+          <h2 className="pg-display text-4xl md:text-5xl text-white">Everything the manual never covered</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
           {[
@@ -131,13 +140,10 @@ export default function HomePage() {
               tags: ['USB HID', 'SNMP v1/v2c/v3', 'NMC'],
             },
           ].map(f => (
-            <div
-              key={f.title}
-              className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-6 space-y-4 hover:border-zinc-700 transition-colors"
-            >
+            <div key={f.title} className="pg-feature p-6 space-y-4">
               <h3 className="text-base font-semibold text-white">{f.title}</h3>
               <p className="text-sm text-zinc-400 leading-relaxed">{f.body}</p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 pt-1">
                 {f.tags.map(t => (
                   <span key={t} className="text-[10px] font-mono border border-[#00C66F]/20 text-[#00C66F]/70 px-2 py-0.5 rounded-md bg-[#00C66F]/[0.04]">
                     {t}
@@ -153,8 +159,8 @@ export default function HomePage() {
       <section className="py-24 grid lg:grid-cols-2 gap-16 items-center">
         <div className="space-y-6">
           <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Architecture</div>
-          <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-            Two components.<br />One control plane.
+          <h2 className="pg-display text-4xl md:text-5xl text-white">
+            Two components.<br /><em className="text-zinc-400">One control plane.</em>
           </h2>
           <p className="text-base text-zinc-400 leading-relaxed">
             A <strong className="text-zinc-200">Connector</strong> sits next to each UPS and handles low-level communication — USB, SNMP, NMC. A <strong className="text-zinc-200">Controller</strong> aggregates all connectors, runs the rule engine, and exposes the dashboard. Both run on your hardware.
@@ -194,21 +200,27 @@ export default function HomePage() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="py-32 text-center space-y-6 max-w-2xl mx-auto">
-        <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight">
-          Ready to take control of your power layer?
-        </h2>
-        <p className="text-lg text-zinc-400">
-          Self-hosted. No per-device fees. Runs on €30 hardware.
-        </p>
-        <Link
-          href="/pricing"
-          className="inline-block px-9 py-4 rounded-lg bg-[#00C66F] text-black font-semibold hover:bg-[#00b564] transition-all"
-        >
-          View pricing →
-        </Link>
+      <section className="py-28">
+        <div className="relative overflow-hidden rounded-3xl border border-[#00C66F]/15 bg-gradient-to-b from-[#0b1120] to-[#070b14] px-6 py-20 text-center">
+          <div className="pg-ambient pg-ambient-cta" />
+          <div className="relative z-10 space-y-6 max-w-2xl mx-auto">
+            <h2 className="pg-display text-5xl md:text-6xl text-white">
+              Ready to take control of your <em className="text-[#00C66F]">power layer?</em>
+            </h2>
+            <p className="text-lg text-zinc-400">
+              Self-hosted. No per-device fees. Runs on €30 hardware.
+            </p>
+            <Link
+              href="/pricing"
+              className="pg-btn-primary inline-block px-9 py-4 rounded-lg font-semibold"
+            >
+              View pricing →
+            </Link>
+          </div>
+        </div>
       </section>
 
+      </div>
     </div>
   )
 }

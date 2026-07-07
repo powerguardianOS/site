@@ -17,7 +17,17 @@
   --pg-warning: #f59e0b;
   --pg-font-sans: var(--font-sans), system-ui, -apple-system, sans-serif;
   --pg-font-mono: var(--font-mono), 'JetBrains Mono', monospace;
+  --pg-font-display: var(--font-display), Georgia, 'Times New Roman', serif;
 }
+
+/* Editorial serif display — tight, refined, restrained */
+.pg-display {
+  font-family: var(--pg-font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.02;
+}
+.pg-display em, .pg-display .italic { font-style: italic; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; height: 100%; }
@@ -34,6 +44,63 @@ body {
 /* Glow utilities */
 .pg-glow     { box-shadow: 0 0 32px var(--pg-accent-glow), 0 0 64px rgba(0, 198, 111, 0.15); }
 .pg-glow-sm  { box-shadow: 0 0 16px var(--pg-accent-glow); }
+
+/* Ambient radial glow layer — sits behind content, no interaction */
+.pg-ambient { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.pg-ambient-hero {
+  background:
+    radial-gradient(680px circle at 84% 8%, rgba(0, 198, 111, 0.06), transparent 64%),
+    radial-gradient(560px circle at 4% 30%, rgba(70, 110, 220, 0.035), transparent 60%);
+}
+.pg-ambient-cta {
+  background: radial-gradient(760px circle at 50% 40%, rgba(0, 198, 111, 0.055), transparent 68%);
+}
+
+/* Faint dot-grid texture for section rhythm */
+.pg-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 75%);
+}
+
+/* Premium feature card — gradient-border reveal + lift + glow on hover */
+.pg-feature {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  border: 1px solid var(--pg-border);
+  border-radius: 14px;
+  transition: border-color .28s ease, transform .28s ease, box-shadow .28s ease;
+}
+.pg-feature:hover {
+  border-color: rgba(0, 198, 111, 0.30);
+  transform: translateY(-3px);
+  box-shadow: 0 14px 44px -18px rgba(0, 198, 111, 0.35);
+}
+.pg-feature::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 14px;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(0, 198, 111, 0.55), transparent 45%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity .28s ease;
+}
+.pg-feature:hover::before { opacity: 1; }
+
+/* Primary button with accent glow */
+.pg-btn-primary {
+  background: var(--pg-accent);
+  color: #04140c;
+  box-shadow: 0 0 0 0 rgba(0, 198, 111, 0.0);
+  transition: background .2s ease, box-shadow .25s ease, transform .15s ease;
+}
+.pg-btn-primary:hover {
+  background: #12d47f;
+  box-shadow: 0 10px 34px -10px rgba(0, 198, 111, 0.6);
+  transform: translateY(-1px);
+}
 
 /* Card */
 .pg-card            { background: var(--pg-surface); border: 1px solid var(--pg-border); border-radius: 8px; }

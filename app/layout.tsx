@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { IBM_Plex_Sans } from "next/font/google";
+import { IBM_Plex_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import MobileNav from "./components/MobileNav";
 import { NAV_LINKS } from "./lib/nav";
@@ -12,6 +12,16 @@ const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+// Editorial serif for display headlines — the deliberate typographic choice that
+// separates a considered brand from the default dark-SaaS template look.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -77,7 +87,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={ibmPlexSans.variable}>
+    <html lang="en" className={`${ibmPlexSans.variable} ${fraunces.variable}`}>
       <body className="bg-[#060a14] text-[#f0f4ff] antialiased">
         <MobileNav />
 
