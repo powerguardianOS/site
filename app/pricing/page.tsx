@@ -60,8 +60,8 @@ function PricingContent() {
       {/* Header */}
       <div className="space-y-6">
         <div className="text-[11px] uppercase tracking-[0.2em] text-[#00C66F]/60 font-mono">Pricing</div>
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">
-          Simple. No per-device fees.
+        <h1 className="pg-display text-5xl md:text-6xl text-white">
+          Simple. <em className="text-zinc-400">No per-device fees.</em>
         </h1>
         <p className="text-zinc-400 text-sm max-w-xl leading-relaxed">
           One license covers the Controller and all Connectors up to your plan limit.
@@ -90,10 +90,10 @@ function PricingContent() {
         {plans.map(plan => (
           <div
             key={plan.id}
-            className={`relative rounded-lg border p-7 flex flex-col gap-6 ${
+            className={`relative rounded-2xl border p-8 flex flex-col gap-6 overflow-hidden transition-all ${
               plan.highlight
-                ? "border-[#00C66F]/30 bg-zinc-900/60 overflow-hidden"
-                : "border-zinc-800 bg-zinc-900/60"
+                ? "border-[#00C66F]/25 bg-gradient-to-b from-[#00C66F]/[0.05] to-[#0b1120] shadow-[0_20px_60px_-25px_rgba(0,198,111,0.4)]"
+                : "border-white/[0.08] bg-gradient-to-b from-white/[0.02] to-transparent"
             }`}
           >
             {plan.highlight && (
@@ -102,7 +102,7 @@ function PricingContent() {
 
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">{plan.name}</h2>
+                <h2 className="pg-display text-3xl text-white">{plan.name}</h2>
                 {plan.highlight && (
                   <span className="text-[10px] border border-[#00C66F]/30 text-[#00C66F] px-2.5 py-0.5 rounded-lg font-mono bg-[#00C66F]/[0.05]">
                     MOST POPULAR
@@ -113,12 +113,12 @@ function PricingContent() {
             </div>
 
             <div>
-              <div className="text-[10px] font-mono text-zinc-600 mb-0.5 uppercase tracking-wider">Estimated pricing</div>
-              <div className="flex items-end gap-1">
-                <span className="text-4xl font-bold text-white">
+              <div className="text-[10px] font-mono text-zinc-600 mb-1 uppercase tracking-wider">Estimated pricing</div>
+              <div className="flex items-end gap-1.5">
+                <span className="pg-display text-6xl text-white leading-none">
                   €{annual ? plan.annualMonthly : plan.monthly}
                 </span>
-                <span className="text-zinc-500 text-base mb-1">/mo</span>
+                <span className="text-zinc-500 text-base mb-1.5">/mo</span>
               </div>
               {annual && (
                 <p className="text-xs text-zinc-500 mt-0.5">billed as €{plan.annual}/yr</p>
@@ -154,11 +154,11 @@ function PricingContent() {
       </div>
 
       {/* Add-on */}
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-7">
+      <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.02] to-transparent p-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="text-[11px] uppercase tracking-[0.18em] text-[#00C66F]/60 font-mono">Add-on</div>
-            <h3 className="text-base font-semibold text-white">Extra Connector</h3>
+            <h3 className="pg-display text-2xl text-white">Extra Connector</h3>
             <p className="text-sm text-zinc-400 max-w-sm">
               Extend an existing Home or Pro license with one additional connector slot.
             </p>
@@ -166,7 +166,7 @@ function PricingContent() {
               <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-0.5">Estimated</div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-white">€2.99</span>
+              <span className="pg-display text-4xl text-white">€2.99</span>
               <span className="text-zinc-500 text-sm">/mo</span>
               <span className="text-zinc-600 text-xs">or €25 one-time</span>
             </div>
@@ -190,7 +190,7 @@ function PricingContent() {
           ["Cancel anytime", "Software keeps working"],
           ["No per-UPS fees", "Flat rate per plan tier"],
         ].map(([title, sub]) => (
-          <div key={title} className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 space-y-1">
+          <div key={title} className="rounded-xl border border-white/[0.07] bg-gradient-to-b from-white/[0.02] to-transparent p-4 space-y-1">
             <div className="text-zinc-300 font-medium text-sm flex items-center gap-2">
               <span className="text-[#00C66F]">✓</span> {title}
             </div>

@@ -30,14 +30,14 @@ export default function DocsPage() {
         {/* Content */}
         <main className="space-y-16">
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight">Documentation</h1>
+            <h1 className="pg-display text-5xl text-white">Documentation</h1>
             <p className="text-zinc-400">Technical reference for all PowerGuardian components.</p>
           </div>
 
           {DOCS.map((doc) => (
             <section key={doc.slug} id={doc.slug} className="space-y-6 scroll-mt-8">
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">{doc.title}</h2>
+                <h2 className="pg-display text-3xl text-white">{doc.title}</h2>
                 <p className="text-zinc-400 leading-relaxed">{doc.intro}</p>
               </div>
 

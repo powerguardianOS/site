@@ -10,7 +10,7 @@ export default function RoadmapPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 space-y-12 md:space-y-16">
       <section className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Roadmap</h1>
+        <h1 className="pg-display text-5xl text-white">Roadmap</h1>
         <p className="text-sm md:text-base text-zinc-400 max-w-2xl">
           PowerGuardian ships as a self-hosted appliance with a SaaS license.
           Here's what's live today and where we're taking it next.
@@ -61,8 +61,8 @@ export default function RoadmapPage() {
         />
       </section>
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
+      <section className="rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.02] to-transparent p-6 space-y-3">
+        <h2 className="pg-display text-2xl md:text-3xl text-white">
           Shaped by real infrastructure
         </h2>
         <p className="text-sm text-zinc-400 max-w-3xl">
@@ -88,7 +88,7 @@ function RoadmapCard(props: {
   items: string[];
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-5 space-y-3">
+    <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.02] to-transparent p-5 space-y-3">
       <div
         className="text-xs font-semibold uppercase tracking-[0.18em]"
         style={{ color: props.accent }}
