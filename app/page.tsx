@@ -1,39 +1,5 @@
 import Link from 'next/link'
-
-function StatusRow({
-  name, status, battery,
-}: {
-  name: string
-  status: 'OL' | 'OB' | 'OB LB'
-  battery: number
-}) {
-  const ok   = status === 'OL'
-  const warn = status === 'OB'
-  return (
-    <div className={`flex items-center justify-between rounded-lg px-4 py-3 border ${
-      ok   ? 'bg-[#00C66F]/[0.04] border-[#00C66F]/20'
-      : warn ? 'bg-amber-950/30 border-amber-900/30'
-      : 'bg-red-950/30 border-red-900/30'
-    }`}>
-      <div className="flex items-center gap-3">
-        <span className={`w-2 h-2 rounded-full shrink-0 ${
-          ok   ? 'bg-[#00C66F] animate-pulse shadow-[0_0_8px_rgba(0,198,111,0.8)]'
-          : warn ? 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.7)]'
-          : 'bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.7)] animate-pulse'
-        }`} />
-        <span className={`text-sm ${ok ? 'text-zinc-200' : warn ? 'text-amber-200' : 'text-red-200'}`}>{name}</span>
-      </div>
-      <div className="flex items-center gap-3 font-mono text-xs">
-        <span className={`px-2 py-0.5 rounded-md border ${
-          ok   ? 'border-[#00C66F]/25 text-[#00C66F]'
-          : warn ? 'border-amber-800/50 text-amber-400'
-          : 'border-red-800/50 text-red-400'
-        }`}>{status}</span>
-        <span className={ok ? 'text-zinc-500' : warn ? 'text-amber-400' : 'text-red-400'}>{battery}%</span>
-      </div>
-    </div>
-  )
-}
+import Image from 'next/image'
 
 export default function HomePage() {
   return (
@@ -76,31 +42,18 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Dashboard mockup */}
-        <div className="rounded-2xl border border-white/[0.08] bg-[#0d1321] overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,198,111,0.28),0_0_0_1px_rgba(0,198,111,0.05)]">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-[#090d1a]">
-            <span className="font-mono text-xs text-zinc-500">PowerGuardian · Dashboard</span>
-            <span className="flex items-center gap-1.5 font-mono text-[11px] text-[#00C66F]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00C66F] animate-pulse" />
-              3 online
-            </span>
-          </div>
-          <div className="p-4 space-y-2">
-            <StatusRow name="Main UPS"   status="OL"    battery={98} />
-            <StatusRow name="Rack UPS"   status="OL"    battery={87} />
-            <StatusRow name="Backup UPS" status="OB LB" battery={14} />
-          </div>
-          <div className="px-4 pb-4 border-t border-white/[0.05] pt-3 mt-1 space-y-1.5">
-            {[
-              { t: '09:14', m: 'Backup UPS — battery critical, shutdown queued', c: 'text-red-400' },
-              { t: '09:12', m: 'nas-01 — graceful shutdown via SSH',              c: 'text-amber-400' },
-              { t: '09:10', m: 'rack-02 — connector adopted',                     c: 'text-zinc-600' },
-            ].map(e => (
-              <div key={e.t} className="flex gap-3 font-mono text-[10px]">
-                <span className="text-zinc-700 shrink-0">{e.t}</span>
-                <span className={e.c}>{e.m}</span>
-              </div>
-            ))}
+        {/* Real product screenshot — framed as an app window */}
+        <div className="relative lg:-mr-8 xl:-mr-16">
+          <div className="pointer-events-none absolute -inset-10 -z-10"
+            style={{ background: "radial-gradient(closest-side, rgba(0,198,111,0.12), transparent 70%)" }} />
+          <div className="rounded-xl border border-white/[0.08] bg-[#0b0f18] overflow-hidden shadow-[0_40px_100px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(0,198,111,0.05)]">
+            <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-white/[0.06] bg-[#080c14]">
+              <span className="w-2.5 h-2.5 rounded-full bg-white/[0.09]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-white/[0.09]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-white/[0.09]" />
+              <span className="ml-3 font-mono text-[11px] text-zinc-600">app.powerguardian.cloud</span>
+            </div>
+            <Image src="/product-overview.png" alt="PowerGuardian control-plane dashboard" width={1440} height={900} priority className="w-full h-auto" />
           </div>
         </div>
       </section>
