@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith('/account')) {
+  if (pathname.startsWith('/account') || pathname.startsWith('/admin')) {
     const session = request.cookies.get('pg_session')?.value;
     if (!session) {
       return NextResponse.redirect(new URL('/login', request.url));
@@ -16,5 +16,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/account', '/account/:path*'],
+  matcher: ['/account', '/account/:path*', '/admin', '/admin/:path*'],
 };

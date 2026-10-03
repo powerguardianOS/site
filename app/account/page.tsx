@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { getAccountSummary, getLicensesByEmail } from '@/app/lib/license-db';
 import UnderlicensedBanner from './components/UnderlicensedBanner';
+import OpenConsoleButton from './components/OpenConsoleButton';
 import { getSession } from '@/app/lib/session';
 
 export const runtime = 'edge';
@@ -53,13 +54,7 @@ export default async function AccountPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   {lic.status === 'active' && (lic.plan === 'pro' || lic.plan === 'founder') ? (
-                    <a
-                      href={`https://pg-relay.powerguardian.workers.dev/console/${lic.token}`}
-                      target="_blank"
-                      className="text-[#00C66F] hover:underline"
-                    >
-                      Open Console →
-                    </a>
+                    <OpenConsoleButton licenseId={lic.id} />
                   ) : lic.plan === 'home' ? (
                     <span className="text-zinc-500">
                       Pro feature — upgrade to unlock
