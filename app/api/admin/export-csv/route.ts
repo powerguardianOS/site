@@ -2,10 +2,14 @@ import { NextRequest } from 'next/server';
 import { getAccounts } from '@/app/lib/accounts';
 import { getLicenses } from '@/app/lib/license-db';
 import type { LicenseRecord } from '@/app/lib/license-db';
+import { getAdminEmail } from '@/app/lib/admin';
 
 export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
+  if (!(await getAdminEmail())) {
+    return new Response('Unauthorized', { status: 401 });
+  }
   try {
     const [accounts, licenses] = await Promise.all([getAccounts(), getLicenses()]);
 

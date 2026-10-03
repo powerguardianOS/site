@@ -1,5 +1,6 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
+import { getLicenseByEmail } from '@/app/lib/license-db';
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
@@ -46,7 +47,20 @@ export async function POST(req: NextRequest) {
     if (stored !== code) {
       return NextResponse.json({ valid: false }, { status: 401 });
     }
-    return NextResponse.json({ valid: true });
+    // The license (incl. its relay token) is only ever handed out here, to the
+    // caller who just proved control of the mailbox. There is deliberately no
+    // separate unauthenticated lookup-by-email endpoint.
+    const license = await getLicenseByEmail(email);
+    if (!license) {
+      return NextResponse.json({ valid: false }, { status: 404 });
+    }
+    return NextResponse.json({
+      valid: true,
+      plan: license.plan,
+      connector_limit: license.connector_limit,
+      expires_at: license.expires_at,
+      token: license.token,
+    });
   } catch {
     return NextResponse.json({ valid: false }, { status: 401 });
   }

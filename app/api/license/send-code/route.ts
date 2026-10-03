@@ -30,7 +30,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'no_license' }, { status: 404 });
   }
 
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const code = (100000 + (buf[0] % 900000)).toString();
   const expires = Date.now() + 15 * 60 * 1000;
   await kvPut(`otp:${email.toLowerCase()}`, JSON.stringify({ code, expires }));
 
