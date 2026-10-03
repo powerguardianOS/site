@@ -57,7 +57,8 @@ export async function getLicensesByEmail(email: string): Promise<LicenseRecord[]
 export async function getAccountSummary(email: string): Promise<{email: string, licenses: LicenseRecord[], total_connectors: number, total_sites: number}> {
   const licenses = await getLicensesByEmail(email);
   const total_connectors = licenses.reduce((sum, l) => sum + l.connector_limit, 0);
-  const site_ids = new Set(licenses.map(l => l.site_id));
+  // Add-on licenses extend a site's connector allowance; they are not sites.
+  const site_ids = new Set(licenses.filter(l => l.plan !== 'addon_connector').map(l => l.id));
   return {
     email,
     licenses,
