@@ -62,8 +62,10 @@ export function buildTenants(
 
   return emails.map((email) => {
     const lics = (byEmail.get(email) ?? []).sort((a, b) => b.created_at.localeCompare(a.created_at));
+    // Which license stands for the tenant: healthiest first, then the highest tier.
+    const tier = { founder: 0, pro: 1, home: 2, addon_connector: 3 } as const;
     const rank = (l: LicenseRecord) =>
-      ({ active: 0, expiring: 1, expired: 2, revoked: 3, none: 4 })[licenseState(l, now)] + (l.plan === 'addon_connector' ? 10 : 0);
+      ({ active: 0, expiring: 1, expired: 2, revoked: 3, none: 4 })[licenseState(l, now)] * 10 + tier[l.plan] + (l.plan === 'addon_connector' ? 100 : 0);
     const best = [...lics].sort((a, b) => rank(a) - rank(b))[0] ?? null;
 
     // An add-on license extends a site's connector allowance; it is not a site.

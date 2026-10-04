@@ -2,13 +2,16 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { loadTenants, deleteBlocker } from '@/app/lib/tenants';
+import { loadTenants, deleteBlocker, licenseState } from '@/app/lib/tenants';
 import type { Site } from '@/app/lib/tenants';
+import type { LicenseRecord } from '@/app/lib/license-db';
 import { ago, dateLabel, runtimeLabel } from '../../format';
 import { LicenseCard } from './LicenseCard';
 import { DeleteTenant } from './DeleteTenant';
 
-function power(raw: string): { label: string; text: string; dot: string; shape: string } {
+type Tone = { label: string; text: string; dot: string; shape: string };
+
+function power(raw: string): Tone {
   const s = raw.toUpperCase().split(/\s+/);
   if (!raw) return { label: 'No UPS data', text: 'text-zinc-500', dot: 'bg-zinc-600', shape: 'rounded-full' };
   if (s.includes('LB')) return { label: 'Low battery', text: 'text-red-300', dot: 'bg-red-400', shape: 'rounded-[2px]' };
@@ -18,28 +21,37 @@ function power(raw: string): { label: string; text: string; dot: string; shape: 
   return { label: raw, text: 'text-zinc-400', dot: 'bg-zinc-500', shape: 'rounded-full' };
 }
 
-function SiteCard({ site }: { site: Site }) {
-  const s = site.status;
+// One card per site: the site's live state and devices, with its license (one
+// license per site) underneath — they are the same thing, so they sit together.
+function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
+  const s = site?.status ?? null;
+  const lic = licenseState(license);
   const worst = s?.devices.map((d) => power(d.ups_status)).find((p) => p.shape === 'rounded-[2px]');
-  const state = !s ? { label: 'Never connected', text: 'text-zinc-400', dot: 'bg-zinc-500', shape: 'rounded-full' }
-    : !site.online ? { label: 'Offline', text: 'text-zinc-400', dot: 'bg-zinc-500', shape: 'rounded-full' }
-    : worst ? { label: worst.label, text: worst.text, dot: worst.dot, shape: worst.shape }
-    : { label: 'Online', text: 'text-green-300', dot: 'bg-green-400', shape: 'rounded-full' };
+
+  const state: Tone =
+    lic === 'revoked' ? { label: 'License revoked', text: 'text-zinc-400', dot: 'bg-zinc-500', shape: 'rounded-none' }
+    : lic === 'expired' ? { label: 'License expired', text: 'text-amber-300', dot: 'bg-amber-400', shape: 'rounded-[2px]' }
+    : !s ? { label: 'Never connected', text: 'text-zinc-400', dot: 'bg-zinc-500', shape: 'rounded-full' }
+    : !site?.online ? { label: 'Offline', text: 'text-zinc-400', dot: 'bg-zinc-500', shape: 'rounded-full' }
+    : worst ?? { label: 'Online', text: 'text-green-300', dot: 'bg-green-400', shape: 'rounded-full' };
 
   return (
     <section className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 ${state.dot} ${state.shape}`} />
-            <h2 className="text-base font-semibold">{s?.site_name ?? 'Waiting for first connection'}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <span className={`h-2.5 w-2.5 shrink-0 ${state.dot} ${state.shape}`} />
+            <h2 className="text-base font-semibold text-white">{s?.site_name ?? (lic === 'revoked' ? 'Former site' : 'New site')}</h2>
             <span className={`text-sm ${state.text}`}>{state.label}</span>
           </div>
-          <p className="mt-0.5 text-xs text-zinc-500">
-            {s ? `Controller ${s.controller_version || '—'} · heartbeat ${ago(s.received_at)}` : 'Link the license on the controller (Settings → License).'}
+          <p className="mt-1 text-xs text-zinc-500">
+            {s ? `Controller ${s.controller_version || '—'} · last heartbeat ${ago(s.received_at)}`
+              : lic === 'revoked' ? 'This site’s license is revoked, so its controller is no longer allowed.'
+              : 'Waiting for the controller — link the license there (Settings → License).'}
+            {' · '}created {dateLabel(license.created_at)}
           </p>
         </div>
-        <button type="button" disabled className="cursor-not-allowed rounded-lg border border-dashed border-zinc-700 px-3 py-1.5 text-xs text-zinc-500">
+        <button type="button" disabled className="h-8 cursor-not-allowed rounded-lg border border-dashed border-zinc-700 px-3 text-xs text-zinc-500">
           Open console · needs a support grant (soon)
         </button>
       </div>
@@ -48,7 +60,13 @@ function SiteCard({ site }: { site: Site }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-sm">
             <thead className="border-b border-zinc-800 text-left text-xs uppercase tracking-wider text-zinc-500">
-              <tr>{['Device', 'Power', 'Battery', 'Load', 'Runtime'].map((h) => <th key={h} className="py-2 pr-4 font-medium">{h}</th>)}</tr>
+              <tr>
+                <th className="w-[34%] py-2 pr-4 font-medium">Device</th>
+                <th className="w-[26%] py-2 pr-4 font-medium">Power</th>
+                <th className="py-2 pr-4 font-medium">Battery</th>
+                <th className="py-2 pr-4 font-medium">Load</th>
+                <th className="py-2 font-medium">Runtime</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
               {s.devices.map((d, i) => {
@@ -59,7 +77,7 @@ function SiteCard({ site }: { site: Site }) {
                     <td className={`py-2.5 pr-4 ${p.text}`}><span className="inline-flex items-center gap-1.5"><span className={`h-2 w-2 ${p.dot} ${p.shape}`} />{p.label}</span></td>
                     <td className="py-2.5 pr-4 text-zinc-300">{d.ups_status ? `${Math.round(d.battery_pct)}%` : '—'}</td>
                     <td className="py-2.5 pr-4 text-zinc-300">{d.ups_status ? `${Math.round(d.load_pct)}%` : '—'}</td>
-                    <td className="py-2.5 pr-4 text-zinc-300">{d.ups_status ? runtimeLabel(d.runtime_sec) : '—'}</td>
+                    <td className="py-2.5 text-zinc-300">{d.ups_status ? runtimeLabel(d.runtime_sec) : '—'}</td>
                   </tr>
                 );
               })}
@@ -67,7 +85,17 @@ function SiteCard({ site }: { site: Site }) {
           </table>
         </div>
       )}
-      {s && s.devices.length === 0 && <p className="text-xs text-zinc-500">No devices adopted on this controller yet.</p>}
+      {s && s.devices.length === 0 && <p className="text-xs text-zinc-500">No connectors reporting on this controller yet.</p>}
+
+      {/* Deliberately no `token` prop: the license token is never rendered anywhere. */}
+      <LicenseCard
+        key={`${license.id}-${license.plan}-${license.status}-${license.connector_limit}-${license.expires_at}`}
+        connectorsUsed={s?.devices.length ?? 0}
+        license={{
+          id: license.id, plan: license.plan, status: license.status, connector_limit: license.connector_limit,
+          expires_at: license.expires_at, notes: license.notes, created_at: license.created_at,
+        }}
+      />
     </section>
   );
 }
@@ -87,61 +115,71 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
     );
   }
 
+  // One license per site, oldest first. Legacy add-on records are not sites.
+  const siteLicenses = tenant.licenses.filter((l) => l.plan !== 'addon_connector').sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const legacyAddons = tenant.licenses.filter((l) => l.plan === 'addon_connector');
   const lic = tenant.best;
   const badge = { active: 'text-green-300', expiring: 'text-amber-300', expired: 'text-amber-300', revoked: 'text-zinc-400', none: 'text-zinc-500' }[tenant.state];
+  const adminAccount = !!process.env.ADMIN_EMAIL && tenant.email === process.env.ADMIN_EMAIL.toLowerCase();
 
   return (
-    <div className="space-y-5">
+    <div className="max-w-4xl space-y-6">
       <div>
         <Link href="/admin/tenants" className="text-xs text-zinc-500 hover:text-zinc-300">← Tenants</Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="break-all text-2xl font-semibold">{tenant.email}</h1>
           {lic && <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs uppercase text-zinc-300">{lic.plan}</span>}
           <span className={`text-sm capitalize ${badge}`}>{tenant.state === 'none' ? 'No license' : `License ${tenant.state}`}</span>
           {tenant.onBattery + tenant.lowBattery > 0 && <span className="text-sm text-amber-300">{tenant.onBattery + tenant.lowBattery} device on battery</span>}
         </div>
         <p className="mt-1 text-xs text-zinc-500">
-          {tenant.registeredAt ? `Registered ${dateLabel(tenant.registeredAt)}` : 'Not registered yet'} · {tenant.licenses.length} license{tenant.licenses.length === 1 ? '' : 's'} · {tenant.sites.length} site{tenant.sites.length === 1 ? '' : 's'}
+          {tenant.registeredAt ? `Registered ${dateLabel(tenant.registeredAt)}` : 'Not registered yet'} · {siteLicenses.length} site{siteLicenses.length === 1 ? '' : 's'}
         </p>
       </div>
 
-      <div className="grid items-start gap-4 lg:grid-cols-5">
-        <div className="space-y-4 lg:col-span-3">
-          <h2 className="text-sm font-semibold text-zinc-300">Sites</h2>
-          {tenant.sites.length === 0
-            ? <p className="rounded-xl border border-zinc-800 p-6 text-center text-sm text-zinc-500">No site yet: this tenant has no active license.</p>
-            : tenant.sites.map((s) => <SiteCard key={s.license.id} site={s} />)}
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-zinc-300">Sites</h2>
+        <Link href={`/admin/licenses/new?email=${encodeURIComponent(tenant.email)}`} className="inline-flex h-8 items-center rounded-lg border border-zinc-700 px-3 text-xs text-zinc-300 hover:bg-zinc-900">
+          + Add site
+        </Link>
+      </div>
 
-        <div className="space-y-4 lg:col-span-2">
-          <h2 className="text-sm font-semibold text-zinc-300">Licenses <span className="font-normal text-zinc-500">· one per site</span></h2>
-          {tenant.licenses.length === 0 && <p className="rounded-xl border border-zinc-800 p-6 text-center text-sm text-zinc-500">No licenses for this tenant.</p>}
-          {tenant.licenses.map((l) => (
-            // Deliberately no `token` prop: the license token is never rendered anywhere.
-            <LicenseCard key={`${l.id}-${l.plan}-${l.status}-${l.connector_limit}-${l.expires_at}`} siteLabel={tenant.sites.find((s) => s.license.id === l.id)?.status?.site_name ?? (l.status === 'revoked' ? 'Revoked' : 'Not connected yet')} license={{
-              id: l.id, plan: l.plan, status: l.status, connector_limit: l.connector_limit,
-              expires_at: l.expires_at, notes: l.notes, created_at: l.created_at,
-            }} />
+      <div className="space-y-4">
+        {siteLicenses.length === 0 && (
+          <p className="rounded-xl border border-zinc-800 p-6 text-center text-sm text-zinc-500">No sites yet. Add a site to create this customer&apos;s first license.</p>
+        )}
+        {siteLicenses.map((l) => (
+          <SiteCard key={l.id} license={l} site={tenant.sites.find((s) => s.license.id === l.id)} />
+        ))}
+      </div>
+
+      {legacyAddons.length > 0 && (
+        <section className="space-y-3 rounded-xl border border-zinc-800 p-5">
+          <h2 className="text-sm font-semibold text-zinc-300">Legacy add-on licenses</h2>
+          <p className="text-xs text-zinc-500">Separate add-on records are not counted by the license check. Move the connectors onto a site&apos;s license with “+1 connector”, then revoke these.</p>
+          {legacyAddons.map((l) => (
+            <LicenseCard key={l.id} license={{ id: l.id, plan: l.plan, status: l.status, connector_limit: l.connector_limit, expires_at: l.expires_at, notes: l.notes, created_at: l.created_at }} />
           ))}
-          <Link href={`/admin/licenses/new?email=${encodeURIComponent(tenant.email)}`} className="inline-block rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900">+ Add site</Link>
+        </section>
+      )}
 
-          <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Support access</h2>
-              <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400">Customer-controlled</span>
-            </div>
-            <p className="text-xs text-zinc-400">
-              Only the customer can grant access, from Settings → Security on their controller. It is time-limited and every action is logged. The grant status will show here once controllers report it.
-            </p>
-          </section>
+      <div className="grid items-stretch gap-4 md:grid-cols-2">
+        <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Support access</h2>
+            <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400">Customer-controlled</span>
+          </div>
+          <p className="text-xs leading-relaxed text-zinc-400">
+            Only the customer can grant access, from Settings → Security on their controller. It is time-limited and every action is logged. The grant status will show here once controllers report it.
+          </p>
+        </section>
 
-          <DeleteTenant
-            email={tenant.email}
-            licenseCount={tenant.licenses.length}
-            blocker={deleteBlocker(tenant)}
-            isAdminAccount={!!process.env.ADMIN_EMAIL && tenant.email === process.env.ADMIN_EMAIL.toLowerCase()}
-          />
-        </div>
+        <DeleteTenant
+          email={tenant.email}
+          licenseCount={tenant.licenses.length}
+          blocker={deleteBlocker(tenant)}
+          isAdminAccount={adminAccount}
+        />
       </div>
     </div>
   );
