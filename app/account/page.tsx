@@ -67,7 +67,7 @@ export default async function AccountPage() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-white/40">Connectors</span>
-                <p className="text-white font-medium">{lic.connector_limit}</p>
+                <p className="text-white font-medium">{lic.connector_limit === 0 ? 'Unlimited' : lic.connector_limit}</p>
               </div>
               <div>
                 <span className="text-white/40">Expires</span>
