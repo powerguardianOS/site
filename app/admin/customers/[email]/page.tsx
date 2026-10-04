@@ -2,10 +2,11 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { loadTenants } from '@/app/lib/tenants';
+import { loadTenants, deleteBlocker } from '@/app/lib/tenants';
 import type { Site } from '@/app/lib/tenants';
 import { ago, dateLabel, runtimeLabel } from '../../format';
 import { LicenseCard } from './LicenseCard';
+import { DeleteTenant } from './DeleteTenant';
 
 function power(raw: string): { label: string; text: string; dot: string; shape: string } {
   const s = raw.toUpperCase().split(/\s+/);
@@ -117,12 +118,12 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
           {tenant.licenses.length === 0 && <p className="rounded-xl border border-zinc-800 p-6 text-center text-sm text-zinc-500">No licenses for this tenant.</p>}
           {tenant.licenses.map((l) => (
             // Deliberately no `token` prop: the license token is never rendered anywhere.
-            <LicenseCard key={l.id} license={{
+            <LicenseCard key={`${l.id}-${l.plan}-${l.status}-${l.connector_limit}-${l.expires_at}`} license={{
               id: l.id, plan: l.plan, status: l.status, connector_limit: l.connector_limit,
               expires_at: l.expires_at, notes: l.notes, created_at: l.created_at,
             }} />
           ))}
-          <Link href="/admin/licenses/new" className="inline-block rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900">+ Add license</Link>
+          <Link href={`/admin/licenses/new?email=${encodeURIComponent(tenant.email)}`} className="inline-block rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900">+ Add license (extra controller)</Link>
 
           <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-5">
             <div className="flex items-center justify-between">
@@ -133,6 +134,13 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
               Only the customer can grant access, from Settings → Security on their controller. It is time-limited and every action is logged. The grant status will show here once controllers report it.
             </p>
           </section>
+
+          <DeleteTenant
+            email={tenant.email}
+            licenseCount={tenant.licenses.length}
+            blocker={deleteBlocker(tenant)}
+            isAdminAccount={!!process.env.ADMIN_EMAIL && tenant.email === process.env.ADMIN_EMAIL.toLowerCase()}
+          />
         </div>
       </div>
     </div>

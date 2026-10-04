@@ -72,6 +72,14 @@ export function LicenseCard({ license }: { license: Lic }) {
       <div className="flex flex-wrap gap-2">
         <button className={btn} disabled={busy} onClick={() => patch({ expires_at: addMonths(license.expires_at, 1) })}>+1 month</button>
         <button className={btn} disabled={busy} onClick={() => patch({ expires_at: addMonths(license.expires_at, 12) })}>+1 year</button>
+        <button
+          className={btn}
+          disabled={busy || license.connector_limit === 0}
+          title={license.connector_limit === 0 ? 'Already unlimited' : `Allow ${license.connector_limit + 1} connectors on this license`}
+          onClick={() => patch({ connector_limit: license.connector_limit + 1 })}
+        >
+          +1 connector
+        </button>
         {license.status === 'revoked' ? (
           <button className={btn} disabled={busy} onClick={() => patch({ status: 'active' })}>Reactivate</button>
         ) : (

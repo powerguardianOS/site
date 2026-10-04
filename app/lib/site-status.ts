@@ -55,3 +55,11 @@ export async function putSiteStatus(licenseId: string, status: SiteStatus): Prom
 export function isOnline(s: SiteStatus | null, now = Date.now()): boolean {
   return !!s && now - s.received_at < ONLINE_WINDOW_MS;
 }
+
+export async function deleteSiteStatus(licenseId: string): Promise<void> {
+  const r = await fetch(`${BASE()}/values/${encodeURIComponent(key(licenseId))}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${CF_TOKEN()}` },
+  });
+  if (!r.ok && r.status !== 404) throw new Error(`KV delete failed (${r.status})`);
+}

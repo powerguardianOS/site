@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
-import { getLicenseByEmail } from '@/app/lib/license-db';
+import { getLinkableLicense } from '@/app/lib/license-db';
 import { rateLimited, clientIp } from '@/app/lib/ratelimit';
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     // The license (incl. its relay token) is only ever handed out here, to the
     // caller who just proved control of the mailbox. There is deliberately no
     // separate unauthenticated lookup-by-email endpoint.
-    const license = await getLicenseByEmail(email);
+    const license = await getLinkableLicense(email);
     if (!license) {
       return NextResponse.json({ valid: false }, { status: 404 });
     }

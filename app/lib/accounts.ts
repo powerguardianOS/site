@@ -40,3 +40,11 @@ export async function getAccounts(): Promise<AccountRecord[]> {
   const records = await Promise.all(data.result.map(k => kvGet(k.name).then(v => v ? JSON.parse(v) as AccountRecord : null)));
   return records.filter(Boolean) as AccountRecord[];
 }
+
+export async function deleteAccount(email: string): Promise<void> {
+  const r = await fetch(`${BASE()}/values/${encodeURIComponent(`account:${email.toLowerCase()}`)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${TOKEN()}` },
+  });
+  if (!r.ok && r.status !== 404) throw new Error(`KV delete failed (${r.status})`);
+}

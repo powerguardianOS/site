@@ -138,3 +138,16 @@ export function attentionItems(tenants: Tenant[], now = Date.now()): Attention[]
   }
   return out.sort((a, b) => SEVERITY[a.level] - SEVERITY[b.level]);
 }
+
+// A tenant may only be deleted when nothing of it is still in use. Returns the
+// reason it must NOT be deleted yet, or null when it is safe. Never cascades:
+// the admin has to revoke first, so a customer is never cut off by accident.
+export function deleteBlocker(t: Tenant, now = Date.now()): string | null {
+  const live = t.licenses.filter((l) => l.status === 'active' && licenseState(l, now) !== 'expired');
+  if (live.length) {
+    return `${live.length} active license${live.length === 1 ? '' : 's'} — revoke ${live.length === 1 ? 'it' : 'them'} first.`;
+  }
+  const online = t.sites.filter((s) => s.online).length;
+  if (online) return `${online} site${online === 1 ? ' is' : 's are'} still reporting — revoke the license${online === 1 ? '' : 's'} and wait until ${online === 1 ? 'it' : 'they'} go${online === 1 ? 'es' : ''} offline.`;
+  return null;
+}
