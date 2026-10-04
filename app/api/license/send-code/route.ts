@@ -2,6 +2,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getLicenseByEmail } from '@/app/lib/license-db';
 import { sendEmail } from '@/app/lib/email';
+import { rateLimited, clientIp } from '@/app/lib/ratelimit';
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
@@ -23,6 +24,16 @@ export async function POST(req: NextRequest) {
 
   if (!email || typeof email !== 'string') {
     return NextResponse.json({ error: 'missing_email' }, { status: 400 });
+  }
+
+  // Limits come before the license lookup so they also slow down anyone
+  // probing which addresses hold a license: 10 requests/hour per IP and
+  // 3 codes/hour per address (which also caps guessing a 6-digit code).
+  if (
+    (await rateLimited(`sendcode:ip:${clientIp(req)}`, 10, 3600)) ||
+    (await rateLimited(`sendcode:email:${email.toLowerCase()}`, 3, 3600))
+  ) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   }
 
   const license = await getLicenseByEmail(email);

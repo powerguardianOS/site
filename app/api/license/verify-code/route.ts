@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getLicenseByEmail } from '@/app/lib/license-db';
+import { rateLimited, clientIp } from '@/app/lib/ratelimit';
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
@@ -30,6 +31,13 @@ export async function POST(req: NextRequest) {
 
   if (!email || !code) {
     return NextResponse.json({ valid: false }, { status: 400 });
+  }
+
+  if (
+    (await rateLimited(`verifycode:ip:${clientIp(req)}`, 30, 3600)) ||
+    (await rateLimited(`verifycode:email:${email.toLowerCase()}`, 10, 3600))
+  ) {
+    return NextResponse.json({ valid: false, error: 'rate_limited' }, { status: 429 });
   }
 
   const raw = await kvGet(`otp:${email.toLowerCase()}`);
