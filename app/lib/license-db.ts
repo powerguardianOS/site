@@ -11,6 +11,8 @@ export type LicenseRecord = {
   notes: string;
   created_at: string;
   token: string;
+  // Only for plan 'addon_connector': the id of the site license it extends.
+  parent_id?: string;
 };
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';

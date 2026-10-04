@@ -8,6 +8,7 @@ import { getLicenses } from '@/app/lib/license-db';
 import type { LicenseRecord } from '@/app/lib/license-db';
 import { getSiteStatus, isOnline } from '@/app/lib/site-status';
 import type { SiteStatus } from '@/app/lib/site-status';
+import { addonsOf, effectiveLimit, isRunning } from '@/app/lib/limits';
 
 export type LicenseState = 'active' | 'expiring' | 'expired' | 'revoked' | 'none';
 
@@ -28,6 +29,9 @@ export type Site = {
   license: LicenseRecord;
   status: SiteStatus | null;
   online: boolean;
+  addons: LicenseRecord[]; // connector add-ons of this site, newest first
+  limit: number;           // effective connector limit (base + running add-ons); 0 = unlimited
+  addonExtra: number;      // connectors currently coming from running add-ons
 };
 
 export type Tenant = {
@@ -73,7 +77,9 @@ export function buildTenants(
       .filter((l) => l.plan !== 'addon_connector' && l.status !== 'revoked')
       .map((l) => {
         const status = statuses.get(l.id) ?? null;
-        return { license: l, status, online: isOnline(status, now) };
+        const addons = addonsOf(l, lics).sort((a, b) => b.created_at.localeCompare(a.created_at));
+        const extra = addons.filter((a) => isRunning(a, now)).reduce((n, a) => n + a.connector_limit, 0);
+        return { license: l, status, online: isOnline(status, now), addons, limit: effectiveLimit(l, licenses, now), addonExtra: l.connector_limit === 0 ? 0 : extra };
       });
 
     const devs = sites.flatMap((s) => s.status?.devices ?? []);
@@ -145,7 +151,7 @@ export function attentionItems(tenants: Tenant[], now = Date.now()): Attention[]
 // reason it must NOT be deleted yet, or null when it is safe. Never cascades:
 // the admin has to revoke first, so a customer is never cut off by accident.
 export function deleteBlocker(t: Tenant, now = Date.now()): string | null {
-  const live = t.licenses.filter((l) => l.status === 'active' && licenseState(l, now) !== 'expired');
+  const live = t.licenses.filter((l) => l.plan !== 'addon_connector' && l.status === 'active' && licenseState(l, now) !== 'expired');
   if (live.length) {
     return `${live.length} active license${live.length === 1 ? '' : 's'} — revoke ${live.length === 1 ? 'it' : 'them'} first.`;
   }

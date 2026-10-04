@@ -3,6 +3,7 @@ import { getAccountSummary } from '@/app/lib/license-db';
 import UnderlicensedBanner from './components/UnderlicensedBanner';
 import SitesSection from './components/SitesSection';
 import { getSession } from '@/app/lib/session';
+import { effectiveLimit } from '@/app/lib/limits';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
@@ -12,6 +13,12 @@ export default async function AccountPage() {
   const sessionId = cookieStore.get('pg_session')?.value ?? '';
   const email = (await getSession(sessionId)) ?? '';
   const summary = await getAccountSummary(email);
+  // Connector add-ons belong to a site and only raise its capacity — they are not licenses of their own here.
+  const siteLicenses = summary.licenses.filter((l) => l.plan !== 'addon_connector');
+  const capacity = (l: (typeof siteLicenses)[number]) => effectiveLimit(l, summary.licenses);
+  const totalConnectors = siteLicenses.some((l) => l.connector_limit === 0)
+    ? 'Unlimited'
+    : String(siteLicenses.reduce((n, l) => n + capacity(l), 0));
 
   return (
     <div className="space-y-6">
@@ -20,7 +27,7 @@ export default async function AccountPage() {
         <div className="flex gap-4 text-sm">
           <div>
             <span className="text-white/40">Total connectors:</span>
-            <p className="text-white font-medium">{summary.total_connectors}</p>
+            <p className="text-white font-medium">{totalConnectors}</p>
           </div>
           <div>
             <span className="text-white/40">Total sites:</span>
@@ -34,7 +41,7 @@ export default async function AccountPage() {
 
       {/* Licenses */}
       <div className="space-y-4">
-        {summary.licenses.length === 0 && (
+        {siteLicenses.length === 0 && (
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-8 text-center space-y-4">
             <h2 className="text-xl font-semibold text-white">No active license</h2>
             <p className="text-sm text-zinc-400 max-w-sm mx-auto">
@@ -46,7 +53,7 @@ export default async function AccountPage() {
           </div>
         )}
 
-        {summary.licenses.map((lic) => (
+        {siteLicenses.map((lic) => (
           <div key={lic.id} className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -67,7 +74,7 @@ export default async function AccountPage() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-white/40">Connectors</span>
-                <p className="text-white font-medium">{lic.connector_limit === 0 ? 'Unlimited' : lic.connector_limit}</p>
+                <p className="text-white font-medium">{lic.connector_limit === 0 ? 'Unlimited' : capacity(lic)}</p>
               </div>
               <div>
                 <span className="text-white/40">Expires</span>
@@ -77,7 +84,7 @@ export default async function AccountPage() {
               </div>
             </div>
 
-            <UnderlicensedBanner connectorLimit={lic.connector_limit} />
+            <UnderlicensedBanner connectorLimit={capacity(lic)} />
           </div>
         ))}
       </div>

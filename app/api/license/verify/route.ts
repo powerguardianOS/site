@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
-import { getLicenseByToken } from '@/app/lib/license-db';
+import { getLicenseByToken, getLicenses } from '@/app/lib/license-db';
+import { effectiveLimit } from '@/app/lib/limits';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ valid: false, status });
   }
 
-  if (license.connector_limit > 0 && connector_count !== undefined && connector_count > license.connector_limit) {
+  const limit = effectiveLimit(license, await getLicenses());
+  if (limit > 0 && connector_count !== undefined && connector_count > limit) {
     status = 'underlicensed';
   }
 
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
     valid: true,
     status,
     plan: license.plan,
-    connector_limit: license.connector_limit,
+    connector_limit: limit,
     expires_at: license.expires_at,
   });
 }

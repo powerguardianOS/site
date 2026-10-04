@@ -31,7 +31,7 @@ function Stat({ title, children }: { title: string; children: React.ReactNode })
 
 // The license of one site: a compact summary, the quick actions in one row, and
 // the full edit form folded away so the page stays calm.
-export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; connectorsUsed?: number }) {
+export function LicenseCard({ license, connectorsUsed = 0, capacity, addonExtra = 0 }: { license: Lic; connectorsUsed?: number; capacity?: number; addonExtra?: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -45,10 +45,11 @@ export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; con
   const shown = license.status === 'revoked' ? 'revoked' : expired ? 'expired' : 'active';
   const badge = { active: 'text-green-300', expired: 'text-amber-300', revoked: 'text-red-300' }[shown];
   const dot = { active: 'bg-green-400 rounded-full', expired: 'bg-amber-400 rounded-[2px]', revoked: 'bg-red-400 rounded-none' }[shown];
-  const unlimited = license.connector_limit === 0;
+  const cap = capacity ?? license.connector_limit;
+  const unlimited = cap === 0;
   const noExpiry = !license.expires_at;
   const inOneMonth = (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d; })();
-  const pct = unlimited ? 0 : Math.min(100, Math.round((connectorsUsed / license.connector_limit) * 100));
+  const pct = unlimited ? 0 : Math.min(100, Math.round((connectorsUsed / cap) * 100));
 
   async function call(path: string, method: string, body?: unknown) {
     setBusy(true);
@@ -86,7 +87,7 @@ export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; con
             <span>{connectorsUsed} <span className="text-zinc-500">· unlimited</span></span>
           ) : (
             <div className="space-y-1.5">
-              <span>{connectorsUsed} of {license.connector_limit}</span>
+              <span>{connectorsUsed} of {cap}{addonExtra > 0 && <span className="text-zinc-500"> · {license.connector_limit} + {addonExtra} add-on</span>}</span>
               <div className="h-1.5 w-full max-w-[120px] overflow-hidden rounded bg-zinc-800">
                 <div className={`h-full ${pct >= 100 ? 'bg-amber-400' : 'bg-[#00C66F]'}`} style={{ width: `${pct}%` }} />
               </div>
@@ -101,14 +102,6 @@ export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; con
       <div className="flex flex-wrap items-center gap-2">
         <button className={btn} disabled={busy || noExpiry} title={noExpiry ? 'No end date — use Expire… to set one' : 'Extend by one month'} onClick={() => patch({ expires_at: addMonths(license.expires_at, 1) })}>+1 month</button>
         <button className={btn} disabled={busy || noExpiry} title={noExpiry ? 'No end date — use Expire… to set one' : 'Extend by one year'} onClick={() => patch({ expires_at: addMonths(license.expires_at, 12) })}>+1 year</button>
-        <button
-          className={btn}
-          disabled={busy || unlimited}
-          title={unlimited ? 'Already unlimited' : `Allow ${license.connector_limit + 1} connectors on this site`}
-          onClick={() => patch({ connector_limit: license.connector_limit + 1 })}
-        >
-          +1 connector
-        </button>
         <span className="mx-1 hidden h-5 w-px bg-zinc-800 sm:block" aria-hidden="true" />
         {shown === 'active' && (
           <button className={`${btn} !border-amber-900/70 !text-amber-300`} disabled={busy} onClick={() => setConfirm('expire')}>Expire…</button>

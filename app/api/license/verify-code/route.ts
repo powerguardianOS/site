@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
-import { getLinkableLicense } from '@/app/lib/license-db';
+import { getLinkableLicense, getLicenses } from '@/app/lib/license-db';
+import { effectiveLimit } from '@/app/lib/limits';
 import { rateLimited, clientIp } from '@/app/lib/ratelimit';
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       valid: true,
       plan: license.plan,
-      connector_limit: license.connector_limit,
+      connector_limit: effectiveLimit(license, await getLicenses()),
       expires_at: license.expires_at,
       token: license.token,
     });

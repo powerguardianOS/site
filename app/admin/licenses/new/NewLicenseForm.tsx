@@ -3,26 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { TERMS, termEnd } from '../../terms';
 
 // Suggested limits only — editable. 0 = unlimited (see /api/license/verify).
 const DEFAULT_LIMIT: Record<string, number> = { home: 1, pro: 5, founder: 0, addon_connector: 1 };
-
-const TERMS = [
-  { key: 'm1', label: '1 month (default)' },
-  { key: 'm3', label: '3 months' },
-  { key: 'y1', label: '1 year' },
-  { key: 'never', label: 'Never expires' },
-  { key: 'custom', label: 'Pick a date…' },
-] as const;
-
-function termEnd(key: string): string | null {
-  const d = new Date();
-  if (key === 'm1') d.setMonth(d.getMonth() + 1);
-  else if (key === 'm3') d.setMonth(d.getMonth() + 3);
-  else if (key === 'y1') d.setFullYear(d.getFullYear() + 1);
-  else return null;
-  return d.toISOString();
-}
 
 const field = 'w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00C66F]';
 

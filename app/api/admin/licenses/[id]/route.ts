@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { adminGuard } from '@/app/lib/admin';
 import { getLicenses, updateLicense } from '@/app/lib/license-db';
+import { deleteAddon } from '@/app/lib/addons';
 import type { LicenseRecord } from '@/app/lib/license-db';
 
 const PLANS: LicenseRecord['plan'][] = ['home', 'pro', 'founder', 'addon_connector'];
@@ -56,4 +57,15 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   const updated = await updateLicense(id, patch);
   if (!updated) return Response.json({ error: 'license not found' }, { status: 404 });
   return Response.json({ license: updated });
+}
+
+// Only connector add-ons can be deleted here; refused while the site still uses
+// the connectors they provide (see lib/addons.ts).
+export async function DELETE(request: Request, ctx: { params: Promise<{ id: string }> }) {
+  const denied = await adminGuard(request);
+  if (denied) return denied;
+  const { id } = await ctx.params;
+  const r = await deleteAddon(id);
+  if (!r.ok) return Response.json({ error: r.error, message: r.message }, { status: r.status });
+  return Response.json({ deleted: true });
 }

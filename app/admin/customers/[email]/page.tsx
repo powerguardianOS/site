@@ -8,6 +8,7 @@ import type { LicenseRecord } from '@/app/lib/license-db';
 import { ago, dateLabel, runtimeLabel } from '../../format';
 import { LicenseCard } from './LicenseCard';
 import { DeleteTenant } from './DeleteTenant';
+import { AddonList } from './AddonList';
 
 type Tone = { label: string; text: string; dot: string; shape: string };
 
@@ -91,10 +92,18 @@ function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
       <LicenseCard
         key={`${license.id}-${license.plan}-${license.status}-${license.connector_limit}-${license.expires_at}`}
         connectorsUsed={s?.devices.length ?? 0}
+        capacity={site?.limit}
+        addonExtra={site?.addonExtra}
         license={{
           id: license.id, plan: license.plan, status: license.status, connector_limit: license.connector_limit,
           expires_at: license.expires_at, notes: license.notes, created_at: license.created_at,
         }}
+      />
+
+      <AddonList
+        parentId={license.id}
+        unlimited={license.connector_limit === 0}
+        addons={(site?.addons ?? []).map((a) => ({ id: a.id, connector_limit: a.connector_limit, expires_at: a.expires_at, status: a.status, created_at: a.created_at }))}
       />
     </section>
   );
@@ -117,7 +126,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
 
   // One license per site, oldest first. Legacy add-on records are not sites.
   const siteLicenses = tenant.licenses.filter((l) => l.plan !== 'addon_connector').sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const legacyAddons = tenant.licenses.filter((l) => l.plan === 'addon_connector');
+  const legacyAddons = tenant.licenses.filter((l) => l.plan === 'addon_connector' && !siteLicenses.some((sl) => sl.id === l.parent_id));
   const lic = tenant.best;
   const badge = { active: 'text-green-300', expiring: 'text-amber-300', expired: 'text-amber-300', revoked: 'text-zinc-400', none: 'text-zinc-500' }[tenant.state];
   const adminAccount = !!process.env.ADMIN_EMAIL && tenant.email === process.env.ADMIN_EMAIL.toLowerCase();
@@ -156,7 +165,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
       {legacyAddons.length > 0 && (
         <section className="space-y-3 rounded-xl border border-zinc-800 p-5">
           <h2 className="text-sm font-semibold text-zinc-300">Legacy add-on licenses</h2>
-          <p className="text-xs text-zinc-500">Separate add-on records are not counted by the license check. Move the connectors onto a site&apos;s license with “+1 connector”, then revoke these.</p>
+          <p className="text-xs text-zinc-500">These add-on records are not attached to a site, so the license check ignores them. Add the connectors again from the site they belong to, then delete these.</p>
           {legacyAddons.map((l) => (
             <LicenseCard key={l.id} license={{ id: l.id, plan: l.plan, status: l.status, connector_limit: l.connector_limit, expires_at: l.expires_at, notes: l.notes, created_at: l.created_at }} />
           ))}

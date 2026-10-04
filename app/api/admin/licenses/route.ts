@@ -4,8 +4,9 @@ import { adminGuard } from '@/app/lib/admin';
 import { createLicense, getLicenses } from '@/app/lib/license-db';
 import type { LicenseRecord } from '@/app/lib/license-db';
 import { createAccount, getAccount } from '@/app/lib/accounts';
+import { createAddon } from '@/app/lib/addons';
 
-const PLANS: LicenseRecord['plan'][] = ['home', 'pro', 'founder', 'addon_connector'];
+const PLANS: LicenseRecord['plan'][] = ['home', 'pro', 'founder'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function GET(request: Request) {
@@ -23,6 +24,24 @@ export async function POST(request: Request) {
     expires_at?: unknown; notes?: unknown;
   } | null;
   if (!body) return Response.json({ error: 'invalid JSON' }, { status: 400 });
+
+  // Connector add-on: a separate license for ONE existing site (its own term).
+  if (body.plan === 'addon_connector') {
+    let expires: string | null = null;
+    if (body.expires_at) {
+      const d = new Date(String(body.expires_at));
+      if (isNaN(d.getTime())) return Response.json({ error: 'invalid expires_at' }, { status: 400 });
+      expires = d.toISOString();
+    }
+    const r = await createAddon({
+      parent_id: String((body as { parent_id?: unknown }).parent_id ?? ''),
+      connectors: Number(body.connector_limit),
+      expires_at: expires,
+      notes: typeof body.notes === 'string' ? body.notes.slice(0, 2000) : '',
+    });
+    if (!r.ok) return Response.json({ error: r.error, message: r.message }, { status: r.status });
+    return Response.json({ license: r.value }, { status: 201 });
+  }
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   if (!EMAIL_RE.test(email)) return Response.json({ error: 'valid email required' }, { status: 400 });
