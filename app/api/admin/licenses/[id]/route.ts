@@ -2,7 +2,7 @@ export const runtime = 'edge';
 
 import { adminGuard } from '@/app/lib/admin';
 import { getLicenses, updateLicense } from '@/app/lib/license-db';
-import { deleteAddon } from '@/app/lib/addons';
+import { deleteAddon, deleteSite } from '@/app/lib/addons';
 import type { LicenseRecord } from '@/app/lib/license-db';
 
 const PLANS: LicenseRecord['plan'][] = ['home', 'pro', 'founder', 'addon_connector'];
@@ -59,13 +59,16 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   return Response.json({ license: updated });
 }
 
-// Only connector add-ons can be deleted here; refused while the site still uses
-// the connectors they provide (see lib/addons.ts).
+// Deletes a connector add-on, or a whole site (its license, add-ons and status).
+// Both refuse while the connectors / license are still in use (lib/addons.ts).
 export async function DELETE(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const denied = await adminGuard(request);
   if (denied) return denied;
   const { id } = await ctx.params;
-  const r = await deleteAddon(id);
+
+  const body = await request.json().catch(() => null) as { confirm?: unknown } | null;
+  const lic = (await getLicenses()).find((l) => l.id === id);
+  const r = lic?.plan === 'addon_connector' ? await deleteAddon(id) : await deleteSite(id, body?.confirm);
   if (!r.ok) return Response.json({ error: r.error, message: r.message }, { status: r.status });
   return Response.json({ deleted: true });
 }

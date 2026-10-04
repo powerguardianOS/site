@@ -1,6 +1,6 @@
 import { createLicense, deleteLicense, getLicenses } from '@/app/lib/license-db';
 import type { LicenseRecord } from '@/app/lib/license-db';
-import { getSiteStatus } from '@/app/lib/site-status';
+import { deleteSiteStatus, getSiteStatus } from '@/app/lib/site-status';
 import { addonsOf, isRunning } from '@/app/lib/limits';
 
 export type AddonResult<T = unknown> =
@@ -48,4 +48,28 @@ export async function deleteAddon(id: string): Promise<AddonResult<{ removed: st
   }
   await deleteLicense(id);
   return { ok: true, value: { removed: id } };
+}
+
+// Deletes ONE site: its license, its stored status and its connector add-ons
+// (they only exist for that site). Refused while the license still runs, so a
+// customer is never cut off by accident — revoke it or let it expire first —
+// and the site's name must be typed back. The tenant itself stays.
+export async function deleteSite(id: string, confirm: unknown): Promise<AddonResult<{ removed: number }>> {
+  const all = await getLicenses();
+  const site = all.find((l) => l.id === id);
+  if (!site) return fail(404, 'not_found', 'No such site.');
+  if (site.plan === 'addon_connector') return fail(400, 'is_addon', 'That is a connector add-on, not a site.');
+  if (isRunning(site)) return fail(409, 'in_use', 'This site’s license is still running — revoke it or let it expire first.');
+
+  const status = await getSiteStatus(site.id);
+  const expected = status?.site_name ?? 'delete';
+  if (typeof confirm !== 'string' || confirm.trim().toLowerCase() !== expected.trim().toLowerCase()) {
+    return fail(400, 'confirmation_mismatch', `Type “${expected}” to confirm.`);
+  }
+
+  const addons = addonsOf(site, all);
+  for (const a of addons) await deleteLicense(a.id);
+  await deleteSiteStatus(site.id);
+  await deleteLicense(site.id);
+  return { ok: true, value: { removed: 1 + addons.length } };
 }

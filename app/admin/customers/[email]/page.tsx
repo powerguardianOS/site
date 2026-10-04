@@ -9,6 +9,8 @@ import { ago, dateLabel, runtimeLabel } from '../../format';
 import { LicenseCard } from './LicenseCard';
 import { DeleteTenant } from './DeleteTenant';
 import { AddonList } from './AddonList';
+import { DeleteSite } from './DeleteSite';
+import { isRunning } from '@/app/lib/limits';
 
 type Tone = { label: string; text: string; dot: string; shape: string };
 
@@ -105,6 +107,13 @@ function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
         unlimited={license.connector_limit === 0}
         addons={(site?.addons ?? []).map((a) => ({ id: a.id, connector_limit: a.connector_limit, expires_at: a.expires_at, status: a.status, created_at: a.created_at }))}
       />
+
+      <DeleteSite
+        licenseId={license.id}
+        siteName={s?.site_name ?? null}
+        addonCount={site?.addons.length ?? 0}
+        blocker={isRunning(license) ? 'the license is still running — revoke it or let it expire first.' : null}
+      />
     </section>
   );
 }
@@ -158,7 +167,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
           <p className="rounded-xl border border-zinc-800 p-6 text-center text-sm text-zinc-500">No sites yet. Add a site to create this customer&apos;s first license.</p>
         )}
         {siteLicenses.map((l) => (
-          <SiteCard key={l.id} license={l} site={tenant.sites.find((s) => s.license.id === l.id)} />
+          <SiteCard key={l.id} license={l} site={tenant.allSites.find((s) => s.license.id === l.id)} />
         ))}
       </div>
 

@@ -40,7 +40,8 @@ export type Tenant = {
   licenses: LicenseRecord[];
   best: LicenseRecord | null; // the license that represents the tenant in lists
   state: LicenseState;
-  sites: Site[];
+  sites: Site[];    // sites with a license that is not revoked (what counts for health)
+  allSites: Site[]; // every site, including revoked ones (what the detail page lists)
   sitesOnline: number;
   devices: number;
   onBattery: number;
@@ -73,14 +74,15 @@ export function buildTenants(
     const best = [...lics].sort((a, b) => rank(a) - rank(b))[0] ?? null;
 
     // An add-on license extends a site's connector allowance; it is not a site.
-    const sites: Site[] = lics
-      .filter((l) => l.plan !== 'addon_connector' && l.status !== 'revoked')
+    const allSites: Site[] = lics
+      .filter((l) => l.plan !== 'addon_connector')
       .map((l) => {
         const status = statuses.get(l.id) ?? null;
         const addons = addonsOf(l, lics).sort((a, b) => b.created_at.localeCompare(a.created_at));
         const extra = addons.filter((a) => isRunning(a, now)).reduce((n, a) => n + a.connector_limit, 0);
         return { license: l, status, online: isOnline(status, now), addons, limit: effectiveLimit(l, licenses, now), addonExtra: l.connector_limit === 0 ? 0 : extra };
       });
+    const sites = allSites.filter((s) => s.license.status !== 'revoked');
 
     const devs = sites.flatMap((s) => s.status?.devices ?? []);
     const beats = sites.map((s) => s.status?.received_at).filter((n): n is number => typeof n === 'number');
@@ -92,6 +94,7 @@ export function buildTenants(
       best,
       state: best ? licenseState(best, now) : 'none',
       sites,
+      allSites,
       sitesOnline: sites.filter((s) => s.online).length,
       devices: devs.length,
       onBattery: devs.filter((d) => hasFlag(d.ups_status, 'OB')).length,
@@ -103,7 +106,7 @@ export function buildTenants(
 
 export async function loadTenants(): Promise<Tenant[]> {
   const [accounts, licenses] = await Promise.all([getAccounts(), getLicenses()]);
-  const siteLicenses = licenses.filter((l) => l.plan !== 'addon_connector' && l.status !== 'revoked');
+  const siteLicenses = licenses.filter((l) => l.plan !== 'addon_connector');
   const results = await Promise.all(siteLicenses.map((l) => getSiteStatus(l.id)));
   const statuses = new Map(siteLicenses.map((l, i) => [l.id, results[i]]));
   // The global admin's own login is an account, not a customer: hide it unless it holds a license.
