@@ -10,6 +10,7 @@ const BASE = () => `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/
 async function kvGet(key: string): Promise<string | null> {
   const r = await fetch(`${BASE()}/values/${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${TOKEN()}` } });
   if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`KV read failed (${r.status})`);
   return r.text();
 }
 

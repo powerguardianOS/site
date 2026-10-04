@@ -43,9 +43,9 @@ export default function NewLicensePage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-8 md:px-6 space-y-6">
+    <div className="mx-auto max-w-lg space-y-6">
       <div>
-        <Link href="/admin" className="text-xs text-zinc-500 hover:text-zinc-300">← Admin</Link>
+        <Link href="/admin/tenants" className="text-xs text-zinc-500 hover:text-zinc-300">← Tenants</Link>
         <h1 className="text-2xl font-semibold mt-2">New license</h1>
       </div>
 

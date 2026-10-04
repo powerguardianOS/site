@@ -11,6 +11,7 @@ async function kvGet(key: string): Promise<string | null> {
     headers: { Authorization: `Bearer ${CF_TOKEN()}` },
   });
   if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`KV read failed (${r.status})`);
   return r.text();
 }
 
