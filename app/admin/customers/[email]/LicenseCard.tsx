@@ -35,7 +35,7 @@ export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; con
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [confirm, setConfirm] = useState<'revoke' | 'rotate' | null>(null);
+  const [confirm, setConfirm] = useState<'revoke' | 'rotate' | 'expire' | null>(null);
   const [limit, setLimit] = useState(String(license.connector_limit));
   const [plan, setPlan] = useState(license.plan);
   const [notes, setNotes] = useState(license.notes);
@@ -46,6 +46,8 @@ export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; con
   const badge = { active: 'text-green-300', expired: 'text-amber-300', revoked: 'text-red-300' }[shown];
   const dot = { active: 'bg-green-400 rounded-full', expired: 'bg-amber-400 rounded-[2px]', revoked: 'bg-red-400 rounded-none' }[shown];
   const unlimited = license.connector_limit === 0;
+  const noExpiry = !license.expires_at;
+  const inOneMonth = (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d; })();
   const pct = unlimited ? 0 : Math.min(100, Math.round((connectorsUsed / license.connector_limit) * 100));
 
   async function call(path: string, method: string, body?: unknown) {
@@ -97,8 +99,8 @@ export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; con
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button className={btn} disabled={busy} onClick={() => patch({ expires_at: addMonths(license.expires_at, 1) })}>+1 month</button>
-        <button className={btn} disabled={busy} onClick={() => patch({ expires_at: addMonths(license.expires_at, 12) })}>+1 year</button>
+        <button className={btn} disabled={busy || noExpiry} title={noExpiry ? 'No end date — use Expire… to set one' : 'Extend by one month'} onClick={() => patch({ expires_at: addMonths(license.expires_at, 1) })}>+1 month</button>
+        <button className={btn} disabled={busy || noExpiry} title={noExpiry ? 'No end date — use Expire… to set one' : 'Extend by one year'} onClick={() => patch({ expires_at: addMonths(license.expires_at, 12) })}>+1 year</button>
         <button
           className={btn}
           disabled={busy || unlimited}
@@ -108,6 +110,9 @@ export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; con
           +1 connector
         </button>
         <span className="mx-1 hidden h-5 w-px bg-zinc-800 sm:block" aria-hidden="true" />
+        {shown === 'active' && (
+          <button className={`${btn} !border-amber-900/70 !text-amber-300`} disabled={busy} onClick={() => setConfirm('expire')}>Expire…</button>
+        )}
         <button className={`${btn} !border-amber-900/70 !text-amber-300`} disabled={busy} onClick={() => setConfirm('rotate')}>Rotate token</button>
         {license.status === 'revoked' ? (
           <button className={btn} disabled={busy} onClick={() => patch({ status: 'active' })}>Reactivate</button>
@@ -116,6 +121,20 @@ export function LicenseCard({ license, connectorsUsed = 0 }: { license: Lic; con
         )}
       </div>
 
+      {confirm === 'expire' && (
+        <div className="space-y-3 rounded-lg border border-amber-900/60 bg-amber-950/20 p-3 text-xs">
+          <p className="text-amber-200">
+            Let this site&apos;s license run out instead of cutting it off. Its controller sees it as expired on its next check. Unlike Revoke you can extend it again at any time with +1 month or +1 year.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button className={`${btn} !text-amber-300`} disabled={busy} onClick={() => patch({ expires_at: inOneMonth.toISOString() })}>
+              Expire in 1 month <span className="ml-1.5 text-zinc-500">{inOneMonth.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            </button>
+            <button className={`${btn} !border-red-900/70 !text-red-300`} disabled={busy} onClick={() => patch({ expires_at: new Date().toISOString() })}>Expire now</button>
+            <button className={btn} onClick={() => setConfirm(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
       {confirm === 'revoke' && (
         <div className="space-y-2 rounded-lg border border-red-900/60 bg-red-950/20 p-3 text-xs">
           <p className="text-red-200">This site&apos;s controller will report the license as invalid on its next check. Existing connectors keep working; new ones are blocked. Reversible with Reactivate.</p>

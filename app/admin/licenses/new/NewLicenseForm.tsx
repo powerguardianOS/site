@@ -7,6 +7,23 @@ import { useRouter } from 'next/navigation';
 // Suggested limits only — editable. 0 = unlimited (see /api/license/verify).
 const DEFAULT_LIMIT: Record<string, number> = { home: 1, pro: 5, founder: 0, addon_connector: 1 };
 
+const TERMS = [
+  { key: 'm1', label: '1 month (default)' },
+  { key: 'm3', label: '3 months' },
+  { key: 'y1', label: '1 year' },
+  { key: 'never', label: 'Never expires' },
+  { key: 'custom', label: 'Pick a date…' },
+] as const;
+
+function termEnd(key: string): string | null {
+  const d = new Date();
+  if (key === 'm1') d.setMonth(d.getMonth() + 1);
+  else if (key === 'm3') d.setMonth(d.getMonth() + 3);
+  else if (key === 'y1') d.setFullYear(d.getFullYear() + 1);
+  else return null;
+  return d.toISOString();
+}
+
 const field = 'w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00C66F]';
 
 export default function NewLicenseForm({ initialEmail }: { initialEmail: string }) {
@@ -15,13 +32,16 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
   const locked = initialEmail !== '';
   const [plan, setPlan] = useState('pro');
   const [limit, setLimit] = useState(String(DEFAULT_LIMIT.pro));
-  const [expires, setExpires] = useState('');
+  const [term, setTerm] = useState<string>('m1');
+  const [custom, setCustom] = useState('');
+  const [termTouched, setTermTouched] = useState(false);
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (term === 'custom' && !custom) { setError('Pick an end date, or choose another term.'); return; }
     setBusy(true);
     setError('');
     try {
@@ -30,7 +50,7 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email, plan, connector_limit: Number(limit),
-          expires_at: expires || null, notes,
+          expires_at: term === 'custom' ? custom : termEnd(term), notes,
         }),
       });
       const data = await r.json().catch(() => ({}));
@@ -63,7 +83,7 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
             <select
               className={field}
               value={plan}
-              onChange={e => { setPlan(e.target.value); setLimit(String(DEFAULT_LIMIT[e.target.value] ?? 1)); }}
+              onChange={e => { setPlan(e.target.value); setLimit(String(DEFAULT_LIMIT[e.target.value] ?? 1)); if (!termTouched) setTerm(e.target.value === 'founder' ? 'never' : 'm1'); }}
             >
               <option value="home">Home</option>
               <option value="pro">Pro</option>
@@ -76,10 +96,28 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
           </label>
         </div>
 
-        <label className="block space-y-1">
-          <span className="text-xs text-zinc-400">Expires (empty = never)</span>
-          <input className={field} type="date" value={expires} onChange={e => setExpires(e.target.value)} />
-        </label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="text-xs text-zinc-400">Runs for</span>
+            <select className={field} value={term} onChange={e => { setTerm(e.target.value); setTermTouched(true); }}>
+              {TERMS.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+          </label>
+          {term === 'custom' ? (
+            <label className="block space-y-1">
+              <span className="text-xs text-zinc-400">Ends on</span>
+              <input className={field} type="date" value={custom} onChange={e => setCustom(e.target.value)} />
+            </label>
+          ) : (
+            <div className="space-y-1">
+              <span className="text-xs text-zinc-400">Ends on</span>
+              <div className="flex h-[38px] items-center rounded-lg border border-zinc-800 px-3 text-sm text-zinc-300">
+                {termEnd(term) ? new Date(termEnd(term)!).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'}
+              </div>
+            </div>
+          )}
+        </div>
+        <p className="-mt-2 text-xs text-zinc-500">You can let a license expire later (in a month, or immediately) and extend it again from the tenant page.</p>
 
         <label className="block space-y-1">
           <span className="text-xs text-zinc-400">Internal notes (never shown to the customer)</span>
