@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     email,
     'Your PowerGuardian activation code',
     `Your activation code is: ${code}\n\nEnter this code in Settings → License on your controller.\nThis code expires in 15 minutes.\n\n— PowerGuardian`,
+    { code },
   );
 
   return NextResponse.json({ sent: true });

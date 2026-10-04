@@ -1,6 +1,9 @@
 export const runtime = 'edge';
 
-export async function sendEmail(to: string, subject: string, text: string): Promise<void> {
+import { renderEmailHtml } from '@/app/lib/email-template';
+import type { EmailOptions } from '@/app/lib/email-template';
+
+export async function sendEmail(to: string, subject: string, text: string, opts?: EmailOptions): Promise<void> {
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -12,6 +15,7 @@ export async function sendEmail(to: string, subject: string, text: string): Prom
       to: [{ email: to }],
       subject,
       textContent: text,
+      htmlContent: renderEmailHtml(subject, text, opts),
     }),
   });
 

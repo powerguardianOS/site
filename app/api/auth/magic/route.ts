@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       email,
       'Sign in to PowerGuardian',
       'Click the link below to sign in to your PowerGuardian account:\n\n' + magicUrl + '\n\nThis link expires in 15 minutes. If you did not request this, ignore this email.\n\n— PowerGuardian',
+      { button: { label: 'Sign in to PowerGuardian', url: magicUrl } },
     );
   } catch (err) {
     console.error('[magic] email failed:', err);

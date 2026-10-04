@@ -16,6 +16,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
     redirect('/login');
   }
 
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const isAdmin = !!adminEmail && email.toLowerCase() === adminEmail.toLowerCase();
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-6 md:py-12 space-y-6">
       {/* Account sub-header */}
@@ -24,9 +27,16 @@ export default async function AccountLayout({ children }: { children: React.Reac
           <span className="h-1.5 w-1.5 rounded-full bg-[#00C66F]" />
           <span>{email}</span>
         </div>
-        <Link href="/api/auth/logout" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
-          Sign out
-        </Link>
+        <div className="flex items-center gap-4">
+          {isAdmin && (
+            <Link href="/admin" className="text-xs text-[#00C66F] hover:underline">
+              Admin →
+            </Link>
+          )}
+          <Link href="/api/auth/logout" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+            Sign out
+          </Link>
+        </div>
       </div>
 
       {children}

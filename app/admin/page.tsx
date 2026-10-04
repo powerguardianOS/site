@@ -7,6 +7,7 @@ import { getLicenses } from '@/app/lib/license-db';
 import type { LicenseRecord } from '@/app/lib/license-db';
 import { ExportButton } from './ExportButton';
 import { displayStatus, STATUS_STYLE } from './status';
+import { getSiteStatus, isOnline } from '@/app/lib/site-status';
 
 export default async function AdminPage() {
   const [accounts, licenses] = await Promise.all([getAccounts(), getLicenses()]);
@@ -23,6 +24,19 @@ export default async function AdminPage() {
   const created = new Map(accounts.map(a => [a.email.toLowerCase(), a.created_at]));
   const emails = Array.from(new Set([...created.keys(), ...byEmail.keys()])).sort();
 
+  // Live status per customer: a license (not an add-on) is one site; it is
+  // online when its controller heartbeat is recent.
+  const siteLicenses = licenses.filter(l => l.plan !== 'addon_connector' && displayStatus(l) === 'active');
+  const statuses = await Promise.all(siteLicenses.map(l => getSiteStatus(l.id)));
+  const sites = new Map<string, { online: number; total: number }>();
+  siteLicenses.forEach((l, i) => {
+    const key = l.email.toLowerCase();
+    const cur = sites.get(key) ?? { online: 0, total: 0 };
+    cur.total += 1;
+    if (isOnline(statuses[i])) cur.online += 1;
+    sites.set(key, cur);
+  });
+
   const counts = { active: 0, expired: 0, revoked: 0 };
   for (const l of licenses) counts[displayStatus(l)]++;
 
@@ -31,6 +45,7 @@ export default async function AdminPage() {
     { label: 'Active licenses', value: counts.active },
     { label: 'Expired', value: counts.expired },
     { label: 'Revoked', value: counts.revoked },
+    { label: 'Sites online', value: Array.from(sites.values()).reduce((n, v) => n + v.online, 0) },
   ];
 
   return (
@@ -48,7 +63,7 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {stats.map(s => (
           <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
             <p className="text-xs text-zinc-500 uppercase tracking-wider">{s.label}</p>
@@ -61,7 +76,7 @@ export default async function AdminPage() {
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-800 bg-zinc-950/50">
             <tr>
-              {['Email', 'Registered', 'Plan', 'Status', 'Expires', 'Licenses'].map(h => (
+              {['Email', 'Registered', 'Plan', 'Status', 'Expires', 'Sites', 'Licenses'].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -69,7 +84,7 @@ export default async function AdminPage() {
           <tbody className="divide-y divide-zinc-800/50">
             {emails.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-zinc-500 text-sm">No customers yet.</td>
+                <td colSpan={7} className="px-4 py-8 text-center text-zinc-500 text-sm">No customers yet.</td>
               </tr>
             ) : emails.map(email => {
               const lics = byEmail.get(email) ?? [];
@@ -99,6 +114,14 @@ export default async function AdminPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-500 text-xs">
                     {best ? (best.expires_at ? new Date(best.expires_at).toLocaleDateString() : 'never') : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    {sites.get(email) ? (
+                      <span className="inline-flex items-center gap-1.5 text-zinc-300">
+                        <span className={`h-1.5 w-1.5 rounded-full ${sites.get(email)!.online > 0 ? 'bg-green-400' : 'bg-zinc-600'}`} />
+                        {sites.get(email)!.online}/{sites.get(email)!.total} online
+                      </span>
+                    ) : <span className="text-zinc-600">—</span>}
                   </td>
                   <td className="px-4 py-3 text-zinc-500 text-xs">{lics.length}</td>
                 </tr>
