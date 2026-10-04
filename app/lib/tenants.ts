@@ -141,6 +141,18 @@ export function attentionItems(tenants: Tenant[], now = Date.now()): Attention[]
         if (age > DAY) out.push({ level: 'info', email: t.email, text: 'License active but the controller has never connected', at: new Date(s.license.created_at).getTime() });
       }
     }
+    for (const site of t.allSites) {
+      const nm = site.license.site_name ?? site.status?.site_name ?? 'a site';
+      for (const c of site.license.copies ?? []) {
+        if (c.decision === 'removed') continue;
+        const ends = new Date(c.first_seen).getTime() + 30 * DAY;
+        if (ends > now) out.push({ level: 'warning', email: t.email, text: `Unconfirmed copy ${c.hostname || c.controller_id.slice(0, 8)} of ${nm}: waiting for the customer, locks in ${Math.max(1, Math.ceil((ends - now) / DAY))} days`, at: new Date(c.first_seen).getTime() });
+      }
+      for (const r of site.license.retired ?? []) {
+        const end = new Date(r.until).getTime();
+        if (end > now && r.reason === 'moved') out.push({ level: 'info', email: t.email, text: `Previous controller of ${nm} stops on ${new Date(end).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} (license moved)`, at: new Date(r.at).getTime() });
+      }
+    }
     if (t.best && t.state === 'expiring') {
       const days = Math.ceil((new Date(t.best.expires_at!).getTime() - now) / DAY);
       out.push({ level: 'warning', email: t.email, text: `License expires in ${days} day${days === 1 ? '' : 's'}`, at: null });

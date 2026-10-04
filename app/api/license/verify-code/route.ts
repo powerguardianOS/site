@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getLinkableLicense, getLicenses } from '@/app/lib/license-db';
 import { effectiveLimit } from '@/app/lib/limits';
 import { rateLimited, clientIp } from '@/app/lib/ratelimit';
+import { createTicket, listChoices } from '@/app/lib/sitelink';
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
@@ -56,6 +57,19 @@ export async function POST(req: NextRequest) {
     if (stored !== code) {
       return NextResponse.json({ valid: false }, { status: 401 });
     }
+    // New controllers send their hardware ID. They get a short-lived claim ticket and the
+    // list of sites to choose from — never a token: that only comes after the claim.
+    const cid = typeof body?.controller_id === 'string' && /^[0-9a-f]{32,64}$/i.test(body.controller_id) ? body.controller_id.toLowerCase() : '';
+    if (cid) {
+      const choices = await listChoices(email, cid);
+      if (choices.length === 0) {
+        const any = (await getLicenses()).some((l) => l.email.toLowerCase() === email.toLowerCase() && l.plan !== 'addon_connector');
+        return NextResponse.json(any ? { valid: true, error: 'no_site' } : { valid: false }, { status: any ? 409 : 404 });
+      }
+      const host = typeof body?.hostname === 'string' ? body.hostname.replace(/[^\w.-]/g, '').slice(0, 63) : '';
+      return NextResponse.json({ valid: true, ticket: await createTicket(email, cid, host), expires_in: 600, sites: choices });
+    }
+
     // The license (incl. its relay token) is only ever handed out here, to the
     // caller who just proved control of the mailbox. There is deliberately no
     // separate unauthenticated lookup-by-email endpoint.

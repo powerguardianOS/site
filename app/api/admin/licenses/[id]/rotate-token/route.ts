@@ -1,6 +1,8 @@
 export const runtime = 'edge';
 
-import { adminGuard } from '@/app/lib/admin';
+import { adminGuard, getAdminEmail } from '@/app/lib/admin';
+import { logAudit } from '@/app/lib/audit';
+
 import { regenToken } from '@/app/lib/license-db';
 
 // Replaces the license's long-lived token. The old token stops working at once
@@ -14,5 +16,6 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   const record = await regenToken(id);
   if (!record) return Response.json({ error: 'license not found' }, { status: 404 });
+  await logAudit({ actor: (await getAdminEmail()) ?? 'admin', role: 'admin', action: 'token.rotate', email: record.email, license_id: id });
   return Response.json({ rotated: true });
 }

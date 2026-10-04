@@ -1,8 +1,10 @@
 import { getSiteStatus, isOnline } from '@/app/lib/site-status';
 import type { SiteStatus } from '@/app/lib/site-status';
 import OpenConsoleButton from './OpenConsoleButton';
+import SiteControls from './SiteControls';
+import type { SiteInfo } from './SiteControls';
 
-type Lic = { id: string; plan: string; status: string };
+type Lic = { id: string; plan: string; status: string; info: SiteInfo };
 
 function ago(ms: number): string {
   const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
@@ -43,7 +45,7 @@ function Site({ lic, status }: { lic: Lic; status: SiteStatus | null }) {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Dot on={online} />
-            <h3 className="text-sm font-semibold text-white">{status ? status.site_name : 'Waiting for first connection'}</h3>
+            <h3 className="text-sm font-semibold text-white">{lic.info.name ?? (status ? status.site_name : 'Waiting for first connection')}</h3>
           </div>
           <p className="text-xs text-zinc-500">
             {status
@@ -89,6 +91,8 @@ function Site({ lic, status }: { lic: Lic; status: SiteStatus | null }) {
           </table>
         </div>
       )}
+      <SiteControls site={lic.info} />
+
       {status && status.devices.length === 0 && (
         <p className="text-xs text-zinc-500">No devices adopted on this controller yet.</p>
       )}

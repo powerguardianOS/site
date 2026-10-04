@@ -24,7 +24,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
   { label: 'Commerce', items: [{ label: 'Billing', icon: 'billing' }] },
   { label: 'Trust', items: [
     { label: 'Support access', icon: 'support' },
-    { label: 'Audit log', icon: 'audit' },
+    { label: 'Audit log', icon: 'audit', href: '/admin/audit' },
   ]},
 ];
 

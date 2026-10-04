@@ -1,4 +1,4 @@
-import { createLicense, deleteLicense, getLicenses } from '@/app/lib/license-db';
+import { createLicense, deleteLicense, getLicenses, updateLicense } from '@/app/lib/license-db';
 import type { LicenseRecord } from '@/app/lib/license-db';
 import { deleteSiteStatus, getSiteStatus } from '@/app/lib/site-status';
 import { addonsOf, isRunning } from '@/app/lib/limits';
@@ -27,6 +27,7 @@ export async function createAddon(input: {
     email: parent.email, plan: 'addon_connector', site_id: parent.site_id, parent_id: parent.id,
     connector_limit: input.connectors, expires_at: input.expires_at, notes: input.notes ?? '',
   });
+  await updateLicense(parent.id, { addon_ids: [...(parent.addon_ids ?? []), created.id] });
   return { ok: true, value: created };
 }
 
@@ -47,6 +48,7 @@ export async function deleteAddon(id: string): Promise<AddonResult<{ removed: st
     }
   }
   await deleteLicense(id);
+  if (parent) await updateLicense(parent.id, { addon_ids: (parent.addon_ids ?? []).filter((x) => x !== id) });
   return { ok: true, value: { removed: id } };
 }
 

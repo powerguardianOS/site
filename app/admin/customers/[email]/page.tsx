@@ -10,7 +10,11 @@ import { LicenseCard } from './LicenseCard';
 import { DeleteTenant } from './DeleteTenant';
 import { AddonList } from './AddonList';
 import { DeleteSite } from './DeleteSite';
+import { ControllerBlock } from './ControllerBlock';
 import { isRunning } from '@/app/lib/limits';
+
+// Time checks live outside the components (they read the clock).
+const inFuture = (iso: string) => new Date(iso).getTime() > Date.now();
 
 type Tone = { label: string; text: string; dot: string; shape: string };
 
@@ -44,7 +48,7 @@ function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <span className={`h-2.5 w-2.5 shrink-0 ${state.dot} ${state.shape}`} />
-            <h2 className="text-base font-semibold text-white">{s?.site_name ?? (lic === 'revoked' ? 'Former site' : 'New site')}</h2>
+            <h2 className="text-base font-semibold text-white">{license.site_name ?? s?.site_name ?? (lic === 'revoked' ? 'Former site' : 'New site')}</h2>
             <span className={`text-sm ${state.text}`}>{state.label}</span>
           </div>
           <p className="mt-1 text-xs text-zinc-500">
@@ -100,6 +104,17 @@ function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
           id: license.id, plan: license.plan, status: license.status, connector_limit: license.connector_limit,
           expires_at: license.expires_at, notes: license.notes, created_at: license.created_at,
         }}
+      />
+
+      <ControllerBlock
+        licenseId={license.id}
+        siteName={license.site_name ?? null}
+        hostname={license.claimed_hostname ?? null}
+        controllerShort={license.claimed_by ? license.claimed_by.slice(0, 8) : null}
+        claimedAt={license.claimed_at ?? null}
+        copies={(license.copies ?? []).map((c) => ({ hostname: c.hostname, controller_short: c.controller_id.slice(0, 8), first_seen: c.first_seen, decision: c.decision }))}
+        retired={(license.retired ?? []).filter((r) => inFuture(r.until)).map((r) => ({ controller_short: (r.controller_id ?? 'legacy').slice(0, 8), until: r.until, reason: r.reason }))}
+        offlineAllowed={license.offline_allowed === true}
       />
 
       <AddonList

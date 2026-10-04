@@ -1,6 +1,9 @@
 export const runtime = 'edge';
 
-import { getLicenseByToken } from '@/app/lib/license-db';
+import { getLicenseByToken, updateLicense } from '@/app/lib/license-db';
+import { decideHeartbeat, leaseFor } from '@/app/lib/sitelink';
+import { logAudit } from '@/app/lib/audit';
+import { dateLong, notifyOwner } from '@/app/lib/notify';
 import { getSiteStatus, putSiteStatus } from '@/app/lib/site-status';
 import type { SiteDevice, SiteStatus } from '@/app/lib/site-status';
 
@@ -26,12 +29,7 @@ export async function POST(request: Request) {
   if (!token) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const license = await getLicenseByToken(token);
-  if (!license || license.status !== 'active') {
-    return Response.json({ error: 'unauthorized' }, { status: 401 });
-  }
-  if (license.expires_at && new Date(license.expires_at).getTime() < Date.now()) {
-    return Response.json({ error: 'license expired' }, { status: 403 });
-  }
+  if (!license) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const raw = await request.text();
   if (raw.length > MAX_BODY) return Response.json({ error: 'payload too large' }, { status: 413 });
@@ -45,9 +43,45 @@ export async function POST(request: Request) {
     return Response.json({ error: 'invalid JSON' }, { status: 400 });
   }
 
+  const controllerId = typeof body.controller_id === 'string' && /^[0-9a-f]{32,64}$/i.test(body.controller_id) ? body.controller_id.toLowerCase() : undefined;
+  const hostname = str(body.hostname, 63).replace(/[^\w.-]/g, '');
+  const now = Math.floor(Date.now() / 1000);
+
+  const d = decideHeartbeat(license, token, controllerId, now);
+  if (d.kind === 'denied') return Response.json({ error: d.error, state: d.error }, { status: d.status });
+
+  const name = license.site_name ?? null;
+
+  // Not the holder: it gets a (capped) lease and a notice, but its data is not stored.
+  if (d.kind === 'retired') {
+    const notice = d.reason === 'moved'
+      ? `This site’s license moved to another controller. This controller stops working on ${dateLong(d.leaseUntil)}. Add a license for it, or contact sales@powerguardian.cloud.`
+      : `This controller was ${d.reason === 'replaced' ? 'replaced' : 'released'} and stops working on ${dateLong(d.leaseUntil)}.`;
+    const lease = await leaseFor(license, controllerId ?? '', d.leaseUntil, 'moved', now, notice);
+    return Response.json({ ok: true, lease, lease_valid_until: d.leaseUntil, state: 'moved', site_name: name, notice });
+  }
+  if (d.kind === 'copy' && controllerId) {
+    if (d.isNew) {
+      await updateLicense(license.id, { copies: [...(license.copies ?? []), { controller_id: controllerId, hostname, first_seen: new Date(now * 1000).toISOString() }] });
+      await logAudit({ actor: 'controller', role: 'controller', action: 'copy.detected', email: license.email, license_id: license.id, detail: `${hostname || controllerId.slice(0, 8)} presents the license of ${name ?? 'a site'} but is not its controller` });
+      await notifyOwner(license.email, `A copy of ${name ?? 'your site'} was detected`,
+        `A controller (${hostname || 'unnamed'}) is using the license of ${name ?? 'your site'}, but it is not the controller linked to it. This is fine when you copied an SD card or replaced hardware: open your portal and choose Replace, Add a license, or Remove.\n\nUntil you decide it keeps working until ${dateLong(d.leaseUntil)}. Your original controller is not affected.`);
+    }
+    const notice = d.relink
+      ? 'Link this controller to its own site license: Settings → License.'
+      : `This controller looks like a copy. Decide in the portal, or here, before ${dateLong(d.leaseUntil)}.`;
+    const lease = await leaseFor(license, controllerId, d.leaseUntil, 'unconfirmed_copy', now, notice);
+    return Response.json({ ok: true, lease, lease_valid_until: d.leaseUntil, state: 'unconfirmed_copy', site_name: name, notice });
+  }
+
+  // The holder (or a legacy controller without a hardware ID).
   const previous = await getSiteStatus(license.id);
   if (previous && Date.now() - previous.received_at < MIN_INTERVAL_MS) {
     return Response.json({ error: 'too frequent' }, { status: 429 });
+  }
+  if (d.kind === 'holder' && d.adopt && controllerId) {
+    await updateLicense(license.id, { claimed_by: controllerId, claimed_hostname: hostname, claimed_at: new Date(now * 1000).toISOString() });
+    await logAudit({ actor: 'controller', role: 'controller', action: 'site.adopt', email: license.email, license_id: license.id, detail: `${hostname || controllerId.slice(0, 8)} now holds ${name ?? 'the site'}` });
   }
 
   const devices: SiteDevice[] = (Array.isArray(body.devices) ? body.devices : [])
@@ -74,5 +108,6 @@ export async function POST(request: Request) {
   if (!(await putSiteStatus(license.id, status))) {
     return Response.json({ error: 'storage error' }, { status: 502 });
   }
-  return Response.json({ ok: true });
+  const lease = d.kind === 'holder' ? await leaseFor(license, controllerId ?? '', d.leaseUntil, 'licensed', now) : null;
+  return Response.json({ ok: true, lease, lease_valid_until: d.kind === 'holder' ? d.leaseUntil : undefined, state: 'licensed', site_name: name });
 }

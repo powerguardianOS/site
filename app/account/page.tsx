@@ -37,7 +37,15 @@ export default async function AccountPage() {
       </div>
 
       {/* Sites — real status from controller heartbeats */}
-      <SitesSection licenses={summary.licenses.map(l => ({ id: l.id, plan: l.plan, status: l.status }))} />
+      <SitesSection licenses={summary.licenses.filter(l => l.plan !== 'addon_connector').map(l => ({
+        id: l.id, plan: l.plan, status: l.status,
+        info: {
+          id: l.id, name: l.site_name ?? null, hostname: l.claimed_hostname ?? null,
+          controllerShort: l.claimed_by ? l.claimed_by.slice(0, 8) : null, offlineAllowed: l.offline_allowed === true,
+          copies: (l.copies ?? []).map(c => ({ controller_id: c.controller_id, hostname: c.hostname, first_seen: c.first_seen, decision: c.decision })),
+          movedAway: (l.retired ?? []).filter(r => r.reason === 'moved' && new Date(r.until).getTime() > Date.now()).map(r => ({ until: r.until })),
+        },
+      }))} />
 
       {/* Licenses */}
       <div className="space-y-4">

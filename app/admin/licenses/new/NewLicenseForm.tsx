@@ -20,6 +20,7 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
   const [custom, setCustom] = useState('');
   const [termTouched, setTermTouched] = useState(false);
   const [notes, setNotes] = useState('');
+  const [siteName, setSiteName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,7 +35,7 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email, plan, connector_limit: Number(limit),
-          expires_at: term === 'custom' ? custom : termEnd(term), notes,
+          expires_at: term === 'custom' ? custom : termEnd(term), notes, site_name: siteName,
         }),
       });
       const data = await r.json().catch(() => ({}));
@@ -59,6 +60,12 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
         <label className="block space-y-1">
           <span className="text-xs text-zinc-400">Customer e-mail{locked ? ' (fixed)' : ''}</span>
           <input className={`${field} ${locked ? 'opacity-70' : ''}`} type="email" required readOnly={locked} value={email} onChange={e => setEmail(e.target.value)} />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-xs text-zinc-400">Site name (optional)</span>
+          <input className={field} value={siteName} maxLength={80} placeholder="e.g. Server room A" onChange={e => setSiteName(e.target.value)} />
+          <span className="block text-xs text-zinc-500">The customer sees this name when he links his controller, and in the portal. He can change it later.</span>
         </label>
 
         <div className="grid grid-cols-2 gap-3">

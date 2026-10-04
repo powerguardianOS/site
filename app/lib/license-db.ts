@@ -13,6 +13,35 @@ export type LicenseRecord = {
   token: string;
   // Only for plan 'addon_connector': the id of the site license it extends.
   parent_id?: string;
+
+  // --- site naming, linking and the 30-day lease (site licenses only) ---
+  addon_ids?: string[];       // the connector add-ons of this site, so a heartbeat reads only these
+  site_name?: string;
+  claimed_by?: string;        // hardware ID of the controller that holds this site
+  claimed_hostname?: string;
+  claimed_at?: string;
+  moved_at?: string;          // last transfer, for the once-per-30-days rule
+  retired?: Retired[];        // controllers that used to hold the site, on a capped lease
+  copies?: Copy[];            // unconfirmed copies seen with this license's token
+  offline_allowed?: boolean;  // set by the admin: may get a 12-month offline lease
+};
+
+// A controller that no longer holds the site. Its lease ends at `until`.
+export type Retired = {
+  controller_id: string | null; // null = a controller that predates hardware IDs
+  token: string | null;
+  until: string;
+  reason: 'moved' | 'replaced' | 'released';
+  at: string;
+};
+
+// A controller that presented this license's token but is not its holder
+// (a copied SD card, for instance). It runs on a countdown until the customer decides.
+export type Copy = {
+  controller_id: string;
+  hostname: string;
+  first_seen: string;
+  decision?: 'relink' | 'removed';
 };
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
@@ -178,4 +207,22 @@ export async function regenToken(id: string): Promise<LicenseRecord | null> {
   await kvPut(`license:${id}`, JSON.stringify(record));
   await kvPut(`index:token:${record.token.toLowerCase()}`, id);
   return record;
+}
+
+// Gives the license a new token and keeps the old token's index, so a controller
+// that still holds the old token can be recognised (and gradually retired).
+export async function rotateTokenKeepOld(id: string): Promise<{ old: string; next: string; record: LicenseRecord } | null> {
+  const json = await kvGet(`license:${id}`);
+  if (!json) return null;
+  const record = JSON.parse(json) as LicenseRecord;
+  const old = record.token;
+  record.token = randomHex(16);
+  await kvPut(`license:${id}`, JSON.stringify(record));
+  await kvPut(`index:token:${record.token.toLowerCase()}`, id);
+  return { old, next: record.token, record };
+}
+
+export async function getLicense(id: string): Promise<LicenseRecord | null> {
+  const json = await kvGet(`license:${id}`);
+  return json ? (JSON.parse(json) as LicenseRecord) : null;
 }

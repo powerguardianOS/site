@@ -19,3 +19,11 @@ export function effectiveLimit(site: LicenseRecord, all: LicenseRecord[], now = 
   if (site.connector_limit === 0) return 0;
   return site.connector_limit + addonsOf(site, all).filter((a) => isRunning(a, now)).reduce((n, a) => n + a.connector_limit, 0);
 }
+
+// Same result as effectiveLimit, but reads only this site's own add-ons. Used on
+// the hot path (every heartbeat) instead of loading every license.
+export async function limitFor(site: LicenseRecord, getOne: (id: string) => Promise<LicenseRecord | null>, now = Date.now()): Promise<number> {
+  if (site.connector_limit === 0) return 0;
+  const add = await Promise.all((site.addon_ids ?? []).map(getOne));
+  return site.connector_limit + add.filter((a): a is LicenseRecord => !!a && isRunning(a, now)).reduce((n, a) => n + a.connector_limit, 0);
+}

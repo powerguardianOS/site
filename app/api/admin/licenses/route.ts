@@ -1,6 +1,8 @@
 export const runtime = 'edge';
 
-import { adminGuard } from '@/app/lib/admin';
+import { adminGuard, getAdminEmail } from '@/app/lib/admin';
+import { logAudit } from '@/app/lib/audit';
+
 import { createLicense, getLicenses } from '@/app/lib/license-db';
 import type { LicenseRecord } from '@/app/lib/license-db';
 import { createAccount, getAccount } from '@/app/lib/accounts';
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
       notes: typeof body.notes === 'string' ? body.notes.slice(0, 2000) : '',
     });
     if (!r.ok) return Response.json({ error: r.error, message: r.message }, { status: r.status });
+    await logAudit({ actor: (await getAdminEmail()) ?? 'admin', role: 'admin', action: 'addon.create', email: r.value.email, license_id: r.value.id, detail: `+${r.value.connector_limit} connectors, ends ${r.value.expires_at ?? 'never'}` });
     return Response.json({ license: r.value }, { status: 201 });
   }
 
@@ -66,6 +69,8 @@ export async function POST(request: Request) {
   if (!(await getAccount(email))) await createAccount(email);
   const license = await createLicense({
     email, plan, site_id: 'default-site', connector_limit: limit, expires_at, notes,
+    ...(typeof (body as { site_name?: unknown }).site_name === 'string' && (body as { site_name: string }).site_name.trim() ? { site_name: (body as { site_name: string }).site_name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80) } : {}),
   });
+  await logAudit({ actor: (await getAdminEmail()) ?? 'admin', role: 'admin', action: 'license.create', email: license.email, license_id: license.id, detail: `${license.plan}, ${license.connector_limit === 0 ? 'unlimited' : license.connector_limit} connectors, ends ${license.expires_at ?? 'never'}${license.site_name ? `, “${license.site_name}”` : ''}` });
   return Response.json({ license }, { status: 201 });
 }
