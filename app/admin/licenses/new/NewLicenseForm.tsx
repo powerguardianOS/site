@@ -47,8 +47,8 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
     <div className="mx-auto max-w-lg space-y-6">
       <div>
         <Link href={locked ? `/admin/customers/${encodeURIComponent(initialEmail)}` : '/admin/tenants'} className="text-xs text-zinc-500 hover:text-zinc-300">← {locked ? initialEmail : 'Tenants'}</Link>
-        <h1 className="text-2xl font-semibold mt-2">{locked ? 'Add a license' : 'New license'}</h1>
-        <p className="mt-1 text-sm text-zinc-400">{locked ? 'Adds another controller (site) to this customer. To allow more connectors on an existing site, use “+1 connector” on its license instead.' : 'Creates the license, and the customer account if it does not exist yet.'}</p>
+        <h1 className="text-2xl font-semibold mt-2">{locked ? 'Add a site' : 'New customer license'}</h1>
+        <p className="mt-1 text-sm text-zinc-400">{locked ? 'A site is one location with one controller and its connectors. This creates the license for a new site on this customer. To allow more connectors on an existing site, use “+1 connector” on that site’s license instead.' : 'Creates the customer account if needed, with its first site.'}</p>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
@@ -71,7 +71,7 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
             </select>
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-zinc-400">Connector limit (0 = unlimited)</span>
+            <span className="text-xs text-zinc-400">Connectors on this site (0 = unlimited)</span>
             <input className={field} type="number" min={0} max={10000} required value={limit} onChange={e => setLimit(e.target.value)} />
           </label>
         </div>
@@ -93,7 +93,7 @@ export default function NewLicenseForm({ initialEmail }: { initialEmail: string 
           disabled={busy}
           className="bg-[#00C66F] text-black hover:bg-[#00b564] rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
         >
-          {busy ? 'Creating…' : 'Create license'}
+          {busy ? 'Creating…' : locked ? 'Create site license' : 'Create license'}
         </button>
       </form>
     </div>

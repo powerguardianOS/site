@@ -114,16 +114,16 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
         </div>
 
         <div className="space-y-4 lg:col-span-2">
-          <h2 className="text-sm font-semibold text-zinc-300">Licenses</h2>
+          <h2 className="text-sm font-semibold text-zinc-300">Licenses <span className="font-normal text-zinc-500">· one per site</span></h2>
           {tenant.licenses.length === 0 && <p className="rounded-xl border border-zinc-800 p-6 text-center text-sm text-zinc-500">No licenses for this tenant.</p>}
           {tenant.licenses.map((l) => (
             // Deliberately no `token` prop: the license token is never rendered anywhere.
-            <LicenseCard key={`${l.id}-${l.plan}-${l.status}-${l.connector_limit}-${l.expires_at}`} license={{
+            <LicenseCard key={`${l.id}-${l.plan}-${l.status}-${l.connector_limit}-${l.expires_at}`} siteLabel={tenant.sites.find((s) => s.license.id === l.id)?.status?.site_name ?? (l.status === 'revoked' ? 'Revoked' : 'Not connected yet')} license={{
               id: l.id, plan: l.plan, status: l.status, connector_limit: l.connector_limit,
               expires_at: l.expires_at, notes: l.notes, created_at: l.created_at,
             }} />
           ))}
-          <Link href={`/admin/licenses/new?email=${encodeURIComponent(tenant.email)}`} className="inline-block rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900">+ Add license (extra controller)</Link>
+          <Link href={`/admin/licenses/new?email=${encodeURIComponent(tenant.email)}`} className="inline-block rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900">+ Add site</Link>
 
           <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-5">
             <div className="flex items-center justify-between">

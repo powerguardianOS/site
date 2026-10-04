@@ -19,7 +19,7 @@ function addMonths(from: string | null, months: number): string {
   return base.toISOString();
 }
 
-export function LicenseCard({ license }: { license: Lic }) {
+export function LicenseCard({ license, siteLabel }: { license: Lic; siteLabel?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -61,6 +61,7 @@ export function LicenseCard({ license }: { license: Lic }) {
         <div className="flex items-center gap-2">
           <span className="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded text-xs font-medium uppercase">{license.plan}</span>
           <span className={`${badge} px-2 py-0.5 rounded-full text-xs`}>{shown}</span>
+          {siteLabel && <span className="text-xs text-zinc-400">Site: <span className="text-zinc-200">{siteLabel}</span></span>}
         </div>
         <p className="text-xs text-zinc-500">
           Created {new Date(license.created_at).toLocaleDateString()} · Expires{' '}
@@ -75,7 +76,7 @@ export function LicenseCard({ license }: { license: Lic }) {
         <button
           className={btn}
           disabled={busy || license.connector_limit === 0}
-          title={license.connector_limit === 0 ? 'Already unlimited' : `Allow ${license.connector_limit + 1} connectors on this license`}
+          title={license.connector_limit === 0 ? 'Already unlimited' : `Allow ${license.connector_limit + 1} connectors on this site`}
           onClick={() => patch({ connector_limit: license.connector_limit + 1 })}
         >
           +1 connector
@@ -114,7 +115,7 @@ export function LicenseCard({ license }: { license: Lic }) {
             <option value="founder">Founder</option><option value="addon_connector">Add-on connector</option>
           </select>
         </label>
-        <label className="space-y-1 text-xs text-zinc-400">Connector limit (0 = ∞)
+        <label className="space-y-1 text-xs text-zinc-400">Connectors on this site (0 = ∞)
           <input className={`${field} w-full`} type="number" min={0} max={10000} value={limit} onChange={e => setLimit(e.target.value)} />
         </label>
         <label className="space-y-1 text-xs text-zinc-400">Expires (empty = never)
