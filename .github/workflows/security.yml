@@ -1,0 +1,24 @@
+name: Security checks
+
+# Every Monday (and on demand): look for known vulnerabilities in the dependencies that ship to production.
+# A failure makes GitHub e-mail the owner. It only reads the code, it publishes nothing.
+on:
+  schedule:
+    - cron: '27 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Vulnerabilities in production dependencies (high and critical fail the run)
+        run: npm audit --omit=dev --audit-level=high
