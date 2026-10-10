@@ -36,10 +36,7 @@ export const DOCS: DocPage[] = [
       },
       {
         title: "Supported Hardware",
-        body: "• Connector: PowerGuardian Connector hardware (NanoPi Neo3), or an x86_64 Linux machine for evaluation
-• Controller: NanoPi R3S, or an x86_64 machine for evaluation
-
-Both run PowerGuardian OS images that update themselves through the Controller.",
+        body: "• Connector: PowerGuardian Connector hardware (NanoPi Neo3), or an x86_64 Linux machine for evaluation\n• Controller: NanoPi R3S, or an x86_64 machine for evaluation\n\nBoth run PowerGuardian OS images that update themselves through the Controller.",
       },
     ],
   },
