@@ -32,11 +32,14 @@ export const DOCS: DocPage[] = [
       },
       {
         title: "Installation",
-        body: "1. Download the pg-agent binary for your architecture (ARM64 or ARMv7)\n2. Copy to /usr/local/bin/pg-agent and run: chmod +x /usr/local/bin/pg-agent\n3. Set environment variables:\n   CONTROLLER_URL=ws://your-controller-ip:9090/ws\n   CONNECTOR_TOKEN=your-token-from-controller\n4. Create a systemd service for automatic restarts on reboot\n5. The Connector appears in the Controller dashboard within seconds",
+        body: "1. Flash the Connector OS image to the SD card (or eMMC) and boot the Connector next to your UPS\n2. Log in over SSH with the factory login: pgadmin / powerguardian\n3. Point it at your Controller: set-inform https://your-controller\n4. The Connector appears as pending in the Controller. Click Adopt\n5. The Controller sends the device password and SSH keys you chose in the setup wizard. The factory login stops working, and the Connector brings itself up to date\n\nSettings → Device SSH changes the password, keys and SSH on/off for all Connectors at once. A Connector that was offline gets the change when it reconnects.",
       },
       {
         title: "Supported Hardware",
-        body: "Runs on any Linux ARM device:\n• Raspberry Pi Zero W / Zero 2W\n• Raspberry Pi 3 / 4\n• NanoPi R3S, Neo3, Zero2\n• OpenWrt-compatible routers (via cross-compiled binary)\n• Any x86_64 Linux system (for testing)\n\nMinimum: 64 MB RAM, 50 MB disk space",
+        body: "• Connector: PowerGuardian Connector hardware (NanoPi Neo3), or an x86_64 Linux machine for evaluation
+• Controller: NanoPi R3S, or an x86_64 machine for evaluation
+
+Both run PowerGuardian OS images that update themselves through the Controller.",
       },
     ],
   },
@@ -55,7 +58,7 @@ export const DOCS: DocPage[] = [
       },
       {
         title: "Plans",
-        body: "Home — €4.99/month or €45/year\n• 1 Connector included\n• Single site\n• All core features\n\nPro — €14.99/month or €140/year\n• 5 Connectors included\n• Multi-site support\n• All core features\n\nAdd-on Connector — €2.99/month or €25 one-time\n• Add one extra connector to any existing plan",
+        body: "Home — €2.99/month or €25/year\n• 1 Connector included\n• Single site\n• All core features\n\nPro — €9.99/month or €99/year\n• 5 Connectors included\n• Multi-site support\n• All core features\n\nAdd-on Connector — €2.99/month or €25 one-time\n• Add one extra connector to any existing plan",
       },
     ],
   },

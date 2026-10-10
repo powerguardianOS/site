@@ -71,8 +71,8 @@ export default function ConnectorPage() {
                 'OB debounce (3 polls) + immediate LB response',
                 'X25519 + AES-256-GCM encrypted tunnel',
                 'TLS certificate pinning (TOFU on first connect)',
-                'Signed OTA updates pushed from Controller',
-                'Zero-touch adoption with one-time token',
+                'Signed updates handed out by the Controller — the Connector never downloads anything itself',
+                'UniFi-style adoption: set-inform, adopt in the Controller, factory login disabled',
                 'Hardware fingerprint anti-cloning check',
                 'In-memory log buffer forwarded to Controller',
               ].map(f => (

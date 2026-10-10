@@ -29,8 +29,8 @@ export default function RoadmapPage() {
             "Customizable alert rules and notification flows",
             "TOTP MFA, email OTP, and Ed25519 JWT auth",
             "Cloudflare Tunnel for secure remote access",
-            "Over-the-air OTA updates for connectors",
-            "License system — Home · Pro · Enterprise",
+            "Signed updates through the Controller (stable and beta channels, automatic rollback)",
+            "License system — Home · Pro",
           ]}
         />
         <RoadmapCard
