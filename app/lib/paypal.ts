@@ -2,7 +2,8 @@
 export const runtime = 'edge';
 
 const PAYPAL_BASE = process.env.PAYPAL_SANDBOX === '1' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
-export const PLAN_PRICES: Record<string, number> = { home: 45, pro: 140, addon_connector: 25 };
+import { PLAN_PRICES } from '@/app/lib/pricing';
+export { PLAN_PRICES };
 
 export async function getPayPalToken(): Promise<string> {
   const response = await fetch(PAYPAL_BASE + '/v1/oauth2/token', {

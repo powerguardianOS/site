@@ -1,15 +1,16 @@
 "use client";
 import { useState, Suspense } from "react";
 import Link from "next/link";
+import { PRICING } from "@/app/lib/pricing";
 
 const plans = [
   {
     id: "home",
     name: "Home",
     desc: "Single site, single connector.",
-    monthly: 2.99,
-    annual: 25,
-    annualMonthly: 2.08,
+    monthly: PRICING.home.monthly,
+    annual: PRICING.home.annual,
+    annualMonthly: Math.round((PRICING.home.annual / 12) * 100) / 100,
     connectors: 1,
     sites: 1,
     features: [
@@ -27,9 +28,9 @@ const plans = [
     id: "pro",
     name: "Pro",
     desc: "Multiple sites and connectors.",
-    monthly: 9.99,
-    annual: 99,
-    annualMonthly: 8.25,
+    monthly: PRICING.pro.monthly,
+    annual: PRICING.pro.annual,
+    annualMonthly: Math.round((PRICING.pro.annual / 12) * 100) / 100,
     connectors: 5,
     sites: 3,
     features: [
@@ -166,9 +167,9 @@ function PricingContent() {
               <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-0.5">Estimated</div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="pg-display text-4xl text-white">€2.99</span>
+              <span className="pg-display text-4xl text-white">€{PRICING.addon_connector.monthly}</span>
               <span className="text-zinc-500 text-sm">/mo</span>
-              <span className="text-zinc-600 text-xs">or €25 one-time</span>
+              <span className="text-zinc-600 text-xs">or €{PRICING.addon_connector.annual}/yr</span>
             </div>
           </div>
           <div className="w-full md:w-56 shrink-0">

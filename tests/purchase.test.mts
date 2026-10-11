@@ -26,19 +26,19 @@ check('custom_id is parsed; add-on needs a site, others must not have one',
   parseCustomId('home')?.plan === 'home' && parseCustomId('addon_connector:site1')?.parent === 'site1' &&
   parseCustomId('addon_connector') === null && parseCustomId('pro:site1') === null && parseCustomId('lifetime') === null);
 
-order('o1', 'home', '45.00');
+order('o1', 'home', '25.00');
 const r1 = await fulfilPurchase('o1') as any;
 check('a Home order creates a Home license (1 connector)', r1.ok && get('license:' + r1.license_id).plan === 'home' && get('license:' + r1.license_id).connector_limit === 1);
 
-order('o2', 'home', '140.00');
+order('o2', 'home', '99.00');
 check('paying the Home price for Pro is impossible: price must match what the order says', (await fulfilPurchase('o2') as any).error === 'amount_mismatch');
-order('o3', 'pro', '45.00');
+order('o3', 'pro', '25.00');
 check('an order for Pro paid at the Home price is refused', (await fulfilPurchase('o3') as any).error === 'amount_mismatch');
 check('an unapproved order is refused', (await fulfilPurchase('o1x') as any).error === 'order_not_approved');
-order('o4', 'whatever', '45.00');
+order('o4', 'whatever', '25.00');
 check('an unknown plan in the order is refused', (await fulfilPurchase('o4') as any).error === 'unknown_order');
 const before = captures;
-order('o1', 'home', '45.00');
+order('o1', 'home', '25.00');
 check('…even if PayPal still reports it as approved', (await fulfilPurchase('o1') as any).error === 'already_fulfilled' && captures === before);
 
 order('o5', 'addon_connector:site1', '25.00');
