@@ -3,10 +3,11 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
 interface Props {
   plan: 'home' | 'pro' | 'addon_connector';
+  siteLicenseId?: string; // add-ons: the site they are for
   highlight?: boolean;
 }
 
-export default function PayPalCheckoutButton({ plan, highlight }: Props) {
+export default function PayPalCheckoutButton({ plan, highlight, siteLicenseId }: Props) {
   return (
     <PayPalScriptProvider
       options={{
@@ -27,7 +28,7 @@ export default function PayPalCheckoutButton({ plan, highlight }: Props) {
           const r = await fetch('/api/paypal/create-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ plan }),
+            body: JSON.stringify({ plan, site_license_id: siteLicenseId }),
           });
           const d = await r.json();
           return d.id;
@@ -36,7 +37,7 @@ export default function PayPalCheckoutButton({ plan, highlight }: Props) {
           const r = await fetch('/api/paypal/capture-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderID: data.orderID, plan }),
+            body: JSON.stringify({ orderID: data.orderID }),
           });
           const d = await r.json();
           if (d.ok) {

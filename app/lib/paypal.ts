@@ -2,7 +2,7 @@
 export const runtime = 'edge';
 
 const PAYPAL_BASE = process.env.PAYPAL_SANDBOX === '1' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
-const PLAN_PRICES: Record<string, number> = { home: 45, pro: 140, addon_connector: 25 };
+export const PLAN_PRICES: Record<string, number> = { home: 45, pro: 140, addon_connector: 25 };
 
 export async function getPayPalToken(): Promise<string> {
   const response = await fetch(PAYPAL_BASE + '/v1/oauth2/token', {
@@ -17,7 +17,9 @@ export async function getPayPalToken(): Promise<string> {
   return data.access_token;
 }
 
-export async function createPayPalOrder(plan: string): Promise<string> {
+// What was bought is fixed HERE, on the server, when the order is made (custom_id) and re-read at capture time:
+// the browser never gets to say which plan a payment was for.
+export async function createPayPalOrder(plan: string, parentId?: string): Promise<string> {
   const token = await getPayPalToken();
   const response = await fetch(PAYPAL_BASE + '/v2/checkout/orders', {
     method: 'POST',
@@ -33,6 +35,7 @@ export async function createPayPalOrder(plan: string): Promise<string> {
             currency_code: 'EUR',
             value: PLAN_PRICES[plan].toFixed(2),
           },
+          custom_id: parentId ? plan + ':' + parentId : plan,
           description: 'PowerGuardian ' + plan + ' license (annual)',
         },
       ],
@@ -42,18 +45,37 @@ export async function createPayPalOrder(plan: string): Promise<string> {
   return data.id;
 }
 
-export async function capturePayPalOrder(orderId: string): Promise<{ email: string; status: string }> {
+export type PayPalOrder = { status: string; custom_id: string; amount: string; currency: string; email: string };
+
+function readOrder(data: any): PayPalOrder {
+  const unit = data?.purchase_units?.[0];
+  const cap = unit?.payments?.captures?.[0];
+  const amt = cap?.amount ?? unit?.amount;
+  return {
+    status: String(data?.status ?? ''),
+    custom_id: String(cap?.custom_id ?? unit?.custom_id ?? ''),
+    amount: String(amt?.value ?? ''),
+    currency: String(amt?.currency_code ?? ''),
+    email: String(data?.payer?.email_address ?? ''),
+  };
+}
+
+export async function getPayPalOrder(orderId: string): Promise<PayPalOrder> {
   const token = await getPayPalToken();
-  const response = await fetch(PAYPAL_BASE + '/v2/checkout/orders/' + orderId + '/capture', {
+  const response = await fetch(PAYPAL_BASE + '/v2/checkout/orders/' + encodeURIComponent(orderId), {
+    headers: { Authorization: 'Bearer ' + token },
+  });
+  return readOrder(await response.json());
+}
+
+export async function capturePayPalOrder(orderId: string): Promise<PayPalOrder> {
+  const token = await getPayPalToken();
+  const response = await fetch(PAYPAL_BASE + '/v2/checkout/orders/' + encodeURIComponent(orderId) + '/capture', {
     method: 'POST',
     headers: {
       Authorization: 'Bearer ' + token,
       'Content-Type': 'application/json',
     },
   });
-  const data = await response.json();
-  return {
-    email: data.payer?.email_address ?? '',
-    status: data.status,
-  };
+  return readOrder(await response.json());
 }
