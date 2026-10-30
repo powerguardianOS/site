@@ -2,31 +2,20 @@
 // parallel requests can slip a few extra through — fine for abuse protection,
 // not for exact metering. Fails open: a KV hiccup must not lock customers out.
 
-const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
-const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
-const CF_TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
-const BASE = () =>
-  `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
+import { kvGet, kvPut } from '@/app/lib/kv';
 
-/** Returns true when the caller is over the limit (request should be refused). */
-export async function rateLimited(bucket: string, limit: number, windowSec: number): Promise<boolean> {
+/** Returns true when the caller is over the limit (request should be refused).
+ *  failClosed: when KV cannot be read or written, throw instead of letting the
+ *  request through (use it for anything that sends mail or mints credentials). */
+export async function rateLimited(bucket: string, limit: number, windowSec: number, failClosed = false): Promise<boolean> {
   const key = `rl:${bucket}:${Math.floor(Date.now() / (windowSec * 1000))}`;
   try {
-    const r = await fetch(`${BASE()}/values/${encodeURIComponent(key)}`, {
-      headers: { Authorization: `Bearer ${CF_TOKEN()}` },
-    });
-    const count = r.ok ? parseInt(await r.text(), 10) || 0 : 0;
+    const count = parseInt((await kvGet(key)) ?? '0', 10) || 0;
     if (count >= limit) return true;
-    await fetch(
-      `${BASE()}/values/${encodeURIComponent(key)}?expiration_ttl=${Math.max(60, windowSec * 2)}`,
-      {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${CF_TOKEN()}`, 'Content-Type': 'text/plain' },
-        body: String(count + 1),
-      },
-    );
+    await kvPut(key, String(count + 1), windowSec * 2);
     return false;
-  } catch {
+  } catch (err) {
+    if (failClosed) throw err; // caller answers 503: no mail, no credential
     return false;
   }
 }

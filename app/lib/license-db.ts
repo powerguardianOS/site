@@ -1,4 +1,5 @@
 import { getSiteStatus } from '@/app/lib/site-status';
+import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
 
 export type LicenseRecord = {
   id: string;
@@ -43,29 +44,6 @@ export type Copy = {
   first_seen: string;
   decision?: 'relink' | 'removed';
 };
-
-const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
-const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
-const TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
-const BASE = () =>
-  `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
-
-async function kvGet(key: string): Promise<string | null> {
-  const r = await fetch(`${BASE()}/values/${encodeURIComponent(key)}`, {
-    headers: { Authorization: `Bearer ${TOKEN()}` },
-  });
-  if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`KV read failed (${r.status})`);
-  return r.text();
-}
-
-async function kvPut(key: string, value: string): Promise<void> {
-  await fetch(`${BASE()}/values/${encodeURIComponent(key)}`, {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${TOKEN()}`, 'Content-Type': 'text/plain' },
-    body: value,
-  });
-}
 
 function randomHex(bytes: number): string {
   const arr = new Uint8Array(bytes);
@@ -175,15 +153,9 @@ export async function deleteLicense(id: string): Promise<boolean> {
   if (!json) return false;
   const record = JSON.parse(json) as LicenseRecord;
   // Remove token index
-  await fetch(`${BASE()}/values/${encodeURIComponent(`index:token:${record.token.toLowerCase()}`)}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${TOKEN()}` },
-  });
+  await kvDel(`index:token:${record.token.toLowerCase()}`);
   // Remove record
-  await fetch(`${BASE()}/values/${encodeURIComponent(`license:${id}`)}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${TOKEN()}` },
-  });
+  await kvDel(`license:${id}`);
   // Remove from ID list
   const idsJson = await kvGet('index:all');
   if (idsJson) {
@@ -198,10 +170,7 @@ export async function regenToken(id: string): Promise<LicenseRecord | null> {
   if (!json) return null;
   const record = JSON.parse(json) as LicenseRecord;
   // Remove old token index
-  await fetch(`${BASE()}/values/${encodeURIComponent(`index:token:${record.token.toLowerCase()}`)}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${TOKEN()}` },
-  });
+  await kvDel(`index:token:${record.token.toLowerCase()}`);
   // Generate new token
   record.token = randomHex(16);
   await kvPut(`license:${id}`, JSON.stringify(record));

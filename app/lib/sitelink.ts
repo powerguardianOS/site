@@ -20,6 +20,8 @@ const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
 const CF_TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
 const BASE = () => `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
 
+import { kvPut } from '@/app/lib/kv';
+
 export type Ticket = { email: string; controller_id: string; hostname: string; created: number };
 
 const randomHex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -27,9 +29,7 @@ const randomHex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Arra
 export async function createTicket(email: string, controller_id: string, hostname: string): Promise<string> {
   const id = randomHex(24);
   const t: Ticket = { email: email.toLowerCase(), controller_id, hostname, created: Date.now() };
-  await fetch(`${BASE()}/values/${encodeURIComponent(`claim:${id}`)}?expiration_ttl=600`, {
-    method: 'PUT', headers: { Authorization: `Bearer ${CF_TOKEN()}`, 'Content-Type': 'text/plain' }, body: JSON.stringify(t),
-  });
+  await kvPut(`claim:${id}`, JSON.stringify(t), 600);
   return id;
 }
 

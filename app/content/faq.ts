@@ -28,7 +28,7 @@ export const FAQ: FaqSection[] = [
       { q: "How do I log in?", a: "Passwordless magic-link login. Enter your email, click the link we send you — no password needed, ever." },
       { q: "How does the cloud connect to my local Controller?", a: "Via Cloudflare Tunnel — a secure outbound-only connection. No open ports or firewall rules required on your side." },
       { q: "How do I link my license to the Controller?", a: "Go to Settings → License in the Controller UI, click Link License, enter your email, and enter the 6-digit code we email you." },
-      { q: "What happens if my subscription ends?", a: "Your Controller keeps running locally — nothing breaks immediately. The license status changes to expired and you can renew at any time from the pricing page." },
+      { q: "What happens if my license ends?", a: "Your Controller keeps running locally and keeps protecting your equipment: the shutdown protection never stops. The license status changes to expired and cloud features (remote access, cloud sync) pause until you renew. Online purchase is not open yet; contact us to renew." },
     ],
   },
 ];

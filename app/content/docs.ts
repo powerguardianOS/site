@@ -47,7 +47,7 @@ export const DOCS: DocPage[] = [
     sections: [
       {
         title: "How It Works",
-        body: "After purchasing a Home or Pro license via PayPal, you receive a welcome email with setup instructions. Log in at powerguardian.cloud with your email — no password needed. Your license token is shown in the Account portal and is used to activate your Controller.",
+        body: "Online purchase is not open yet: a Home or Pro license is created for your email address by PowerGuardian, and you receive a welcome email with setup instructions. Log in at powerguardian.cloud with your email — no password needed. Your license token is shown in the Account portal and is used to activate your Controller.",
       },
       {
         title: "Magic-Link Login",

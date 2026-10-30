@@ -22,13 +22,14 @@ export async function ownerGuard(request: Request): Promise<{ email: string; ses
 
 // ---- re-confirmation: sensitive actions need a fresh e-mail code on top of the session
 
+import { kvPut as kvPutChecked } from '@/app/lib/kv';
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
 const CF_TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
 const BASE = () => `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
 const H = () => ({ Authorization: `Bearer ${CF_TOKEN()}`, 'Content-Type': 'text/plain' });
 const kvGet = async (k: string) => { const r = await fetch(`${BASE()}/values/${encodeURIComponent(k)}`, { headers: H() }); return r.ok ? r.text() : null; };
-const kvPut = (k: string, v: string, ttl: number) => fetch(`${BASE()}/values/${encodeURIComponent(k)}?expiration_ttl=${ttl}`, { method: 'PUT', headers: H(), body: v });
+const kvPut = (k: string, v: string, ttl: number) => kvPutChecked(k, v, ttl);
 const kvDel = (k: string) => fetch(`${BASE()}/values/${encodeURIComponent(k)}`, { method: 'DELETE', headers: H() });
 
 export async function sendReconfirmCode(email: string): Promise<void> {
