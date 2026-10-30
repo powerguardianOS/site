@@ -11,6 +11,8 @@ export async function POST(req: NextRequest) {
   // Unsigned or wrongly signed events change nothing.
   const verdict = await verifyPayPalWebhook(req.headers, body);
   if (verdict === 'not_configured') return NextResponse.json({ error: 'webhook not configured' }, { status: 503 });
+  if (verdict === 'duplicate') return NextResponse.json({ ok: true, duplicate: true });
+  if (verdict === 'unavailable') return NextResponse.json({ error: 'unavailable' }, { status: 503 });
   if (verdict !== 'ok') return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
 
   const eventType: string = body.event_type ?? '';

@@ -2,6 +2,7 @@
 export const runtime = 'edge';
 
 const PAYPAL_BASE = process.env.PAYPAL_SANDBOX === '1' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+import { kvGet, kvPut } from '@/app/lib/kv';
 import { PLAN_PRICES } from '@/app/lib/pricing';
 export { PLAN_PRICES };
 
@@ -81,7 +82,7 @@ export async function capturePayPalOrder(orderId: string): Promise<PayPalOrder> 
   return readOrder(await response.json());
 }
 
-export type WebhookVerdict = 'ok' | 'invalid' | 'not_configured';
+export type WebhookVerdict = 'ok' | 'invalid' | 'not_configured' | 'duplicate' | 'unavailable';
 
 // PayPal signs every webhook. We never trust the body on its own: PayPal's
 // verify-webhook-signature API must answer SUCCESS for OUR webhook id.
@@ -92,6 +93,8 @@ export async function verifyPayPalWebhook(headers: Headers, event: unknown): Pro
   const certUrl = h('paypal-cert-url');
   let certHost = '';
   try { const u = new URL(certUrl); if (u.protocol === 'https:') certHost = u.hostname; } catch { /* invalid */ }
+  const sent = Date.parse(h('paypal-transmission-time'));
+  if (!Number.isFinite(sent) || Math.abs(Date.now() - sent) > 5 * 60_000) return 'invalid'; // stale or from the future
   if (!h('paypal-transmission-id') || !h('paypal-transmission-sig') || !h('paypal-transmission-time') || !h('paypal-auth-algo')) return 'invalid';
   if (certHost !== 'paypal.com' && !certHost.endsWith('.paypal.com')) return 'invalid';
   try {
@@ -111,7 +114,14 @@ export async function verifyPayPalWebhook(headers: Headers, event: unknown): Pro
     });
     if (!r.ok) return 'invalid';
     const data = (await r.json()) as { verification_status?: string };
-    return data.verification_status === 'SUCCESS' ? 'ok' : 'invalid';
+    if (data.verification_status !== 'SUCCESS') return 'invalid';
+    // Replay protection: a signed delivery is processed once per transmission id.
+    const key = 'pp:tx:' + h('paypal-transmission-id');
+    try {
+      if ((await kvGet(key)) !== null) return 'duplicate';
+      await kvPut(key, '1', 86400);
+    } catch { return 'unavailable'; } // fail closed: PayPal retries later
+    return 'ok';
   } catch {
     return 'invalid';
   }

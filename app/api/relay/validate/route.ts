@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unavailable' }, { status: 503 });
   }
   if (!license || license.status !== 'active') return NextResponse.json({ valid: false });
-  if (license.token.toLowerCase() !== token.toLowerCase()) return NextResponse.json({ valid: false });
+  if ((license.token ?? '').toLowerCase() !== token.toLowerCase()) return NextResponse.json({ valid: false });
   if (license.expires_at && new Date(license.expires_at) < new Date()) return NextResponse.json({ valid: false });
 
   return NextResponse.json({ valid: true, license_id: license.id });

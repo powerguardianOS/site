@@ -17,7 +17,7 @@ seed(lic('sub1', 'cust@x.nl', { notes: 'paypal-sub:I-ABC' }));
 const event = { event_type: 'BILLING.SUBSCRIPTION.CANCELLED', resource: { id: 'I-ABC' } };
 const goodHeaders = {
   'paypal-auth-algo': 'SHA256withRSA', 'paypal-cert-url': 'https://api.paypal.com/v1/notifications/certs/CERT-1',
-  'paypal-transmission-id': 'tid', 'paypal-transmission-sig': 'sig', 'paypal-transmission-time': '2026-10-30T10:00:00Z',
+  'paypal-transmission-id': 'tid', 'paypal-transmission-sig': 'sig', 'paypal-transmission-time': new Date().toISOString(),
 };
 const call = (headers: Record<string, string>, body: unknown = event) =>
   POST(new Request('http://x/api/paypal/webhook', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) }) as any);

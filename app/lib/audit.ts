@@ -1,10 +1,11 @@
+import { cfApiBase } from '@/app/lib/kv';
 // Append-only audit trail in KV. Keys sort newest-first (inverted timestamp), so
 // a prefix listing returns the latest entries first.
 
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
 const CF_TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
-const BASE = () => `${process.env.CLOUDFLARE_API_BASE || 'https://api.cloudflare.com/client/v4'}/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
+const BASE = () => `${cfApiBase()}/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
 const KEEP_SECONDS = 400 * 24 * 3600;
 
 export type AuditEntry = {

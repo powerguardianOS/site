@@ -1,10 +1,11 @@
 export const runtime = 'edge';
 
+import { localOnlyBase } from '@/app/lib/kv';
 import { renderEmailHtml } from '@/app/lib/email-template';
 import type { EmailOptions } from '@/app/lib/email-template';
 
 export async function sendEmail(to: string, subject: string, text: string, opts?: EmailOptions): Promise<void> {
-  const res = await fetch((process.env.BREVO_API_BASE || 'https://api.brevo.com') + '/v3/smtp/email', {
+  const res = await fetch(localOnlyBase(process.env.BREVO_API_BASE, 'https://api.brevo.com') + '/v3/smtp/email', {
     method: 'POST',
     headers: {
       'api-key': process.env.BREVO_API_KEY ?? '',

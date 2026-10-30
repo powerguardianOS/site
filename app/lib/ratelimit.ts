@@ -1,6 +1,6 @@
 // Fixed-window rate limiter on Workers KV. KV is not atomic, so a burst of
 // parallel requests can slip a few extra through — fine for abuse protection,
-// not for exact metering. Fails open: a KV hiccup must not lock customers out.
+// not for exact metering. Fails open by default (a KV hiccup must not lock customers out); sign-in passes failClosed.
 
 import { kvGet, kvPut } from '@/app/lib/kv';
 

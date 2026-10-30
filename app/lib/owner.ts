@@ -1,3 +1,4 @@
+import { cfApiBase } from '@/app/lib/kv';
 import { cookies } from 'next/headers';
 import { getSession } from '@/app/lib/session';
 import { sendEmail } from '@/app/lib/email';
@@ -26,7 +27,7 @@ import { kvPut as kvPutChecked } from '@/app/lib/kv';
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
 const CF_TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
-const BASE = () => `${process.env.CLOUDFLARE_API_BASE || 'https://api.cloudflare.com/client/v4'}/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
+const BASE = () => `${cfApiBase()}/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
 const H = () => ({ Authorization: `Bearer ${CF_TOKEN()}`, 'Content-Type': 'text/plain' });
 const kvGet = async (k: string) => { const r = await fetch(`${BASE()}/values/${encodeURIComponent(k)}`, { headers: H() }); return r.ok ? r.text() : null; };
 const kvPut = (k: string, v: string, ttl: number) => kvPutChecked(k, v, ttl);
