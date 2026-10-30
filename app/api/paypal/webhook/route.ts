@@ -2,10 +2,16 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getLicenses, updateLicense } from '@/app/lib/license-db';
 import { sendEmail } from '@/app/lib/email';
+import { verifyPayPalWebhook } from '@/app/lib/paypal';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+
+  // Unsigned or wrongly signed events change nothing.
+  const verdict = await verifyPayPalWebhook(req.headers, body);
+  if (verdict === 'not_configured') return NextResponse.json({ error: 'webhook not configured' }, { status: 503 });
+  if (verdict !== 'ok') return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
 
   const eventType: string = body.event_type ?? '';
   const subscriptionID: string = body.resource?.id ?? '';

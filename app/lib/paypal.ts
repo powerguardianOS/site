@@ -80,3 +80,39 @@ export async function capturePayPalOrder(orderId: string): Promise<PayPalOrder> 
   });
   return readOrder(await response.json());
 }
+
+export type WebhookVerdict = 'ok' | 'invalid' | 'not_configured';
+
+// PayPal signs every webhook. We never trust the body on its own: PayPal's
+// verify-webhook-signature API must answer SUCCESS for OUR webhook id.
+export async function verifyPayPalWebhook(headers: Headers, event: unknown): Promise<WebhookVerdict> {
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) return 'not_configured';
+  const h = (n: string) => headers.get(n) ?? '';
+  const certUrl = h('paypal-cert-url');
+  let certHost = '';
+  try { const u = new URL(certUrl); if (u.protocol === 'https:') certHost = u.hostname; } catch { /* invalid */ }
+  if (!h('paypal-transmission-id') || !h('paypal-transmission-sig') || !h('paypal-transmission-time') || !h('paypal-auth-algo')) return 'invalid';
+  if (certHost !== 'paypal.com' && !certHost.endsWith('.paypal.com')) return 'invalid';
+  try {
+    const token = await getPayPalToken();
+    const r = await fetch(PAYPAL_BASE + '/v1/notifications/verify-webhook-signature', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        auth_algo: h('paypal-auth-algo'),
+        cert_url: certUrl,
+        transmission_id: h('paypal-transmission-id'),
+        transmission_sig: h('paypal-transmission-sig'),
+        transmission_time: h('paypal-transmission-time'),
+        webhook_id: webhookId,
+        webhook_event: event,
+      }),
+    });
+    if (!r.ok) return 'invalid';
+    const data = (await r.json()) as { verification_status?: string };
+    return data.verification_status === 'SUCCESS' ? 'ok' : 'invalid';
+  } catch {
+    return 'invalid';
+  }
+}

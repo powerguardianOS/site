@@ -38,13 +38,14 @@ export async function POST(request: Request) {
   if (!license.token) {
     return Response.json({ error: 'license has no relay token' }, { status: 400 });
   }
+  // The relay keys a controller by licence id (not by token), so rotating the token never orphans a session.
 
   const mintSecret = process.env.RELAY_MINT_SECRET;
   if (!mintSecret) {
     return Response.json({ error: 'relay not configured' }, { status: 500 });
   }
 
-  const mintResp = await fetch(`https://relay.powerguardian.cloud/mint/${license.token}`, {
+  const mintResp = await fetch(`https://relay.powerguardian.cloud/mint/${license.id}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Mint-Secret': mintSecret },
     body: JSON.stringify({ scope: 'customer', actor: email, ttl_seconds: 600 }),

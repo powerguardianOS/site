@@ -3,11 +3,12 @@
 // must never be reported as done, e.g. a sign-in link nobody can redeem).
 export const runtime = 'edge';
 
+// CLOUDFLARE_API_BASE is for local testing only (a fake KV on 127.0.0.1); production leaves it unset.
 const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
 const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
 const CF_TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
 const BASE = () =>
-  `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
+  `${process.env.CLOUDFLARE_API_BASE || 'https://api.cloudflare.com/client/v4'}/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
 
 export async function kvGet(key: string): Promise<string | null> {
   const r = await fetch(`${BASE()}/values/${encodeURIComponent(key)}`, {
