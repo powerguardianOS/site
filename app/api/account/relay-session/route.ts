@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { cookies } from 'next/headers';
 import { getSession } from '@/app/lib/session';
 import { getLicensesByEmail } from '@/app/lib/license-db';
+import { relayBase } from '@/app/lib/relay-url';
 
 // Mints a short-lived, scoped relay sub-token for the caller's own license
 // and returns a ready-to-open console URL. The long-lived license token
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'relay not configured' }, { status: 500 });
   }
 
-  const mintResp = await fetch(`https://relay.powerguardian.cloud/mint/${license.id}`, {
+  const mintResp = await fetch(`${relayBase()}/mint/${license.id}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Mint-Secret': mintSecret },
     body: JSON.stringify({ scope: 'customer', actor: email, ttl_seconds: 600 }),
@@ -55,5 +56,5 @@ export async function POST(request: Request) {
   }
   const { token } = (await mintResp.json()) as { token: string };
 
-  return Response.json({ console_url: `https://relay.powerguardian.cloud/console/${token}` });
+  return Response.json({ console_url: `${relayBase()}/console/${token}` });
 }
