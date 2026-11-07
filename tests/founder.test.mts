@@ -78,6 +78,8 @@ const hA = await beat(siteA.token, A), hB = await beat(siteB.token, B);
 check('A and B heartbeat licensed with a lease', hA.status === 200 && hA.state === 'licensed' && !!hA.lease && hB.status === 200 && hB.state === 'licensed');
 const leaseLimit = (l: string) => JSON.parse(Buffer.from(l.split('.')[0], 'base64url').toString()).connector_limit;
 check('the lease carries connector_limit 0 (unlimited)', leaseLimit(hA.lease) === 0 && leaseLimit(hB.lease) === 0);
+const noId = json(await heartbeat(req('/api/cloud/heartbeat', { site_name: 'x', devices: [] }, { authorization: 'Bearer ' + siteA.token }) as any));
+check('a heartbeat without controller_id never gets a signed lease (it would fit any box)', !(await noId).lease);
 const v = await json(await verify(req('/api/license/verify', { license_key: siteA.token, connector_count: 5000 }) as any));
 check('5000 connectors on a founder site: valid, not underlicensed', v.valid === true && v.status === 'valid' && v.connector_limit === 0);
 check('relay accepts the minted site', (await json(await validate(req('/api/relay/validate', { token: siteA.token }, { 'X-Mint-Secret': 'mint' }) as any))).valid === true);

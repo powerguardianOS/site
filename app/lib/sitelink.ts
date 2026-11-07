@@ -213,6 +213,8 @@ export function decideHeartbeat(l: LicenseRecord, token: string, controllerId: s
 export async function leaseFor(
   l: LicenseRecord, controllerId: string, until: number, state: LeaseState, now: number, notice?: string,
 ): Promise<string | null> {
+  // A lease is always bound to one controller: never sign one without its id (it would be valid on any box).
+  if (!controllerId) return null;
   return signLease({
     v: 1, license_id: l.id, controller_id: controllerId, plan: l.plan,
     connector_limit: await limitFor(l, getLicense, now * 1000), issued_at: now, valid_until: until,

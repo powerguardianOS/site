@@ -120,7 +120,7 @@ check('a copy never overwrites the holder\'s data', get('sitestatus:free1')?.sit
 console.log('\nlegacy controllers keep working');
 const leg = lic('leg1', 'old@x.nl'); seed(leg);
 const lh = await json(await heartbeat(req('/api/cloud/heartbeat', { site_name: 'Old', devices: [] }, { authorization: 'Bearer ' + leg.token }) as any));
-check('a controller without a hardware ID still gets 200 and a lease', lh.status === 200 && !!lh.lease && get('license:leg1').claimed_by === undefined);
+check('a controller without a hardware ID still gets 200, but never a signed lease (a lease without an id fits any box)', lh.status === 200 && !lh.lease && get('license:leg1').claimed_by === undefined);
 otp(); put('otp:old@x.nl', { code: '123456', expires: Date.now() + 600000 });
 const lv = await json(await verifyCode(req('/api/license/verify-code', { email: 'old@x.nl', code: '123456' }) as any));
 check('the old link flow (no hardware ID) still returns the token directly', lv.valid && lv.token === leg.token);
