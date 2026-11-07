@@ -6,6 +6,7 @@ import { logAudit } from '@/app/lib/audit';
 import { getLicenses, updateLicense } from '@/app/lib/license-db';
 import { deleteAddon, deleteSite } from '@/app/lib/addons';
 import type { LicenseRecord } from '@/app/lib/license-db';
+import { cascadeRootStatus } from '@/app/lib/founder';
 
 const PLANS: LicenseRecord['plan'][] = ['home', 'pro', 'founder', 'addon_connector'];
 
@@ -61,6 +62,8 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   }
 
   if (Object.keys(patch).length === 0) return Response.json({ error: 'nothing to update' }, { status: 400 });
+  // A status the admin sets by hand is no longer "the one its founder licence gave it".
+  if (patch.status) patch.revoked_with_root = undefined;
 
   const existing = (await getLicenses()).find(l => l.id === id);
   if (!existing) return Response.json({ error: 'license not found' }, { status: 404 });
@@ -68,8 +71,11 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   const updated = await updateLicense(id, patch);
   if (!updated) return Response.json({ error: 'license not found' }, { status: 404 });
   const { notes: _n, ...shown } = patch;
-  await logAudit({ actor: (await getAdminEmail()) ?? 'admin', role: 'admin', action: patch.status ? `license.${patch.status === 'revoked' ? 'revoke' : 'reactivate'}` : 'license.update', email: updated.email, license_id: id, detail: JSON.stringify(shown) });
-  return Response.json({ license: updated });
+  const actor = (await getAdminEmail()) ?? 'admin';
+  await logAudit({ actor, role: 'admin', action: patch.status ? `license.${patch.status === 'revoked' ? 'revoke' : 'reactivate'}` : 'license.update', email: updated.email, license_id: id, detail: JSON.stringify(shown) });
+  // The sites a founder added follow their founder licence (lib/founder.ts).
+  const followed = patch.status ? await cascadeRootStatus(existing, patch.status as "active" | "revoked", actor, updateLicense) : [];
+  return Response.json({ license: updated, ...(followed.length ? { followed } : {}) });
 }
 
 // Deletes a connector add-on, or a whole site (its license, add-ons and status).

@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getLicenseByToken } from '@/app/lib/license-db';
+import { rootRunning } from '@/app/lib/founder';
 
 // Called by the relay worker (server-to-server) on every controller /connect
 // and periodically while a tunnel is open. Authenticated with the shared
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
   if (!license || license.status !== 'active') return NextResponse.json({ valid: false });
   if ((license.token ?? '').toLowerCase() !== token.toLowerCase()) return NextResponse.json({ valid: false });
   if (license.expires_at && new Date(license.expires_at) < new Date()) return NextResponse.json({ valid: false });
+  try { if (!(await rootRunning(license))) return NextResponse.json({ valid: false }); } catch {
+    return NextResponse.json({ error: 'unavailable' }, { status: 503 });
+  }
 
   return NextResponse.json({ valid: true, license_id: license.id });
 }

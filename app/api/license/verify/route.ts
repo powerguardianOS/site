@@ -2,6 +2,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { getLicenseByToken, getLicenses } from '@/app/lib/license-db';
 import { effectiveLimit } from '@/app/lib/limits';
+import { withRoot } from '@/app/lib/founder';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -12,7 +13,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ valid: false }, { status: 400 });
   }
 
-  const license = await getLicenseByToken(key);
+  const found = await getLicenseByToken(key);
+  const license = found && await withRoot(found);
 
   if (!license || license.status !== 'active') {
     return NextResponse.json({ valid: false });

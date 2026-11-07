@@ -99,5 +99,51 @@ try {
   await new Promise((r) => setTimeout(r, 200));
   const h2 = await hb(); ok('heartbeat after revoke is denied (no fresh lease)', h2.status >= 400 || !h2.lease, JSON.stringify(h2).slice(0, 120));
   const v2 = await post('/api/license/verify', { license_key: token }); ok('legacy verify says invalid', v2.valid === false);
+
+  console.log('7. founder: unlimited controllers (each new controller gets its own founder site)');
+  const FOUNDER = 'founder@example.test';
+  const CA = 'a1'.repeat(24), CB = 'b2'.repeat(24), CC = 'c3'.repeat(24);
+  const fr = await post('/api/admin/licenses', { email: FOUNDER, plan: 'founder', connector_limit: 0, site_name: 'Founder home' }, { cookie });
+  ok('admin creates the founder licence (limit 0, never expires)', fr.status === 201 && fr.license?.expires_at === null, fr.error);
+  const rootId = fr.license?.id;
+  const linkAs = async (cid, host) => {
+    for (const k of [...kv.keys()]) if (k.startsWith('rl:sendcode') || k.startsWith('rl:verifycode')) kv.delete(k);
+    const n = mails.filter((m) => m.to === FOUNDER).length;
+    await post('/api/license/send-code', { email: FOUNDER });
+    const c = (await waitMail(FOUNDER, n + 1))?.text.match(/code is: (\d{6})/)?.[1];
+    return post('/api/license/verify-code', { email: FOUNDER, code: c, controller_id: cid, hostname: host });
+  };
+  const hbAs = (t, cid) => fetch(SITE + '/api/cloud/heartbeat', { method: 'POST', headers: { authorization: 'Bearer ' + t, 'content-type': 'application/json' }, body: JSON.stringify({ controller_id: cid, hostname: 'h', site_name: 'x', devices: [] }) }).then(j);
+  const leaseLimit = (l) => JSON.parse(Buffer.from(l.split('.')[0], 'base64url').toString()).connector_limit;
+
+  let fv = await linkAs(CA, 'ctrl-a');
+  ok('controller A: "New site" is offered next to the founder site', fv.valid && fv.sites?.some((s) => s.new && s.license_id === 'new') && fv.sites.some((s) => s.license_id === rootId), JSON.stringify(fv).slice(0, 120));
+  const ca = await post('/api/license/claim', { ticket: fv.ticket, license_id: 'new', site_name: '' });
+  ok('controller A gets a NEW founder site (limit 0, never expires)', ca.status === 200 && ca.license_id !== rootId && ca.plan === 'founder' && ca.connector_limit === 0 && ca.expires_at === null && ca.site_name === 'ctrl-a', ca.error);
+  fv = await linkAs(CB, 'ctrl-b');
+  const cb = await post('/api/license/claim', { ticket: fv.ticket, license_id: 'new', site_name: 'Office' });
+  ok('controller B gets another new founder site', cb.status === 200 && cb.license_id !== ca.license_id && cb.license_id !== rootId && cb.site_name === 'Office', cb.error);
+  const ha = await hbAs(ca.token, CA), hbB = await hbAs(cb.token, CB);
+  ok('A and B heartbeat licensed, lease limit 0', ha.state === 'licensed' && hbB.state === 'licensed' && leaseLimit(ha.lease) === 0 && leaseLimit(hbB.lease) === 0, `${ha.state}/${hbB.state}`);
+  const vx = await post('/api/license/verify', { license_key: ca.token, connector_count: 999 });
+  ok('999 connectors: not underlicensed', vx.valid === true && vx.status === 'valid');
+
+  ok('controller C (migrated from A, same token) is an unconfirmed copy first', (await hbAs(ca.token, CC)).state === 'unconfirmed_copy');
+  fv = await linkAs(CC, 'ctrl-c');
+  ok('site A is suggested first for C', fv.sites?.[0]?.license_id === ca.license_id && fv.sites[0].suggested === true, JSON.stringify(fv.sites?.[0]).slice(0, 120));
+  const cc = await post('/api/license/claim', { ticket: fv.ticket, license_id: ca.license_id, transfer: true, acknowledge: true });
+  ok('C takes over the same founder site A (transfer, new token)', cc.status === 200 && cc.license_id === ca.license_id && cc.token !== ca.token && cc.connector_limit === 0, cc.error);
+  kv.delete(`sitestatus:${ca.license_id}`); // skip the 15 s heartbeat throttle
+  const hc = await hbAs(cc.token, CC);
+  ok('C heartbeats licensed; A is now the moved-away controller', hc.state === 'licensed' && (await hbAs(ca.token, CA)).state === 'moved', hc.state);
+
+  const rr = await fetch(`${SITE}/api/admin/licenses/${rootId}`, { method: 'PATCH', headers: { 'content-type': 'application/json', origin: ORIGIN, cookie }, body: JSON.stringify({ status: 'revoked' }) }).then(j);
+  ok('admin revokes the founder licence; both founder sites follow', rr.status === 200 && rr.followed?.length === 2 && rr.followed.includes(ca.license_id) && rr.followed.includes(cb.license_id), JSON.stringify(rr).slice(0, 160));
+  const all = (await fetch(SITE + '/api/admin/licenses', { headers: { cookie, origin: ORIGIN } }).then(j)).licenses ?? [];
+  ok('all three founder records are revoked', [rootId, ca.license_id, cb.license_id].every((id) => all.find((l) => l.id === id)?.status === 'revoked'));
+  kv.delete(`sitestatus:${ca.license_id}`); kv.delete(`sitestatus:${cb.license_id}`);
+  const dc = await hbAs(cc.token, CC), db = await hbAs(cb.token, CB);
+  ok('heartbeats of C and B are denied', dc.status === 403 && db.status === 403, `${dc.status}/${db.status}`);
+  ok('relay refuses the founder sites', (await val(cc.token)).valid === false && (await val(cb.token)).valid === false);
 } catch (e) { console.log(' FAIL  script error', e, e.cause); fail++; }
 finally { stop(); console.log(`\n${pass} passed, ${fail} failed`); if (fail) console.log('--- next log tail ---\n' + nextLog.slice(-1500)); process.exit(fail ? 1 : 0); }

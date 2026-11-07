@@ -9,6 +9,7 @@ import { effectiveLimit, isRunning, limitFor } from '@/app/lib/limits';
 import { DAY_S, LEASE_DAYS, signLease } from '@/app/lib/lease';
 import type { LeaseState } from '@/app/lib/lease';
 import { logAudit } from '@/app/lib/audit';
+import { founderRoot, mintFounderSite, NEW_SITE, rootRunning, rootRunningIn } from '@/app/lib/founder';
 
 const DAY = 86_400_000;
 export const COOLDOWN_DAYS = 30;
@@ -57,12 +58,20 @@ export type SiteChoice = {
   can_transfer: boolean;
   transfer_blocked?: string;
   holder?: { hostname: string | null; online: boolean; last_seen: number | null };
+  // Founders only: "create a new site for this controller" (license_id = NEW_SITE).
+  // Its state is 'free' so controllers that do not know the flag show it as linkable.
+  new?: boolean;
+  // This controller already presents this site's token (it was moved here, e.g. by
+  // the controller migration): taking the site over is the likely choice.
+  suggested?: boolean;
 };
 
 const lastMoveBlock = (l: LicenseRecord, controller_id: string, now: number): string | undefined => {
   // Undo: the controller that was just replaced may take its site straight back.
   const undo = (l.retired ?? []).some((r) => r.reason === 'moved' && r.controller_id === controller_id && now - new Date(r.at).getTime() < UNDO_WINDOW_MS);
   if (undo) return undefined;
+  // A founder can add a site at any time, so the once-per-30-days rule protects nothing there.
+  if (l.plan === 'founder') return undefined;
   if (l.moved_at) {
     const left = new Date(l.moved_at).getTime() + COOLDOWN_DAYS * DAY - now;
     if (left > 0) return `This license was moved recently. It can move again in ${Math.ceil(left / DAY)} day${Math.ceil(left / DAY) === 1 ? '' : 's'}.`;
@@ -72,7 +81,7 @@ const lastMoveBlock = (l: LicenseRecord, controller_id: string, now: number): st
 
 export async function listChoices(email: string, controller_id: string, now = Date.now()): Promise<SiteChoice[]> {
   const all = await getLicenses();
-  const mine = all.filter((l) => l.email.toLowerCase() === email.toLowerCase() && l.plan !== 'addon_connector' && isRunning(l, now))
+  const mine = all.filter((l) => l.email.toLowerCase() === email.toLowerCase() && l.plan !== 'addon_connector' && isRunning(l, now) && rootRunningIn(l, all, now))
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
   const out: SiteChoice[] = [];
   for (const l of mine) {
@@ -85,17 +94,23 @@ export async function listChoices(email: string, controller_id: string, now = Da
       connector_limit: effectiveLimit(l, all, now), expires_at: l.expires_at, state,
       can_transfer: state === 'in_use' && !block, transfer_blocked: block,
       holder: state === 'in_use' ? { hostname: l.claimed_hostname ?? null, online: isOnline(status, now), last_seen: status?.received_at ?? null } : undefined,
+      ...(state === 'in_use' && (l.copies ?? []).some((c) => c.controller_id === controller_id && c.decision !== 'removed') ? { suggested: true } : {}),
     });
   }
-  // The unassigned license comes first: it is the default choice.
-  const rank = { free: 0, yours: 1, in_use: 2 } as const;
-  return out.sort((a, b) => rank[a.state] - rank[b.state]);
+  const root = founderRoot(email, all, now);
+  if (root) {
+    out.push({ license_id: NEW_SITE, name: null, plan: 'founder', connector_limit: 0, expires_at: null, state: 'free', can_transfer: false, new: true });
+  }
+  // The default choice comes first: a site this controller was moved to, then an
+  // unassigned license, this controller's own site, a new founder site, the rest.
+  const rank = (c: SiteChoice) => (c.suggested ? -1 : c.new ? 1.5 : { free: 0, yours: 1, in_use: 2 }[c.state]);
+  return out.sort((a, b) => rank(a) - rank(b));
 }
 
 // --------------------------------------------------------------------- claim
 
 export type ClaimResult =
-  | { ok: true; token: string; license: LicenseRecord; moved_from?: string | null }
+  | { ok: true; token: string; license: LicenseRecord; moved_from?: string | null; minted?: boolean }
   | { ok: false; status: number; error: string; message: string };
 
 const clean = (s: unknown) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80) : '');
@@ -103,11 +118,17 @@ const clean = (s: unknown) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f
 export async function claimSite(
   t: Ticket, licenseId: string, opts: { name?: unknown; transfer?: unknown; acknowledge?: unknown }, now = Date.now(),
 ): Promise<ClaimResult> {
+  if (licenseId === NEW_SITE) {
+    // Founders only: a new site, bound to this controller. mintFounderSite checks the founder rule.
+    const m = await mintFounderSite(t.email, { id: t.controller_id, hostname: t.hostname }, clean(opts.name), now);
+    if (!m.ok) return m;
+    return { ok: true, token: m.license.token, license: m.license, minted: true };
+  }
   const l = await getLicense(licenseId);
   if (!l || l.email.toLowerCase() !== t.email || l.plan === 'addon_connector') {
     return { ok: false, status: 404, error: 'site_not_found', message: 'That site does not exist for this account.' };
   }
-  if (!isRunning(l, now)) return { ok: false, status: 409, error: 'not_active', message: 'This site’s license is not active.' };
+  if (!isRunning(l, now) || !(await rootRunning(l, getLicense, now))) return { ok: false, status: 409, error: 'not_active', message: 'This site’s license is not active.' };
 
   const name = clean(opts.name);
   const patch: Partial<LicenseRecord> = {};

@@ -56,6 +56,7 @@ function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
               : lic === 'revoked' ? 'This site’s license is revoked, so its controller is no longer allowed.'
               : 'Waiting for the controller — link the license there (Settings → License).'}
             {' · '}created {dateLabel(license.created_at)}
+            {license.minted_from && ' · founder site, added by linking a controller (follows the founder licence)'}
           </p>
         </div>
         <button type="button" disabled className="h-8 cursor-not-allowed rounded-lg border border-dashed border-zinc-700 px-3 text-xs text-zinc-500">

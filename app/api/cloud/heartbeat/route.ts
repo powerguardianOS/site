@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { getLicenseByToken, updateLicense } from '@/app/lib/license-db';
 import { decideHeartbeat, leaseFor } from '@/app/lib/sitelink';
 import { logAudit } from '@/app/lib/audit';
+import { withRoot } from '@/app/lib/founder';
 import { dateLong, notifyOwner } from '@/app/lib/notify';
 import { getSiteStatus, putSiteStatus } from '@/app/lib/site-status';
 import type { SiteDevice, SiteStatus } from '@/app/lib/site-status';
@@ -28,7 +29,9 @@ export async function POST(request: Request) {
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
-  const license = await getLicenseByToken(token);
+  // A founder site counts as revoked once its founder licence no longer runs.
+  const found = await getLicenseByToken(token);
+  const license = found && await withRoot(found);
   if (!license) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const raw = await request.text();

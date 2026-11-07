@@ -25,6 +25,10 @@ export type LicenseRecord = {
   retired?: Retired[];        // controllers that used to hold the site, on a capped lease
   copies?: Copy[];            // unconfirmed copies seen with this license's token
   offline_allowed?: boolean;  // set by the admin: may get a 12-month offline lease
+
+  // --- founder sites (lib/founder.ts) ---
+  minted_from?: string;       // a site the founder created by linking a controller: the founder licence's id
+  revoked_with_root?: boolean; // revoked because its founder licence was revoked (reactivates with it)
 };
 
 // A controller that no longer holds the site. Its lease ends at `until`.
