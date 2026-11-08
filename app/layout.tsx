@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     template: "%s · PowerGuardian",
   },
   description:
-    "PowerGuardian is a self-hosted orchestration platform for UPS and power infrastructure. One control plane, zero vendor lock-in.",
+    "PowerGuardian is the self-hosted UPS server that keeps every device Guarded. Runs on your own hardware, zero vendor lock-in.",
   keywords: [
     "UPS orchestration",
     "self-hosted UPS monitoring",
@@ -54,14 +54,14 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "PowerGuardian",
     title: "PowerGuardian — Self-Hosted UPS Orchestration Platform",
-    description: "Self-hosted orchestration platform for UPS and power infrastructure. One control plane, zero vendor lock-in.",
+    description: "The self-hosted UPS server that keeps every device Guarded. Runs on your own hardware, zero vendor lock-in.",
     url: "https://powerguardian.cloud",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: "PowerGuardian — Self-Hosted UPS Orchestration Platform",
-    description: "Self-hosted orchestration platform for UPS and power infrastructure. One control plane, zero vendor lock-in.",
+    description: "The self-hosted UPS server that keeps every device Guarded. Runs on your own hardware, zero vendor lock-in.",
   },
   icons: {
     icon: [
