@@ -16,7 +16,7 @@ export default function HomePage() {
           <div className="inline-flex items-center gap-2">
             <span className="w-1 h-1 rounded-full bg-[#00C66F] shadow-[0_0_6px_rgba(0,198,111,0.8)]" />
             <span className="text-[11px] font-mono uppercase tracking-[0.26em] text-zinc-500">
-              UPS Orchestration Platform
+              Self-hosted UPS orchestration
             </span>
           </div>
           <h1 className="pg-display text-[3.5rem] md:text-[4.75rem] text-white">
@@ -24,7 +24,7 @@ export default function HomePage() {
             <em className="text-zinc-400">under your control.</em>
           </h1>
           <p className="text-lg text-zinc-400 leading-relaxed max-w-md">
-            Replace scattered NUT configs and manual shutdown scripts with a single self-hosted control plane. Built for homelabs and server rooms that can&apos;t afford unplanned downtime.
+            PowerGuardian is the UPS server for your servers, NAS and hypervisors. They listen to it like they would to a UPS network card. A device that can&apos;t listen is shut down over SSH or switched off at its PDU outlet, and powered back on when the mains return.
           </p>
           <div className="flex flex-wrap gap-4">
             <Link
@@ -51,9 +51,9 @@ export default function HomePage() {
               <span className="w-2.5 h-2.5 rounded-full bg-white/[0.09]" />
               <span className="w-2.5 h-2.5 rounded-full bg-white/[0.09]" />
               <span className="w-2.5 h-2.5 rounded-full bg-white/[0.09]" />
-              <span className="ml-3 font-mono text-[11px] text-zinc-600">app.powerguardian.cloud</span>
+              <span className="ml-3 font-mono text-[11px] text-zinc-600">https://powerguardian.local</span>
             </div>
-            <Image src="/product-overview.png" alt="PowerGuardian control-plane dashboard" width={1440} height={900} priority className="w-full h-auto" />
+            <Image src="/product-dashboard-v4.webp" alt="PowerGuardian overview with demo data: four UPSes, one on battery, and what needs attention" width={2000} height={1250} priority className="w-full h-auto" />
           </div>
         </div>
       </section>
@@ -66,31 +66,46 @@ export default function HomePage() {
             <span key={b} className="text-sm font-medium text-zinc-500">{b}</span>
           ))}
         </div>
-        <span className="text-[11px] font-mono text-zinc-700 shrink-0">via NUT · SNMP RFC 1628</span>
+        <span className="text-[11px] font-mono text-zinc-700 shrink-0">via NUT · SNMP</span>
       </div>
 
       {/* FEATURES — bento grid */}
       <section className="py-24 space-y-12">
         <div className="space-y-3">
-          <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Core capabilities</div>
-          <h2 className="pg-display text-4xl md:text-5xl text-white">Everything the manual never covered</h2>
+          <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">What it does</div>
+          <h2 className="pg-display text-4xl md:text-5xl text-white">One box that keeps every device <em className="text-zinc-400">Guarded.</em></h2>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
           {[
             {
-              title: 'Offline-first rule engine',
-              body: 'Shutdown rules execute locally on each Connector. If the Controller is unreachable the Connector acts independently — no cloud on the critical path.',
-              tags: ['Local execution', 'No SPOF', 'OB debounce'],
+              title: 'PowerGuardian is the UPS server',
+              body: 'Servers, NAS and hypervisors listen to PowerGuardian over NUT or SNMP, the same way they would listen to a UPS network card. No password of the device is needed.',
+              tags: ['NUT', 'SNMP', 'No device password'],
+            },
+            {
+              title: 'A fallback for every device',
+              body: 'A device that can\'t listen is shut down over SSH, or its APC PDU outlet is switched off. When the power is back, it comes back on with Wake-on-LAN or outlet on.',
+              tags: ['SSH', 'APC PDU', 'Wake-on-LAN'],
+            },
+            {
+              title: 'The controller already knows',
+              body: 'A problem shows up with the real device name, the concrete cause and the action that fixes it. No error codes to look up.',
+              tags: ['Device name', 'Cause', 'Fix'],
+            },
+            {
+              title: 'Acts without the controller',
+              body: 'Each Connector keeps its own shutdown rules. If the Controller can\'t be reached, the Connector acts on its own. No cloud on the critical path.',
+              tags: ['Offline-first', 'Local rules', 'No SPOF'],
             },
             {
               title: 'Encrypted credential vault',
-              body: 'SNMP strings, SSH keys, and API tokens stored in an AES-256-GCM vault. Never in plaintext. Unlock with TOTP MFA.',
-              tags: ['AES-256-GCM', 'TOTP MFA', 'TOFU'],
+              body: 'SSH keys, SNMP communities and API tokens live in an AES-256-GCM vault, never in plain text. Sign-in is protected with TOTP MFA.',
+              tags: ['AES-256-GCM', 'TOTP MFA'],
             },
             {
-              title: 'Multi-vendor UPS support',
-              body: 'Built on NUT. Any UPS with a NUT driver works — USB HID, SNMP v1/v2c/v3, vendor network cards. No recompilation needed.',
-              tags: ['USB HID', 'SNMP v1/v2c/v3', 'NMC'],
+              title: 'Your hardware, every site',
+              body: 'Controller and Connectors run on your own hardware. Move the Controller to a new box with a migration. Manage several sites and their licences from PG Cloud.',
+              tags: ['Self-hosted', 'Migration', 'PG Cloud'],
             },
           ].map(f => (
             <div key={f.title} className="pg-feature p-6 space-y-4">
@@ -113,13 +128,13 @@ export default function HomePage() {
         {/* Row 1 — text left, image right */}
         <div className="grid lg:grid-cols-2 gap-14 items-center">
           <div className="space-y-5">
-            <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Fleet visibility</div>
-            <h2 className="pg-display text-3xl md:text-4xl text-white">Every UPS, <em className="text-zinc-400">one dense view.</em></h2>
+            <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Guarded devices</div>
+            <h2 className="pg-display text-3xl md:text-4xl text-white">Every device, <em className="text-zinc-400">and how it goes down.</em></h2>
             <p className="text-base text-zinc-400 leading-relaxed max-w-md">
-              Battery, load, runtime and status across every site in a single control plane. Sort, scan, and drill in — the same data your connectors report over the wire, live.
+              One list of everything on UPS power: which UPS feeds it, how it shuts down (listening to PowerGuardian, SSH or a PDU outlet), its place in the shutdown order and how it comes back on. The controller always goes last.
             </p>
             <div className="flex flex-wrap gap-x-6 gap-y-2 pt-1 text-sm text-zinc-500">
-              {['Multi-site rollup', 'Live status', 'Tabular metrics'].map(t => (
+              {['Shutdown order', 'Power back on', 'Controller last'].map(t => (
                 <span key={t} className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-[#00C66F]" />{t}</span>
               ))}
             </div>
@@ -127,7 +142,7 @@ export default function HomePage() {
           <div className="relative">
             <div className="pointer-events-none absolute -inset-8 -z-10" style={{ background: 'radial-gradient(closest-side, rgba(0,198,111,0.10), transparent 70%)' }} />
             <div className="rounded-xl border border-white/[0.08] overflow-hidden shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)]">
-              <Image src="/product-devices.png" alt="PowerGuardian devices table" width={1440} height={900} className="w-full h-auto" />
+              <Image src="/product-devices-v4.webp" alt="Guarded devices list with demo data: NAS, hypervisor, servers and a switch with their shutdown order" width={2000} height={1250} className="w-full h-auto" />
             </div>
           </div>
         </div>
@@ -137,17 +152,17 @@ export default function HomePage() {
           <div className="relative lg:order-1 order-2">
             <div className="pointer-events-none absolute -inset-8 -z-10" style={{ background: 'radial-gradient(closest-side, rgba(0,198,111,0.10), transparent 70%)' }} />
             <div className="rounded-xl border border-white/[0.08] overflow-hidden shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)]">
-              <Image src="/product-detail.png" alt="PowerGuardian device detail" width={1440} height={900} className="w-full h-auto" />
+              <Image src="/product-ups-v4.webp" alt="UPS detail with demo data: battery, load, runtime and the devices this UPS powers" width={2000} height={1250} className="w-full h-auto" />
             </div>
           </div>
           <div className="space-y-5 lg:order-2 order-1">
-            <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Per-device depth</div>
-            <h2 className="pg-display text-3xl md:text-4xl text-white">Drill into <em className="text-zinc-400">any device.</em></h2>
+            <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Per-UPS detail</div>
+            <h2 className="pg-display text-3xl md:text-4xl text-white">Open <em className="text-zinc-400">any UPS.</em></h2>
             <p className="text-base text-zinc-400 leading-relaxed max-w-md">
-              Charge and load history, live metrics, an event timeline, and the exact ordered shutdown sequence that will run when the battery gives out. No guesswork when the power drops.
+              Battery, load and runtime with their history, the last self-test, and exactly which devices this UPS powers, in the order they shut down. No guesswork when the power drops.
             </p>
             <div className="flex flex-wrap gap-x-6 gap-y-2 pt-1 text-sm text-zinc-500">
-              {['Time-series charts', 'Event log', 'Shutdown sequence'].map(t => (
+              {['Battery history', 'Self-tests', 'What it powers'].map(t => (
                 <span key={t} className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-[#00C66F]" />{t}</span>
               ))}
             </div>
@@ -160,10 +175,10 @@ export default function HomePage() {
         <div className="space-y-6">
           <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#00C66F]/60">Architecture</div>
           <h2 className="pg-display text-4xl md:text-5xl text-white">
-            Two components.<br /><em className="text-zinc-400">One control plane.</em>
+            Two components.<br /><em className="text-zinc-400">All on your hardware.</em>
           </h2>
           <p className="text-base text-zinc-400 leading-relaxed">
-            A <strong className="text-zinc-200">Connector</strong> sits next to each UPS and handles low-level communication — USB, SNMP, NMC. A <strong className="text-zinc-200">Controller</strong> aggregates all connectors, runs the rule engine, and exposes the dashboard. Both run on your hardware.
+            The <strong className="text-zinc-200">Controller</strong> is the UPS server your devices listen to. It keeps the shutdown order, runs the dashboard and can have its own UPS on USB. A <strong className="text-zinc-200">Connector</strong> sits next to another UPS, reads it over USB or SNMP and acts on its own when the Controller is out of reach.
           </p>
           <div className="flex gap-4 text-sm">
             <Link href="/connector" className="text-[#00C66F] hover:text-[#1af189] transition-colors">Connector OS →</Link>
@@ -173,18 +188,18 @@ export default function HomePage() {
 
         <div className="space-y-1 font-mono text-sm">
           {[
-            { label: 'Controller OS', sub: 'Dashboard · rule engine · vault', badge: 'NanoPi R3S', active: true },
-            null,
-            { label: 'Connector OS', sub: 'NUT agent · USB/SNMP · local rules', badge: 'NanoPi Neo3', active: false },
-            null,
+            { label: 'Controller OS', sub: 'UPS server · dashboard · vault', badge: 'NanoPi R3S · x86', active: true },
+            'WebSocket',
+            { label: 'Connector OS', sub: 'NUT · USB/SNMP · acts offline', badge: 'NanoPi Neo3 · x86', active: false },
+            'USB · SNMP',
             { label: 'UPS Device', sub: 'APC · Eaton · CyberPower · Generic HID', badge: 'Hardware', active: false },
-          ].map((row, i) => row === null ? (
+          ].map((row, i) => typeof row === 'string' ? (
             <div key={i} className="flex items-center gap-3 py-1 px-3">
               <div className="w-px h-7 bg-gradient-to-b from-[#00C66F]/40 to-transparent mx-auto ml-4" />
-              <span className="text-[10px] font-mono text-zinc-700 uppercase tracking-widest">WebSocket</span>
+              <span className="text-[10px] font-mono text-zinc-700 uppercase tracking-widest">{row}</span>
             </div>
           ) : (
-            <div key={row.label} className={`flex items-center justify-between rounded-xl px-5 py-4 border ${
+            <div key={row.label} className={`flex items-center justify-between gap-3 rounded-xl px-5 py-4 border ${
               row.active
                 ? 'border-[#00C66F]/25 bg-gradient-to-r from-[#00C66F]/[0.06] to-transparent'
                 : 'border-white/[0.06] bg-[#0d1321]/60'
@@ -193,7 +208,7 @@ export default function HomePage() {
                 <div className={`font-semibold text-sm ${row.active ? 'text-[#00C66F]' : 'text-zinc-200'}`}>{row.label}</div>
                 <div className="text-zinc-600 text-xs mt-0.5">{row.sub}</div>
               </div>
-              <span className="text-[10px] border border-white/10 rounded-lg px-2.5 py-1 text-zinc-500">{row.badge}</span>
+              <span className="shrink-0 whitespace-nowrap text-[10px] border border-white/10 rounded-lg px-2.5 py-1 text-zinc-500">{row.badge}</span>
             </div>
           ))}
         </div>
@@ -205,10 +220,10 @@ export default function HomePage() {
           <div className="pg-ambient pg-ambient-cta" />
           <div className="relative z-10 space-y-6 max-w-2xl mx-auto">
             <h2 className="pg-display text-5xl md:text-6xl text-white">
-              Ready to take control of your <em className="text-[#00C66F]">power layer?</em>
+              Keep every device <em className="text-[#00C66F]">Guarded.</em>
             </h2>
             <p className="text-lg text-zinc-400">
-              Self-hosted. No per-device fees. Runs on €30 hardware.
+              Self-hosted. Runs on your own hardware. No cloud on the critical path.
             </p>
             <Link
               href="/pricing"
