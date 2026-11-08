@@ -22,16 +22,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 md:flex-row md:px-6">
-      <aside className="shrink-0 md:w-56">
-        <div className="mb-3 flex items-center gap-2 px-2 md:mb-5">
-          <span className="text-sm font-semibold text-white">Admin</span>
-          <span className="rounded border border-zinc-800 px-1.5 text-[10px] text-zinc-500">global</span>
+    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 pb-28 pt-5 md:flex-row md:gap-8 md:px-6 md:pb-12 md:pt-8">
+      <aside className="shrink-0 md:w-52">
+        <div className="flex items-center justify-between gap-2 md:mb-5 md:block md:px-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white">PG Cloud admin</span>
+          </div>
+          <span className="max-w-[55%] truncate text-xs text-zinc-500 md:hidden">{email}</span>
         </div>
         <AdminNav />
         <div className="mt-6 hidden border-t border-zinc-800 px-2 pt-4 text-xs text-zinc-500 md:block">
           Signed in as<br />
-          <span className="text-zinc-300">{email}</span>
+          <span className="break-all text-zinc-300">{email}</span>
         </div>
       </aside>
       <div className="min-w-0 flex-1">{children}</div>

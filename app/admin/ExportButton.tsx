@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BTN } from './ui';
 
 export function ExportButton() {
   const [isExporting, setIsExporting] = useState(false);
@@ -35,7 +36,7 @@ export function ExportButton() {
     <button
       onClick={handleExport}
       disabled={isExporting}
-      className="border border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-lg px-3 py-1.5 text-xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className={`${BTN} cursor-pointer`}
     >
       {isExporting ? 'Exporting…' : '↓ Export CSV'}
     </button>

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 type Props = { licenseId: string; siteName: string | null; addonCount: number; blocker: string | null };
 
-const input = 'h-9 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-white focus:border-red-500 focus:outline-none';
+const input = 'h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:h-9 sm:text-sm text-white focus:border-red-500 focus:outline-none';
 
 // Removes one site (license, connector add-ons, stored status). The button is
 // disabled with the reason while the license still runs; the site's name must
@@ -43,9 +43,9 @@ export function DeleteSite({ licenseId, siteName, addonCount, blocker }: Props) 
           {blocker ? <span className="text-amber-300">Cannot delete yet: {blocker}</span> : 'Removes this site, its license and its connector add-ons. The customer stays.'}
         </p>
         {blocker ? (
-          <button type="button" disabled className="h-8 cursor-not-allowed rounded-lg border border-zinc-800 px-3 text-xs text-zinc-600">Delete site</button>
+          <button type="button" disabled className="h-11 cursor-not-allowed rounded-lg border border-zinc-800 px-3.5 text-sm text-zinc-600 sm:h-8 sm:text-xs">Delete site</button>
         ) : (
-          <button type="button" onClick={() => setOpen(!open)} className="h-8 rounded-lg border border-red-900/70 px-3 text-xs text-red-300 hover:bg-red-950/40">
+          <button type="button" onClick={() => setOpen(!open)} className="h-11 rounded-lg border border-red-900/70 px-3.5 text-sm text-red-300 hover:bg-red-950/40 sm:h-8 sm:text-xs">
             {open ? 'Cancel' : 'Delete site…'}
           </button>
         )}
@@ -64,7 +64,7 @@ export function DeleteSite({ licenseId, siteName, addonCount, blocker }: Props) 
             type="button"
             disabled={busy || typed.trim().toLowerCase() !== expected.trim().toLowerCase()}
             onClick={remove}
-            className="h-8 rounded-lg bg-red-600 px-3 text-xs font-medium text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-11 rounded-lg bg-red-600 px-3.5 text-sm font-medium sm:h-8 sm:text-xs text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? 'Deleting…' : 'Delete permanently'}
           </button>

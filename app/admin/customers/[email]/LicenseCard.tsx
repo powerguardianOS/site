@@ -2,14 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { shortDate } from '../../format';
 
 type Lic = {
   id: string; plan: string; status: 'active' | 'revoked' | 'expired';
   connector_limit: number; expires_at: string | null; notes: string; created_at: string;
 };
 
-const btn = 'inline-flex h-8 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50';
-const input = 'h-9 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-white focus:border-[#00C66F] focus:outline-none';
+const btn = 'inline-flex h-11 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 text-sm sm:h-8 sm:px-3 sm:text-xs text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50';
+const input = 'h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:h-9 sm:text-sm text-white focus:border-[#00C66F] focus:outline-none';
 const label = 'block text-xs text-zinc-400';
 
 // Extends from whichever is later: now or the current expiry, so renewing an
@@ -43,8 +44,10 @@ export function LicenseCard({ license, connectorsUsed = 0, capacity, addonExtra 
 
   const expired = license.status === 'active' && license.expires_at && new Date(license.expires_at).getTime() < Date.now();
   const shown = license.status === 'revoked' ? 'revoked' : expired ? 'expired' : 'active';
-  const badge = { active: 'text-green-300', expired: 'text-amber-300', revoked: 'text-red-300' }[shown];
-  const dot = { active: 'bg-green-400 rounded-full', expired: 'bg-amber-400 rounded-[2px]', revoked: 'bg-red-400 rounded-none' }[shown];
+  const daysLeft = license.expires_at ? Math.ceil((new Date(license.expires_at).getTime() - Date.now()) / 86_400_000) : null;
+  const words = shown === 'revoked' ? 'Revoked' : shown === 'expired' ? 'Expired' : daysLeft !== null && daysLeft <= 30 ? `Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}` : 'Active';
+  const badge = { active: daysLeft !== null && daysLeft <= 30 ? 'text-amber-300' : 'text-green-300', expired: 'text-amber-300', revoked: 'text-red-300' }[shown];
+  const dot = { active: daysLeft !== null && daysLeft <= 30 ? 'bg-amber-400 rounded-[2px]' : 'bg-green-400 rounded-full', expired: 'bg-amber-400 rounded-[2px]', revoked: 'bg-red-400 rounded-none' }[shown];
   const cap = capacity ?? license.connector_limit;
   const unlimited = cap === 0;
   const noExpiry = !license.expires_at;
@@ -77,10 +80,10 @@ export function LicenseCard({ license, connectorsUsed = 0, capacity, addonExtra 
     <div className="space-y-4 border-t border-zinc-800 pt-4">
       <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
         <Stat title="Plan">
-          <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs font-medium uppercase">{license.plan}</span>
+          <span className="rounded border border-zinc-700 px-1.5 py-0.5 text-[11px] font-medium capitalize">{license.plan === 'addon_connector' ? 'Add-on' : license.plan}</span>
         </Stat>
         <Stat title="License">
-          <span className={`inline-flex items-center gap-1.5 capitalize ${badge}`}><span className={`h-2 w-2 ${dot}`} />{shown}</span>
+          <span className={`inline-flex items-center gap-1.5 ${badge}`}><span className={`h-2 w-2 ${dot}`} />{words}</span>
         </Stat>
         <Stat title="Connectors">
           {unlimited ? (
@@ -95,7 +98,7 @@ export function LicenseCard({ license, connectorsUsed = 0, capacity, addonExtra 
           )}
         </Stat>
         <Stat title="Expires">
-          {license.expires_at ? new Date(license.expires_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'}
+          {license.expires_at ? shortDate(license.expires_at) : 'Never'}
         </Stat>
       </div>
 
@@ -121,7 +124,7 @@ export function LicenseCard({ license, connectorsUsed = 0, capacity, addonExtra 
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <button className={`${btn} !text-amber-300`} disabled={busy} onClick={() => patch({ expires_at: inOneMonth.toISOString() })}>
-              Expire in 1 month <span className="ml-1.5 text-zinc-500">{inOneMonth.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+              Expire in 1 month <span className="ml-1.5 text-zinc-500">{shortDate(inOneMonth)}</span>
             </button>
             <button className={`${btn} !border-red-900/70 !text-red-300`} disabled={busy} onClick={() => patch({ expires_at: new Date().toISOString() })}>Expire now</button>
             <button className={btn} onClick={() => setConfirm(null)}>Cancel</button>

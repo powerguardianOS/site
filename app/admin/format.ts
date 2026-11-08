@@ -8,11 +8,19 @@ export function ago(ms: number | null, now = Date.now()): string {
 }
 
 export function dateLabel(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never';
+  return iso ? shortDate(iso) : 'Never';
 }
 
 export function runtimeLabel(sec: number): string {
   if (!sec) return '—';
   const m = Math.round(sec / 60);
   return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+}
+
+// "05 Dec 2026" without Intl: Node and Safari disagree on en-GB month names
+// ("Sept" vs "Sep"), which breaks hydration of client components.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export function shortDate(when: string | number | Date, year = true): string {
+  const d = new Date(when);
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}${year ? ` ${d.getFullYear()}` : ''}`;
 }
