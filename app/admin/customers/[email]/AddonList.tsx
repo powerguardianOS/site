@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { shortDate } from '../../format';
 import { TERMS, termEnd } from '../../terms';
 
 export type Addon = { id: string; connector_limit: number; expires_at: string | null; status: 'active' | 'revoked' | 'expired'; created_at: string };
 
-const btn = 'inline-flex h-8 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50';
-const input = 'h-9 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-white focus:border-[#00C66F] focus:outline-none';
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never');
+const btn = 'inline-flex h-11 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 text-sm sm:h-8 sm:px-3 sm:text-xs text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50';
+const input = 'h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:h-9 sm:text-sm text-white focus:border-[#00C66F] focus:outline-none';
+const fmt = (iso: string | null) => (iso ? shortDate(iso) : 'Never');
 
 async function send(path: string, method: string, body?: unknown) {
   const r = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
@@ -107,7 +108,7 @@ export function AddonList({ parentId, addons, unlimited }: { parentId: string; a
               </label>
             ) : (
               <div className="text-xs text-zinc-400"><span className="mb-1 block">Ends on</span>
-                <div className="flex h-9 items-center rounded-lg border border-zinc-800 px-3 text-sm text-zinc-300">{fmt(termEnd(term))}</div>
+                <div className="flex h-11 items-center rounded-lg border border-zinc-800 px-3 text-sm text-zinc-300 sm:h-9">{fmt(termEnd(term))}</div>
               </div>
             )}
           </div>

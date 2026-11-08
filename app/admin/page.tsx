@@ -2,95 +2,108 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { loadTenants, attentionItems } from '@/app/lib/tenants';
-import { ago, dateLabel } from './format';
+import { loadTenants } from '@/app/lib/tenants';
+import { ago } from './format';
+import { licenseRows, licenseCounts, needsAttention, nowMs, siteCounts } from './model';
+import type { Attention } from './model';
+import { BTN, BTN_PRIMARY, Dot, Kpi, PageHeader, PlanTag, Section, Status, customerHref } from './ui';
+import type { Tone } from './ui';
 
-const TONE = {
-  critical: { dot: 'bg-red-400', text: 'text-red-300', label: 'Critical', shape: 'rounded-[2px]' },
-  warning: { dot: 'bg-amber-400', text: 'text-amber-300', label: 'Warning', shape: 'rounded-full' },
-  info: { dot: 'bg-zinc-500', text: 'text-zinc-400', label: 'Info', shape: 'rounded-full' },
-} as const;
+const LEVEL: Record<Attention['level'], { tone: Tone; label: string }> = {
+  critical: { tone: 'bad', label: 'Urgent' },
+  warning: { tone: 'warn', label: 'Warning' },
+  info: { tone: 'idle', label: 'Info' },
+};
 
 export default async function AdminOverview() {
+  const now = nowMs();
   const tenants = await loadTenants();
-  const attention = attentionItems(tenants);
-
-  const sites = tenants.flatMap((t) => t.sites);
-  const sitesOnline = sites.filter((s) => s.online).length;
-  const activeLicenses = tenants.flatMap((t) => t.licenses).filter((l) => l.status === 'active').length;
-  const expiring = tenants.filter((t) => t.state === 'expiring');
-  const onBattery = tenants.reduce((n, t) => n + t.onBattery + t.lowBattery, 0);
-
-  const kpis = [
-    { label: 'Tenants', value: String(tenants.length), sub: `${tenants.filter((t) => t.state !== 'none').length} with a license` },
-    { label: 'Active licenses', value: String(activeLicenses), sub: expiring.length ? `${expiring.length} expiring in 30 days` : 'none expiring soon', warn: expiring.length > 0 },
-    { label: 'Sites online', value: `${sitesOnline} / ${sites.length}`, sub: sites.length - sitesOnline ? `${sites.length - sitesOnline} not reporting` : 'all reporting', warn: sites.length - sitesOnline > 0 },
-    { label: 'Devices on battery', value: String(onBattery), sub: onBattery ? 'needs attention' : 'all on mains', warn: onBattery > 0 },
-    { label: 'Open attention items', value: String(attention.length), sub: `${attention.filter((a) => a.level === 'critical').length} critical`, warn: attention.some((a) => a.level === 'critical') },
-  ];
+  const rows = licenseRows(tenants, now);
+  const lic = licenseCounts(rows);
+  const sites = siteCounts(tenants, now);
+  const attention = needsAttention(tenants, now);
+  const urgent = attention.filter((a) => a.level === 'critical').length;
+  const withLicense = new Set(rows.filter((r) => r.status.state === 'active' || r.status.state === 'expiring').map((r) => r.email)).size;
+  const expiring = rows.filter((r) => r.status.state === 'expiring');
+  const notOnline = [sites.offline && `${sites.offline} offline`, sites.never && `${sites.never} never connected`].filter(Boolean).join(' · ');
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Overview</h1>
-          <p className="text-sm text-zinc-400">Health of every tenant and site on the platform.</p>
-        </div>
-        <Link href="/admin/licenses/new" className="rounded-lg bg-[#00C66F] px-3 py-1.5 text-xs font-medium text-black hover:bg-[#00b564]">
-          + New license
-        </Link>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Overview"
+        sub="Customers, licenses and sites on PG Cloud."
+        actions={<Link href="/admin/licenses/new" className={BTN_PRIMARY}>+ New license</Link>}
+      />
 
-      <section aria-label="Key figures" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        {kpis.map((k) => (
-          <div key={k.label} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-            <p className="text-xs text-zinc-500">{k.label}</p>
-            <p className="mt-1 text-2xl font-semibold">{k.value}</p>
-            <p className={`text-xs ${k.warn ? 'text-amber-400' : 'text-zinc-500'}`}>{k.sub}</p>
-          </div>
-        ))}
+      <section aria-label="Key figures" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Customers" value={tenants.length} sub={`${withLicense} with an active license`} href="/admin/tenants" />
+        <Kpi label="Active licenses" value={lic.active} sub={lic.expiring ? `${lic.expiring} expire within 30 days` : 'None expiring soon'} tone={lic.expiring ? 'warn' : undefined} href="/admin/licenses?status=active" />
+        <Kpi label="Sites online" value={<>{sites.online}<span className="text-base font-normal text-zinc-500"> of {sites.total}</span></>} sub={notOnline || 'All checking in'} tone={notOnline ? 'warn' : 'ok'} />
+        <Kpi label="Needs attention" value={attention.length} sub={urgent ? `${urgent} urgent` : attention.length ? 'Nothing urgent' : 'All clear'} tone={urgent ? 'bad' : attention.length ? undefined : 'ok'} />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-5">
-        <section className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-5 lg:col-span-3">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Needs attention</h2>
-            <Link href="/admin/tenants" className="text-xs text-zinc-400 hover:text-white">All tenants →</Link>
-          </div>
+        <Section title="Needs attention" className="min-w-0 lg:col-span-3" aside={<span className="text-xs text-zinc-500">{attention.length ? `${attention.length} open` : ''}</span>}>
           {attention.length === 0 ? (
-            <p className="py-6 text-center text-sm text-zinc-500">Nothing needs attention. All sites are reporting and no license is about to expire.</p>
-          ) : attention.map((a, i) => {
-            const t = TONE[a.level];
-            return (
-              <div key={i} className="flex flex-wrap items-center gap-3 border-t border-zinc-800/60 py-3">
-                <div className={`flex w-20 items-center gap-1.5 text-xs font-semibold ${t.text}`}>
-                  <span className={`h-2 w-2 ${t.dot} ${t.shape}`} />{t.label}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <Link href={`/admin/customers/${encodeURIComponent(a.email)}`} className="font-medium text-white hover:text-[#00C66F]">{a.email}</Link>
-                  <p className="text-sm text-zinc-400">{a.text}</p>
-                </div>
-                <span className="whitespace-nowrap text-xs text-zinc-500">{a.at ? ago(a.at) : ''}</span>
-                <Link href={`/admin/customers/${encodeURIComponent(a.email)}`} className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:bg-zinc-900">Open</Link>
-              </div>
-            );
-          })}
-        </section>
+            <p className="px-4 py-10 text-center text-sm text-zinc-500">Nothing needs attention. Every site checks in and no license is about to run out.</p>
+          ) : (
+            <ul className="divide-y divide-zinc-800/70">
+              {attention.map((a, i) => {
+                const lv = LEVEL[a.level];
+                return (
+                  <li key={i} className="flex gap-3 px-4 py-3.5">
+                    <span className="pt-1.5" title={lv.label}><Dot tone={lv.tone} /><span className="sr-only">{lv.label}</span></span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white">{a.title}</p>
+                        <p className="mt-0.5 text-[13px] leading-snug text-zinc-400">{a.cause}</p>
+                        <p className="mt-1 truncate text-xs text-zinc-500">{a.email}{a.at ? ` · ${ago(a.at, now)}` : ''}</p>
+                      </div>
+                      <Link href={a.href} className={`${BTN} shrink-0 self-start whitespace-nowrap sm:self-center`}>{a.action}</Link>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Section>
 
-        <section className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-5 lg:col-span-2">
-          <h2 className="mb-3 text-sm font-semibold">Licenses expiring in 30 days</h2>
-          {expiring.length === 0 ? (
-            <p className="py-6 text-center text-sm text-zinc-500">None.</p>
-          ) : expiring.map((t) => (
-            <div key={t.email} className="flex items-center gap-3 border-t border-zinc-800/60 py-3 text-sm">
-              <div className="min-w-0 flex-1">
-                <Link href={`/admin/customers/${encodeURIComponent(t.email)}`} className="font-medium text-white hover:text-[#00C66F]">{t.email}</Link>
-                <p className="text-xs uppercase text-zinc-500">{t.best?.plan}</p>
-              </div>
-              <span className="whitespace-nowrap text-xs text-amber-300">{dateLabel(t.best!.expires_at)}</span>
-            </div>
-          ))}
-        </section>
+        <div className="min-w-0 space-y-4 lg:col-span-2">
+          <Section title="Expiring within 30 days" aside={<Link href="/admin/licenses?status=expiring" className="inline-flex h-11 items-center text-xs text-zinc-400 hover:text-white sm:h-auto">All →</Link>}>
+            {expiring.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-zinc-500">No license runs out in the next 30 days.</p>
+            ) : (
+              <ul className="divide-y divide-zinc-800/70">
+                {expiring.map((r) => (
+                  <li key={r.id}>
+                    <Link href={customerHref(r.email)} className="flex min-h-14 items-center gap-3 px-4 py-2.5 hover:bg-zinc-900/50">
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-center gap-2 text-sm font-medium text-white"><span className="truncate">{r.site}</span><PlanTag plan={r.plan} /></p>
+                        <p className="truncate text-xs text-zinc-500">{r.email}</p>
+                      </div>
+                      <Status tone={r.status.tone} className="whitespace-nowrap text-xs">{r.status.label}</Status>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Section title="Sites">
+            <dl className="grid grid-cols-3 divide-x divide-zinc-800/70 text-center">
+              {[
+                { label: 'Online', n: sites.online, tone: 'ok' as Tone },
+                { label: 'Offline', n: sites.offline, tone: (sites.offline ? 'warn' : 'idle') as Tone },
+                { label: 'Never connected', n: sites.never, tone: 'idle' as Tone },
+              ].map((x) => (
+                <div key={x.label} className="px-2 py-4">
+                  <dd className="text-xl font-semibold tabular-nums text-white">{x.n}</dd>
+                  <dt className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-zinc-400"><Dot tone={x.tone} />{x.label}</dt>
+                </div>
+              ))}
+            </dl>
+          </Section>
+        </div>
       </div>
     </div>
   );

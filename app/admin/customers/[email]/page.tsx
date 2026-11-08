@@ -12,6 +12,8 @@ import { AddonList } from './AddonList';
 import { DeleteSite } from './DeleteSite';
 import { ControllerBlock } from './ControllerBlock';
 import { isRunning } from '@/app/lib/limits';
+import { BTN, CARD, PageHeader, PlanTag, Status } from '../../ui';
+import { termStatus } from '../../model';
 
 // Time checks live outside the components (they read the clock).
 const inFuture = (iso: string) => new Date(iso).getTime() > Date.now();
@@ -43,7 +45,7 @@ function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
     : worst ?? { label: 'Online', text: 'text-green-300', dot: 'bg-green-400', shape: 'rounded-full' };
 
   return (
-    <section className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-5">
+    <section className={`${CARD} space-y-4 p-4 sm:p-5`}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -51,22 +53,38 @@ function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
             <h2 className="text-base font-semibold text-white">{license.site_name ?? s?.site_name ?? (lic === 'revoked' ? 'Former site' : 'New site')}</h2>
             <span className={`text-sm ${state.text}`}>{state.label}</span>
           </div>
-          <p className="mt-1 text-xs text-zinc-500">
-            {s ? `Controller ${s.controller_version || '—'} · last heartbeat ${ago(s.received_at)}`
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+            {s ? `Controller ${s.controller_version || '—'} · last check-in ${ago(s.received_at)}`
               : lic === 'revoked' ? 'This site’s license is revoked, so its controller is no longer allowed.'
               : 'Waiting for the controller — link the license there (Settings → License).'}
             {' · '}created {dateLabel(license.created_at)}
             {license.minted_from && ' · founder site, added by linking a controller (follows the founder licence)'}
           </p>
         </div>
-        <button type="button" disabled className="h-8 cursor-not-allowed rounded-lg border border-dashed border-zinc-700 px-3 text-xs text-zinc-500">
-          Open console · needs a support grant (soon)
+        <button type="button" disabled title="Needs a support grant from the customer (coming soon)" className="hidden h-8 cursor-not-allowed rounded-lg border border-dashed border-zinc-700 px-3 text-xs text-zinc-500 sm:inline-flex sm:items-center">
+          Open console · soon
         </button>
       </div>
 
       {s && s.devices.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-sm">
+        <ul className="divide-y divide-zinc-800/60 rounded-lg border border-zinc-800/70 sm:hidden">
+          {s.devices.map((d, i) => {
+            const p = power(d.ups_status);
+            return (
+              <li key={`${d.name}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-white">{d.name || '—'}</p>
+                  <p className="text-xs text-zinc-500">{d.ups_status ? `Battery ${Math.round(d.battery_pct)}% · load ${Math.round(d.load_pct)}% · ${runtimeLabel(d.runtime_sec)}` : 'No UPS data'}</p>
+                </div>
+                <span className={`inline-flex shrink-0 items-center gap-1.5 text-sm ${p.text}`}><span className={`h-2 w-2 ${p.dot} ${p.shape}`} />{p.label}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {s && s.devices.length > 0 && (
+        <div className="hidden sm:block">
+          <table className="w-full text-sm">
             <thead className="border-b border-zinc-800 text-left text-xs uppercase tracking-wider text-zinc-500">
               <tr>
                 <th className="w-[34%] py-2 pr-4 font-medium">Device</th>
@@ -141,10 +159,10 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
   if (!tenant) {
     return (
       <div className="space-y-3">
-        <Link href="/admin/tenants" className="text-xs text-zinc-500 hover:text-zinc-300">← Tenants</Link>
+        <Link href="/admin/tenants" className="inline-flex h-11 items-center text-sm text-zinc-400 hover:text-white sm:h-auto sm:text-xs">‹ Customers</Link>
         <h1 className="break-all text-2xl font-semibold">{email}</h1>
         <p className="text-sm text-zinc-400">No account or license found for this address.</p>
-        <Link href="/admin/licenses/new" className="inline-block rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900">+ Create a license</Link>
+        <Link href="/admin/licenses/new" className={BTN}>+ Create a license</Link>
       </div>
     );
   }
@@ -153,27 +171,27 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
   const siteLicenses = tenant.licenses.filter((l) => l.plan !== 'addon_connector').sort((a, b) => a.created_at.localeCompare(b.created_at));
   const legacyAddons = tenant.licenses.filter((l) => l.plan === 'addon_connector' && !siteLicenses.some((sl) => sl.id === l.parent_id));
   const lic = tenant.best;
-  const badge = { active: 'text-green-300', expiring: 'text-amber-300', expired: 'text-amber-300', revoked: 'text-zinc-400', none: 'text-zinc-500' }[tenant.state];
   const adminAccount = !!process.env.ADMIN_EMAIL && tenant.email === process.env.ADMIN_EMAIL.toLowerCase();
 
+  const term = lic ? termStatus(lic) : null;
+  const sitesUp = tenant.sites.filter((x) => x.online).length;
+
   return (
-    <div className="max-w-4xl space-y-6">
-      <div>
-        <Link href="/admin/tenants" className="text-xs text-zinc-500 hover:text-zinc-300">← Tenants</Link>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="break-all text-2xl font-semibold">{tenant.email}</h1>
-          {lic && <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs uppercase text-zinc-300">{lic.plan}</span>}
-          <span className={`text-sm capitalize ${badge}`}>{tenant.state === 'none' ? 'No license' : `License ${tenant.state}`}</span>
-          {tenant.onBattery + tenant.lowBattery > 0 && <span className="text-sm text-amber-300">{tenant.onBattery + tenant.lowBattery} device on battery</span>}
-        </div>
-        <p className="mt-1 text-xs text-zinc-500">
-          {tenant.registeredAt ? `Registered ${dateLabel(tenant.registeredAt)}` : 'Not registered yet'} · {siteLicenses.length} site{siteLicenses.length === 1 ? '' : 's'}
-        </p>
+    <div className="max-w-4xl space-y-5">
+      <PageHeader
+        back={{ href: '/admin/tenants', label: 'Customers' }}
+        title={<span className="break-all">{tenant.email}</span>}
+        sub={<>{tenant.registeredAt ? `Customer since ${dateLabel(tenant.registeredAt)}` : 'Not registered yet'} · {siteLicenses.length} site{siteLicenses.length === 1 ? '' : 's'}{tenant.sites.length ? `, ${sitesUp} online` : ''}</>}
+      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        {lic && <PlanTag plan={lic.plan} />}
+        {term ? <Status tone={term.tone}>{`License: ${term.label.charAt(0).toLowerCase()}${term.label.slice(1)}`}</Status> : <Status tone="idle">No license yet</Status>}
+        {tenant.onBattery + tenant.lowBattery > 0 && <Status tone="bad">{tenant.onBattery + tenant.lowBattery} UPS on battery</Status>}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 pt-1">
         <h2 className="text-sm font-semibold text-zinc-300">Sites</h2>
-        <Link href={`/admin/licenses/new?email=${encodeURIComponent(tenant.email)}`} className="inline-flex h-8 items-center rounded-lg border border-zinc-700 px-3 text-xs text-zinc-300 hover:bg-zinc-900">
+        <Link href={`/admin/licenses/new?email=${encodeURIComponent(tenant.email)}`} className={BTN}>
           + Add site
         </Link>
       </div>
@@ -198,7 +216,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ email
       )}
 
       <div className="grid items-stretch gap-4 md:grid-cols-2">
-        <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-5">
+        <section className={`${CARD} space-y-3 p-5`}>
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">Support access</h2>
             <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400">Customer-controlled</span>

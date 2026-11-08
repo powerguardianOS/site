@@ -5,7 +5,10 @@ import Link from 'next/link';
 import { loadTenants } from '@/app/lib/tenants';
 import type { LicenseState, Tenant } from '@/app/lib/tenants';
 import { ExportButton } from '../ExportButton';
-import { ago, dateLabel } from '../format';
+import { dateLabel } from '../format';
+import { checkIn, nowMs, termStatus } from '../model';
+import { BTN_PRIMARY, CARD, Chips, PageHeader, PlanTag, Status, customerHref } from '../ui';
+import type { Tone } from '../ui';
 
 const STATES: { key: 'all' | LicenseState; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -16,99 +19,110 @@ const STATES: { key: 'all' | LicenseState; label: string }[] = [
   { key: 'none', label: 'No license' },
 ];
 
-const LIC_TONE: Record<LicenseState, { dot: string; text: string; shape: string; label: string }> = {
-  active: { dot: 'bg-green-400', text: 'text-green-300', shape: 'rounded-full', label: 'Active' },
-  expiring: { dot: 'bg-amber-400', text: 'text-amber-300', shape: 'rounded-[2px]', label: 'Expiring' },
-  expired: { dot: 'bg-amber-400', text: 'text-amber-300', shape: 'rounded-[2px]', label: 'Expired' },
-  revoked: { dot: 'bg-zinc-500', text: 'text-zinc-400', shape: 'rounded-none', label: 'Revoked' },
-  none: { dot: 'bg-zinc-600', text: 'text-zinc-500', shape: 'rounded-full', label: 'No license' },
-};
+// One status per customer: the worst thing that is true right now, in plain words.
+function health(t: Tenant, now: number): { tone: Tone; label: string } {
+  if (!t.best) return { tone: 'idle', label: 'No license yet' };
+  const term = termStatus(t.best, now);
+  if (t.lowBattery) return { tone: 'bad', label: `${t.lowBattery} UPS on low battery` };
+  if (t.onBattery) return { tone: 'bad', label: `${t.onBattery} UPS on battery` };
+  if (term.state === 'revoked' || term.state === 'expired') return term;
+  const live = t.sites.filter((s) => !s.license.expires_at || new Date(s.license.expires_at).getTime() > now);
+  const off = live.filter((s) => (s.status && !s.online) || (!s.status && s.license.claimed_by));
+  if (off.length) return { tone: 'warn', label: off.length === 1 ? `${off[0].license.site_name ?? 'A site'} ${checkIn([off[0]], now).label.toLowerCase()}` : `${off.length} sites offline` };
+  if (term.state === 'expiring') return term;
+  if (live.length && live.every((s) => !s.status && !s.license.claimed_by)) return { tone: 'idle', label: 'Never connected' };
+  return { tone: 'ok', label: 'All good' };
+}
 
-function siteCell(t: Tenant) {
-  if (t.sites.length === 0) return { label: '—', tone: 'text-zinc-600', dot: 'bg-zinc-700' };
-  if (t.onBattery + t.lowBattery > 0) return { label: `${t.sitesOnline}/${t.sites.length} · on battery`, tone: 'text-amber-300', dot: 'bg-amber-400' };
-  if (t.sitesOnline === t.sites.length) return { label: `${t.sitesOnline}/${t.sites.length} online`, tone: 'text-green-300', dot: 'bg-green-400' };
-  if (t.sitesOnline === 0 && t.lastBeat === null) return { label: 'Not connected', tone: 'text-zinc-400', dot: 'bg-zinc-500' };
-  return { label: `${t.sitesOnline}/${t.sites.length} online`, tone: 'text-zinc-300', dot: 'bg-zinc-500' };
+function sitesLabel(t: Tenant): string {
+  if (!t.sites.length) return 'No sites';
+  return `${t.sitesOnline} of ${t.sites.length} site${t.sites.length === 1 ? '' : 's'} online`;
 }
 
 export default async function TenantsPage({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
   const { status = 'all', q = '' } = await searchParams;
+  const now = nowMs();
   const all = await loadTenants();
 
   const counts = (k: string) => (k === 'all' ? all.length : all.filter((t) => t.state === k).length);
   const needle = q.trim().toLowerCase();
   const rows = all
     .filter((t) => status === 'all' || t.state === status)
-    .filter((t) => !needle || t.email.includes(needle) || (t.best?.notes ?? '').toLowerCase().includes(needle));
+    .filter((t) => !needle || t.email.includes(needle) || t.licenses.some((l) => (l.site_name ?? '').toLowerCase().includes(needle) || l.notes.toLowerCase().includes(needle)));
 
   const href = (key: string) => `/admin/tenants?${new URLSearchParams({ ...(key !== 'all' ? { status: key } : {}), ...(q ? { q } : {}) })}`;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Tenants</h1>
-          <p className="text-sm text-zinc-400">Every customer account with its license and live site status.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton />
-          <Link href="/admin/licenses/new" className="rounded-lg bg-[#00C66F] px-3 py-1.5 text-xs font-medium text-black hover:bg-[#00b564]">+ New license</Link>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Customers"
+        sub="Every customer account with its license and live site status."
+        actions={<><ExportButton /><Link href="/admin/licenses/new" className={BTN_PRIMARY}>+ New license</Link></>}
+      />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <form action="/admin/tenants" className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3">
-          {status !== 'all' && <input type="hidden" name="status" value={status} />}
-          <label htmlFor="tq" className="sr-only">Filter tenants</label>
-          <input id="tq" name="q" defaultValue={q} type="search" placeholder="Filter by e-mail or note" className="w-64 bg-transparent py-2 text-sm text-white outline-none placeholder:text-zinc-600" />
-        </form>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="License status">
-          {STATES.map((s) => {
-            const on = status === s.key;
-            return (
-              <Link key={s.key} href={href(s.key)} aria-current={on ? 'true' : undefined}
-                className={`rounded-full border px-3 py-1 text-xs ${on ? 'border-[#2f5a43] bg-[#17201b] text-[#00C66F]' : 'border-zinc-800 text-zinc-300 hover:bg-zinc-900'}`}>
-                {s.label} <span className="opacity-60">{counts(s.key)}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
+      <form action="/admin/tenants" className="flex h-11 items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 focus-within:border-zinc-600 sm:max-w-sm">
+        {status !== 'all' && <input type="hidden" name="status" value={status} />}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-zinc-500" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        <label htmlFor="tq" className="sr-only">Search customers</label>
+        <input id="tq" name="q" defaultValue={q} type="search" placeholder="Search e-mail, site or note" className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-zinc-600 sm:text-sm" />
+      </form>
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-800">
-        <table className="w-full min-w-[900px] text-sm">
-          <thead className="border-b border-zinc-800 bg-zinc-950/50 text-left text-xs uppercase tracking-wider text-zinc-500">
-            <tr>
-              {['Tenant', 'Plan', 'License', 'Sites', 'Devices', 'Last heartbeat', 'Expires'].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/60">
-            {rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-zinc-500">{all.length === 0 ? 'No tenants yet.' : 'No tenants match this filter.'}</td></tr>
-            ) : rows.map((t) => {
-              const lic = LIC_TONE[t.state];
-              const site = siteCell(t);
-              const hot = t.onBattery + t.lowBattery > 0;
+      <Chips label="License status" items={STATES.map((s) => ({ key: s.key, label: s.label, count: counts(s.key), href: href(s.key), on: status === s.key }))} />
+
+      {rows.length === 0 ? (
+        <p className={`${CARD} px-4 py-10 text-center text-sm text-zinc-500`}>{all.length === 0 ? 'No customers yet.' : 'No customers match this filter.'}</p>
+      ) : (
+        <>
+          {/* Phone: one card per customer */}
+          <ul className={`${CARD} divide-y divide-zinc-800/70 md:hidden`}>
+            {rows.map((t) => {
+              const h = health(t, now);
               return (
-                <tr key={t.email} className={`hover:bg-zinc-900/40 ${hot ? 'bg-amber-950/10' : ''}`}>
-                  <td className="px-4 py-3">
-                    <Link href={`/admin/customers/${encodeURIComponent(t.email)}`} className="font-medium text-white hover:text-[#00C66F]">{t.email}</Link>
-                    <p className="text-xs text-zinc-500">{t.registeredAt ? `Registered ${dateLabel(t.registeredAt)}` : 'Not registered yet'}</p>
-                  </td>
-                  <td className="px-4 py-3">{t.best ? <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs uppercase text-zinc-300">{t.best.plan}</span> : <span className="text-zinc-600">—</span>}</td>
-                  <td className={`px-4 py-3 ${lic.text}`}><span className="inline-flex items-center gap-1.5"><span className={`h-2 w-2 ${lic.dot} ${lic.shape}`} />{lic.label}</span></td>
-                  <td className={`px-4 py-3 ${site.tone}`}><span className="inline-flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${site.dot}`} />{site.label}</span></td>
-                  <td className="px-4 py-3 text-zinc-300">{t.devices || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-zinc-400">{t.sites.length ? ago(t.lastBeat) : '—'}</td>
-                  <td className={`px-4 py-3 text-xs ${t.state === 'expiring' || t.state === 'expired' ? 'text-amber-300' : 'text-zinc-400'}`}>{t.best ? dateLabel(t.best.expires_at) : '—'}</td>
-                </tr>
+                <li key={t.email}>
+                  <Link href={customerHref(t.email)} className="flex items-center gap-3 px-4 py-3.5 active:bg-zinc-900">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="flex items-center gap-2"><span className="truncate text-[15px] font-medium text-white">{t.email}</span>{t.best && <PlanTag plan={t.best.plan} />}</p>
+                      <Status tone={h.tone} className="text-sm">{h.label}</Status>
+                      <p className="text-xs text-zinc-500">{sitesLabel(t)} · {t.devices} UPS{t.devices === 1 ? '' : 'es'}{t.best?.expires_at ? ` · until ${dateLabel(t.best.expires_at)}` : ''}</p>
+                    </div>
+                    <span aria-hidden="true" className="text-lg text-zinc-600">›</span>
+                  </Link>
+                </li>
               );
             })}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-xs text-zinc-500">Showing {rows.length} of {all.length} tenants</p>
+          </ul>
+
+          {/* Desktop: table */}
+          <div className={`${CARD} hidden overflow-hidden md:block`}>
+            <table className="w-full text-sm">
+              <thead className="border-b border-zinc-800 text-left text-xs text-zinc-500">
+                <tr>
+                  {['Customer', 'Status', 'Plan', 'Sites', 'UPSes', 'License term'].map((h) => <th key={h} className="px-4 py-2.5 font-medium">{h}</th>)}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {rows.map((t) => {
+                  const h = health(t, now);
+                  return (
+                    <tr key={t.email} className="hover:bg-zinc-900/40">
+                      <td className="px-4 py-3">
+                        <Link href={customerHref(t.email)} className="font-medium text-white hover:text-[#00C66F]">{t.email}</Link>
+                        <p className="text-xs text-zinc-500">{t.registeredAt ? `Customer since ${dateLabel(t.registeredAt)}` : 'Not registered yet'}</p>
+                      </td>
+                      <td className="px-4 py-3"><Status tone={h.tone}>{h.label}</Status></td>
+                      <td className="px-4 py-3">{t.best ? <PlanTag plan={t.best.plan} /> : <span className="text-zinc-600">—</span>}</td>
+                      <td className="px-4 py-3 text-zinc-300">{sitesLabel(t)}</td>
+                      <td className="px-4 py-3 tabular-nums text-zinc-300">{t.devices || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-400">{t.best ? (t.best.expires_at ? `Until ${dateLabel(t.best.expires_at)}` : 'Never expires') : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      <p className="text-xs text-zinc-500">Showing {rows.length} of {all.length} customers</p>
     </div>
   );
 }

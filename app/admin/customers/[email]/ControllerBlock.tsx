@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { shortDate } from '../../format';
 
 type Props = {
   licenseId: string;
@@ -14,8 +15,8 @@ type Props = {
   offlineAllowed: boolean;
 };
 
-const btn = 'inline-flex h-8 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50';
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+const btn = 'inline-flex h-11 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 text-sm sm:h-8 sm:px-3 sm:text-xs text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50';
+const fmt = (iso: string | null) => (iso ? shortDate(iso) : '—');
 
 async function call(path: string, method: string, body?: unknown) {
   const r = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
@@ -60,7 +61,7 @@ export function ControllerBlock(p: Props) {
       {editing && (
         <div className="flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor={`sn-${p.licenseId}`}>Site name</label>
-          <input id={`sn-${p.licenseId}`} className="h-8 w-64 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-white focus:border-[#00C66F] focus:outline-none" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+          <input id={`sn-${p.licenseId}`} className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:h-8 sm:w-64 sm:text-sm text-white focus:border-[#00C66F] focus:outline-none" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
           <button className={btn} disabled={busy || !name.trim()} onClick={() => run(() => patch({ site_name: name }))}>Save name</button>
         </div>
       )}
@@ -87,8 +88,8 @@ export function ControllerBlock(p: Props) {
         </div>
       ))}
 
-      <label className="flex items-center gap-2 text-xs text-zinc-400">
-        <input type="checkbox" checked={p.offlineAllowed} disabled={busy} onChange={(e) => run(() => patch({ offline_allowed: e.target.checked }))} className="accent-[#00C66F]" />
+      <label className="flex min-h-11 items-center gap-3 text-sm text-zinc-400 sm:min-h-0 sm:gap-2 sm:text-xs">
+        <input type="checkbox" checked={p.offlineAllowed} disabled={busy} onChange={(e) => run(() => patch({ offline_allowed: e.target.checked }))} className="h-5 w-5 shrink-0 accent-[#00C66F] sm:h-4 sm:w-4" />
         Allow an offline license for this site (12 months, for sites without internet)
       </label>
       {error && <p className="text-xs text-red-400">{error}</p>}
