@@ -3,7 +3,7 @@ export const runtime = 'edge';
 import { cookies } from 'next/headers';
 import { getSession } from '@/app/lib/session';
 import { getLicensesByEmail } from '@/app/lib/license-db';
-import { relayBase } from '@/app/lib/relay-url';
+import { mintConsoleURL } from '@/app/lib/relay-mint';
 
 // Mints a short-lived, scoped relay sub-token for the caller's own license
 // and returns a ready-to-open console URL. The long-lived license token
@@ -41,20 +41,7 @@ export async function POST(request: Request) {
   }
   // The relay keys a controller by licence id (not by token), so rotating the token never orphans a session.
 
-  const mintSecret = process.env.RELAY_MINT_SECRET;
-  if (!mintSecret) {
-    return Response.json({ error: 'relay not configured' }, { status: 500 });
-  }
-
-  const mintResp = await fetch(`${relayBase()}/mint/${license.id}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Mint-Secret': mintSecret },
-    body: JSON.stringify({ scope: 'customer', actor: email, ttl_seconds: 600 }),
-  });
-  if (!mintResp.ok) {
-    return Response.json({ error: 'relay mint failed' }, { status: 502 });
-  }
-  const { token } = (await mintResp.json()) as { token: string };
-
-  return Response.json({ console_url: `${relayBase()}/console/${token}` });
+  const m = await mintConsoleURL(license.id, email);
+  if ('error' in m) return Response.json({ error: m.error }, { status: m.status });
+  return Response.json({ console_url: m.url });
 }

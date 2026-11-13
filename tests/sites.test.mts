@@ -33,6 +33,7 @@ check('never another account’s site', !JSON.stringify(r).includes('Eve') && !J
 check('add-on licences are not sites', !r.sites.some((s: any) => s.id === 'addon'));
 const h = r.sites.find((s: any) => s.id === 'home'), o = r.sites.find((s: any) => s.id === 'office');
 check('the caller is marked this', h.this === true && o.this === false);
+check('says whether the remote console is in the site’s plan', h.console === true && o.console === true);
 check('name, model, version, LAN address', h.name === 'Thuis' && h.model === 'HP ProDesk 400 G3 DM' && h.controller_version === '0.1.115' && h.lan[0] === '192.168.10.175');
 check('status from the heartbeat: online + on mains = ok', h.online === true && h.tone === 'ok');
 check('a site silent for 10 min is offline', o.online === false && o.tone === 'offline' && typeof o.last_seen === 'number');
@@ -55,5 +56,38 @@ check('model is kept', saved.model === 'NanoPi R3S');
 kv.delete('sitestatus:other');
 await hb('192.168.1.20');
 check('a non-list LAN field stores nothing', JSON.stringify(JSON.parse(kv.get('sitestatus:other')!).lan) === '[]');
+
+console.log('\nconsole link to another site of the account (through the relay)');
+process.env.RELAY_MINT_SECRET = 'mint-secret';
+const { POST: consoleLink } = await import('../app/api/cloud/sites/console/route.ts');
+const mints: { url: string; secret: string; body: any }[] = [];
+const kvFetch = (globalThis as any).fetch;
+(globalThis as any).fetch = async (url: string, init: any = {}) => {
+  if (String(url).startsWith('https://relay.powerguardian.cloud/mint/')) {
+    mints.push({ url: String(url), secret: init.headers['X-Mint-Secret'], body: JSON.parse(init.body) });
+    return Response.json({ token: 'sub-' + String(url).split('/').pop(), jti: 'j', expires_at: 1 });
+  }
+  return kvFetch(url, init);
+};
+put('sitestatus:office', st({ received_at: Date.now() }));
+put('sitestatus:home', st({ received_at: Date.now() }));
+const ask = (token: string, site: unknown, cid = CA) => consoleLink(new Request('http://x/api/cloud/sites/console', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'x-controller-id': cid, 'content-type': 'application/json' }, body: JSON.stringify({ site_id: site }) }));
+const c1 = await json(await ask(home.token, 'office'));
+check('a site of the same account: a relay console link', c1.status === 200 && c1.console_url === 'https://relay.powerguardian.cloud/console/sub-office', JSON.stringify(c1));
+check('minted for that site, customer scope, short-lived, with the mint secret', mints.length === 1 && mints[0].url.endsWith('/mint/office') && mints[0].secret === 'mint-secret' && mints[0].body.scope === 'customer' && mints[0].body.ttl_seconds <= 600);
+check('no token of any kind in the answer besides the console link', !/tok-/.test(JSON.stringify(c1)));
+check('another account’s site → 404, nothing minted', (await ask(home.token, 'other')).status === 404 && mints.length === 1);
+check('an add-on licence is not a site → 404', (await ask(home.token, 'addon')).status === 404);
+check('no token → 401', (await consoleLink(new Request('http://x', { method: 'POST', body: '{}' }))).status === 401);
+check('a copy (not the holder) → 403', (await ask(home.token, 'office', CX)).status === 403);
+put('sitestatus:office', st({ received_at: Date.now() - 600_000 }));
+const off = await json(await ask(home.token, 'office'));
+check('an offline site → 409 offline', off.status === 409 && off.error === 'offline');
+put('sitestatus:office', st({ received_at: Date.now() }));
+put('license:office', { ...office, plan: 'home' });
+const hp = await json(await ask(home.token, 'office'));
+check('a Home plan has no remote console → 403 console_not_in_plan', hp.status === 403 && hp.error === 'console_not_in_plan');
+put('license:office', office);
+check('junk site id → 400', (await ask(home.token, '../x')).status === 400 && (await ask(home.token, 7)).status === 400);
 
 done();
