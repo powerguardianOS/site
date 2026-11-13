@@ -1,5 +1,7 @@
-import { getSiteStatus, isOnline } from '@/app/lib/site-status';
+import { isOnline } from '@/app/lib/site-status';
 import type { SiteStatus } from '@/app/lib/site-status';
+import { power as powerOf, sitesWithStatus } from '@/app/lib/site-summary';
+import type { PowerLevel } from '@/app/lib/site-summary';
 import OpenConsoleButton from './OpenConsoleButton';
 import SiteControls from './SiteControls';
 import type { SiteInfo } from './SiteControls';
@@ -20,15 +22,11 @@ function runtime(sec: number): string {
   return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
 }
 
-// NUT status tokens → plain language. Order matters: the worst state wins.
+// The plain-language power state (lib/site-summary.ts, the same reading the controller's site switcher gets) in colour.
+const POWER_TONE: Record<PowerLevel, string> = { none: 'text-zinc-500', danger: 'text-red-400', warn: 'text-amber-400', ok: 'text-green-400', other: 'text-zinc-400' };
 function power(raw: string): { label: string; tone: string } {
-  const s = raw.toUpperCase();
-  if (!s) return { label: 'No UPS data', tone: 'text-zinc-500' };
-  if (s.includes('LB')) return { label: 'Low battery', tone: 'text-red-400' };
-  if (s.includes('OB')) return { label: 'On battery', tone: 'text-amber-400' };
-  if (s.includes('RB')) return { label: 'Replace battery', tone: 'text-amber-400' };
-  if (s.includes('OL')) return { label: 'On mains', tone: 'text-green-400' };
-  return { label: raw, tone: 'text-zinc-400' };
+  const p = powerOf(raw);
+  return { label: p.label, tone: POWER_TONE[p.level] };
 }
 
 function Dot({ on }: { on: boolean }) {
@@ -102,15 +100,14 @@ function Site({ lic, status }: { lic: Lic; status: SiteStatus | null }) {
 
 export default async function SitesSection({ licenses }: { licenses: Lic[] }) {
   // Add-on licenses extend a site's connector allowance; they are not sites.
-  const siteLicenses = licenses.filter(l => l.plan !== 'addon_connector');
-  const statuses = await Promise.all(siteLicenses.map(l => getSiteStatus(l.id)));
+  const sites = await sitesWithStatus(licenses);
 
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-semibold text-white">My sites</h2>
-      {siteLicenses.length === 0 ? (
+      {sites.length === 0 ? (
         <p className="text-xs text-zinc-500">Connect a controller to start monitoring your UPS.</p>
-      ) : siteLicenses.map((l, i) => <Site key={l.id} lic={l} status={statuses[i]} />)}
+      ) : sites.map(({ lic, status }) => <Site key={lic.id} lic={lic} status={status} />)}
     </div>
   );
 }
