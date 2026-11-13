@@ -18,7 +18,12 @@ export async function GET(request: NextRequest) {
   }
 
   const sessionId = await createSession(email);
-  const response = NextResponse.redirect(new URL('/account', request.url));
+  // CLOUD-SSO: a controller sent this browser to sign in first (app/sso/authorize). Go back there; the request is checked
+  // again in full, so the cookie can only ever point at the authorize page.
+  const ssoNext = request.cookies.get('pg_sso_next')?.value ?? '';
+  const target = ssoNext ? '/sso/authorize?' + new URLSearchParams(ssoNext).toString() : '/account';
+  const response = NextResponse.redirect(new URL(target, request.url));
+  if (ssoNext) response.cookies.set('pg_sso_next', '', { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 0, path: '/' });
   response.cookies.set('pg_session', sessionId, {
     httpOnly: true,
     secure: true,

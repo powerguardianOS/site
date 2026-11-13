@@ -55,6 +55,15 @@ export async function signLease(p: LeasePayload): Promise<string | null> {
   return `${body}.${b64u(sig)}`;
 }
 
+// Signs any message with the lease key and returns the base64url signature. Other statements signed with this key
+// (CLOUD-SSO, app/lib/sso.ts) put their own prefix in the signed bytes, so they can never pass as a lease.
+export async function signWithLeaseKey(message: string): Promise<string | null> {
+  const k = process.env.LEASE_PRIVATE_KEY;
+  if (!k) return null;
+  const key = await crypto.subtle.importKey('pkcs8', unb64(k.trim()), { name: 'Ed25519' }, false, ['sign']);
+  return b64u(await crypto.subtle.sign({ name: 'Ed25519' }, key, bytes(message)));
+}
+
 export async function verifyLease(token: string, publicKeyRawB64: string): Promise<LeasePayload | null> {
   const dot = token.lastIndexOf('.');
   if (dot < 0) return null;
