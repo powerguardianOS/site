@@ -72,8 +72,11 @@ const kvFetch = (globalThis as any).fetch;
 put('sitestatus:office', st({ received_at: Date.now() }));
 put('sitestatus:home', st({ received_at: Date.now() }));
 const ask = (token: string, site: unknown, cid = CA) => consoleLink(new Request('http://x/api/cloud/sites/console', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'x-controller-id': cid, 'content-type': 'application/json' }, body: JSON.stringify({ site_id: site }) }));
+const { siteLabel } = await import('../app/lib/relay-mint.ts');
 const c1 = await json(await ask(home.token, 'office'));
-check('a site of the same account: a relay console link', c1.status === 200 && c1.console_url === 'https://relay.powerguardian.cloud/console/sub-office', JSON.stringify(c1));
+const officeHost = (await siteLabel('office')) + '-console.powerguardian.cloud';
+check('a site of the same account: a console link on that site’s own host', c1.status === 200 && c1.console_url === `https://${officeHost}/console/sub-office`, JSON.stringify(c1));
+check('each site its own host: 16 hex of sha256(licence id), not the id itself', /^[0-9a-f]{16}-console\.powerguardian\.cloud$/.test(officeHost) && officeHost !== (await siteLabel('home')) + '-console.powerguardian.cloud' && !officeHost.includes('office'));
 check('minted for that site, customer scope, short-lived, with the mint secret', mints.length === 1 && mints[0].url.endsWith('/mint/office') && mints[0].secret === 'mint-secret' && mints[0].body.scope === 'customer' && mints[0].body.ttl_seconds <= 600);
 check('no token of any kind in the answer besides the console link', !/tok-/.test(JSON.stringify(c1)));
 check('another account’s site → 404, nothing minted', (await ask(home.token, 'other')).status === 404 && mints.length === 1);
@@ -89,5 +92,12 @@ const hp = await json(await ask(home.token, 'office'));
 check('a Home plan has no remote console → 403 console_not_in_plan', hp.status === 403 && hp.error === 'console_not_in_plan');
 put('license:office', office);
 check('junk site id → 400', (await ask(home.token, '../x')).status === 400 && (await ask(home.token, 7)).status === 400);
+
+console.log('\nthe portal’s Open Console (relay-session) and the switcher share mintConsoleURL');
+const { mintConsoleURL } = await import('../app/lib/relay-mint.ts');
+const m = await mintConsoleURL('office', 'roy@x.nl') as { url: string };
+check('mintConsoleURL gives the per-site host', m.url === `https://${officeHost}/console/sub-office`, JSON.stringify(m));
+const src = (await import('node:fs')).readFileSync(new URL('../app/api/account/relay-session/route.ts', import.meta.url), 'utf8');
+check('relay-session builds its link only through mintConsoleURL', /mintConsoleURL\(license\.id, email\)/.test(src) && !/\/console\//.test(src));
 
 done();
