@@ -20,13 +20,13 @@ await createAccount('ann@x.nl');
 seed(lic('site-roy', 'roy@x.nl', { plan: 'pro', claimed_by: 'a'.repeat(64), site_name: 'Acer' })); // roy manages a site → two-step
 const O = 'https://powerguardian.cloud';
 let ipN = 0;
-const ask = async (email: string) => {
+const ask = async (email: string, app = true) => { // app: asked from the installed app, the only case with a code
   const r = await register(new Request(O + '/api/auth/register', {
-    method: 'POST', headers: { 'content-type': 'application/json', origin: O, 'cf-connecting-ip': `9.9.9.${++ipN}` }, body: JSON.stringify({ email }),
+    method: 'POST', headers: { 'content-type': 'application/json', origin: O, 'cf-connecting-ip': `9.9.9.${++ipN}` }, body: JSON.stringify({ email, app }),
   }));
   const m = mails.filter((x) => x.to === email).at(-1)!;
   const nonce = (r.headers.get('set-cookie') ?? '').match(/pg_login_req=([0-9a-f]{64})/)?.[1] ?? '';
-  return { r, m, nonce, link: m.text.match(/https?:\/\/\S+\/api\/auth\/verify\?token=[0-9a-f]+/)![0], code: m.text.match(/\b(\d{6})\b/)![1] };
+  return { r, m, nonce, link: m.text.match(/https?:\/\/\S+\/api\/auth\/verify\?token=[0-9a-f]+/)![0], code: m.text.match(/\b(\d{6})\b/)?.[1] ?? '' };
 };
 const tokenOf = (link: string) => new URL(link).searchParams.get('token')!;
 const get = (link: string, cookie = '') => verify.GET(new NextRequest(link, { headers: cookie ? { cookie } : {} }));
@@ -44,6 +44,8 @@ const loc = (r: Response) => new URL(r.headers.get('location') ?? '/', O);
 const wrong = (c: string) => (c === '000000' ? '111111' : '000000');
 
 console.log('the mail');
+await ask('web@x.nl', false); const web = await ask('web@x.nl', false); // the second: an existing account
+check('from a browser: a magic link only, no code anywhere (subject, text, HTML)', web.code === '' && web.m.subject === 'Sign in to PowerGuardian' && !/\b\d{6}\b/.test(web.m.text.replace(web.link, '')) && !web.m.html.includes('pg-code"') && (web.m.html.match(/>Sign in<\/a>/g) ?? []).length === 1 && web.m.text.includes('Sign in with the link below.'));
 let a = await ask('ann@x.nl');
 check('subject carries the code; text: code, link, expiry line', a.m.subject.includes(a.code) && a.m.text.includes(`Your code: ${a.code}`) && a.m.text.includes("Expires in 15 minutes. Didn't ask? Ignore this email.") && a.m.text.includes(a.link), a.m.subject);
 check('HTML: the PNG logo by absolute https URL, no SVG', a.m.html.includes(`src="${LOGO_URL}"`) && LOGO_URL.startsWith('https://powerguardian.cloud/') && LOGO_URL.endsWith('.png') && !/<svg/i.test(a.m.html));
@@ -63,7 +65,7 @@ a = await ask('ann@x.nl');
 const ck = `pg_login_req=${a.nonce}`;
 let r = await get(a.link, 'pg_login_req=' + 'f'.repeat(64));
 let html = await r.text();
-check('GET without the matching cookie: the button "Sign in on this device" and the code line', r.status === 200 && html.includes('>Sign in on this device</button>') && html.includes('Or type the code from the email on the device where you asked.'));
+check('GET without the matching cookie: one "Sign in" button, no code talk', r.status === 200 && html.includes('>Sign in</button>') && !/\bcode from|type the code/i.test(html));
 r = await get(a.link);
 check('…no session, the link and the code still live', !sc(r).includes('pg_session') && kv.has('magic:' + tokenOf(a.link)));
 check('the tab that asked still sees pending', (await status(ck)).state === 'pending');

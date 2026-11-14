@@ -41,7 +41,7 @@ stack.kv.set('sitestatus:lic-wh', status({ model: 'HP ProDesk 400 G3 DM', device
 stack.kv.set('sitestatus:lic-br', status({ model: 'Acer Veriton', power: brHist, received_at: now - 3 * 3600_000, devices: [dev('APC Back-UPS 700', 'OL', 100, 9, 1800)] }));
 // Lab: a controller without any UPS (HIST-24H: it says so in its heartbeat): a connection strip (CONN-24H), here with a
 // network drop of 6 minutes in the last slot.
-stack.kv.set('sitestatus:lic-lab', status({ model: 'Mini PC', no_ups: true, power: { at, s: '-'.repeat(46) + 'nn', m: '0'.repeat(48), g: '0'.repeat(47) + '6' } }));
+stack.kv.set('sitestatus:lic-lab', status({ model: 'Mini PC', no_ups: true, power: { at, s: '-'.repeat(40) + 'n'.repeat(8), m: '0'.repeat(48), g: '0'.repeat(47) + '6' } }));
 stack.kv.set('mfa:' + EMAIL, JSON.stringify({ v: 1, totp: 'demo', created_at: iso(now - 20 * DAY), last_step: 0, recovery: Array(10).fill('x'), recovery_created_at: iso(now - 20 * DAY) }));
 const sid = randomBytes(32).toString('hex');
 stack.kv.set('session:' + sid, JSON.stringify({ email: EMAIL, expires: now + DAY, mfa: true }));
@@ -205,6 +205,8 @@ try {
   check('desktop: no sideways scrolling', await noSideScroll(dp));
   const dcut = tile(dp, 'Head office').locator('.strip-cell[data-state=b]');
   await dcut.hover();
+  await dp.mouse.move(...await dcut.boundingBox().then((b) => [b.x + b.width / 2 + 1, b.y + b.height / 2])); // a real pointer move
+  await tile(dp, 'Head office').locator('.strip-label').filter({ hasText: /\S/ }).waitFor({ timeout: 3000 }).catch(() => {});
   const hovered = (await tile(dp, 'Head office').locator('.strip-label').textContent()).trim();
   check('desktop: hovering a cell shows its label', /^\d{2}:00–\d{2}:00 · On battery 12 min$/.test(hovered), hovered);
   await demo(dp);

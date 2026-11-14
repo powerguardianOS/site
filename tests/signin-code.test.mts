@@ -13,7 +13,7 @@ const { CODE_TTL_S, CODE_MAX_TRIES } = await import('../app/lib/signin-code.ts')
 seed(lic('site-roy', 'roy@x.nl', { plan: 'pro', claimed_by: 'a'.repeat(64), site_name: 'Acer' }));
 const O = 'https://powerguardian.cloud';
 const ask = (email: string, _code: boolean, ip = '1.1.1.1') => register(new Request(O + '/api/auth/register', {
-  method: 'POST', headers: { 'content-type': 'application/json', origin: O, 'cf-connecting-ip': ip }, body: JSON.stringify({ email }),
+  method: 'POST', headers: { 'content-type': 'application/json', origin: O, 'cf-connecting-ip': ip }, body: JSON.stringify({ email, app: true }), // the installed app: the only request that gets a code
 }));
 const send = (code: string, cookie: string, origin: string | null = O) => codePOST(new NextRequest(O + '/api/auth/code', {
   method: 'POST', headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}), ...(cookie ? { cookie } : {}) }, body: JSON.stringify({ code }),
@@ -31,7 +31,7 @@ check('the mail carries a 6-digit code and still the link', /^\d{6}$/.test(code)
 check('the code lives 10–15 minutes, at most 5 tries', CODE_TTL_S >= 600 && CODE_TTL_S <= 900 && CODE_MAX_TRIES === 5);
 check('KV never holds the code in clear', ![...kv.values()].some((v) => v.includes(`"${code}"`)));
 r = await ask('nobody-code@x.nl', false);
-check('every request gets the code and the browser cookie (no opt-in any more)', r.status === 200 && !!bindOf(r) && /\b\d{6}\b/.test(mails.at(-1)!.text));
+check('a request from the installed app gets the code and the browser cookie', r.status === 200 && !!bindOf(r) && /\b\d{6}\b/.test(mails.at(-1)!.text));
 
 console.log('\nentering it');
 let v = await send(code, '');
