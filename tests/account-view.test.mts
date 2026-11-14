@@ -4,7 +4,7 @@
 import { lic, check, done, DAY } from './harness.mts';
 
 const { accountView, siteName, connectorsText, termText, inUse, statusLine } = await import('../app/lib/account-view.ts');
-const { recordBeat, last24h, SLOT_MS, SLOTS } = await import('../app/lib/power-history.ts');
+const { recordBeat, last24h, hourCells, SLOT_MS, SLOTS } = await import('../app/lib/power-history.ts');
 const now = Date.now();
 const st = (o: Record<string, unknown> = {}) => ({ site_name: 'x', controller_version: '0.1.115', devices: [], received_at: now, ...o }) as any;
 
@@ -67,6 +67,30 @@ check('older than 24 h falls off', last24h(h, T0 + 60 * SLOT_MS).empty);
 check('junk history is ignored', recordBeat({ at: 1, s: 'xx' } as any, mains, T0).s === '-'.repeat(SLOTS - 1) + 'm');
 check('online without UPS data: grey “n”, not green', recordBeat(null, [], T0).s.endsWith('n'));
 check('a site without history in its record: the tile says so', v.sites[0].power.empty === true);
+
+console.log('\nbattery minutes and hour cells');
+const H = 3_600_000, D0 = Math.floor(now / (24 * H)) * 24 * H; // a UTC midnight
+const utcHour = (t: number) => Math.floor(t / H) * H;
+const fmt = (t: number) => `${String(new Date(t).getUTCHours()).padStart(2, '0')}:00`;
+let bh = recordBeat(null, bat, D0 + 13 * H + 5 * 60_000);
+for (let k = 1; k <= 11; k++) bh = recordBeat(bh, bat, D0 + 13 * H + (5 + k) * 60_000, D0 + 13 * H + (4 + k) * 60_000);
+bh = recordBeat(bh, mains, D0 + 13 * H + 20 * 60_000, D0 + 13 * H + 16 * 60_000);
+check('minutes on battery are counted from the time between heartbeats (12 beats ≈ 12 min)', bh.m!.endsWith('c') && bh.s.endsWith('b'), bh.m!.slice(-3));
+bh = recordBeat(bh, mains, D0 + 13 * H + 45 * 60_000);
+for (let t = 14 * H; t <= 15 * H + 20 * 60_000; t += 10 * 60_000) bh = recordBeat(bh, mains, D0 + t);
+const nowT = D0 + 15 * H + 20 * 60_000;
+const cells = hourCells(last24h(bh, nowT), nowT, utcHour, fmt);
+check('24 cells on clock hours, the last one is the current hour', cells.length === 24 && cells[23].current && cells[23].label === '15:00–now · On mains', cells[23].label);
+check('the current hour is filled as far as it has run (20 of 60 min)', Math.abs(cells[23].fill - 1 / 3) < 0.01 && cells[22].fill === 1);
+check('an hour with mains and battery is amber with the battery minutes', cells[21].state === 'b' && cells[21].label === '13:00–14:00 · On battery 12 min', cells[21].label);
+check('an hour on mains', cells[22].label === '14:00–15:00 · On mains');
+check('an hour without heartbeats: “No data”', cells[10].state === '-' && cells[10].label.endsWith('· No data'));
+check('battery without known minutes (older records): no minutes invented', hourCells(last24h({ at: Math.floor(nowT / SLOT_MS), s: '-'.repeat(47) + 'b' }, nowT), nowT, utcHour, fmt)[23].label === '15:00–now · On battery');
+check('time zone: hours follow the viewer’s clock (UTC+5:30 here)', (() => {
+  const off = 5.5 * H, c = hourCells(last24h(bh, nowT), nowT, (t) => Math.floor((t + off) / H) * H - off, (t) => `${String(new Date(t + off).getUTCHours()).padStart(2, '0')}:00`);
+  return c[23].label.startsWith('20:00–now');
+})());
+
 const { POST: heartbeat } = await import('../app/api/cloud/heartbeat/route.ts');
 const { kv, seed } = await import('./harness.mts');
 const hb = lic('hb', 'hb@x.nl', { claimed_by: 'f'.repeat(64) }) as any; seed(hb);

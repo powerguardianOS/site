@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     received_at: Date.now(),
     model: str(body.model, 80),
     lan: privateLan(body.lan),
-    power: recordBeat(previous?.power, devices),
+    power: recordBeat(previous?.power, devices, Date.now(), previous?.received_at),
   };
 
   if (!(await putSiteStatus(license.id, status))) {

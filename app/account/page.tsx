@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { getAccountSummary } from '@/app/lib/license-db';
-import SitesSection, { UnusedLicenses, accountLook } from './components/SitesSection';
+import SitesSection, { UnusedLicenses } from './components/SitesSection';
 import TwoStepCard from './components/TwoStepCard';
 import { getSession } from '@/app/lib/session';
 import { getMfa, mfaRequired } from '@/app/lib/mfa';
@@ -42,7 +42,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </a>
         </div>
       ) : (
-        <SitesSection view={view} look={accountLook()} />
+        <SitesSection view={view} />
       )}
 
       <div className="space-y-1 border-t border-white/[0.06] pt-4">

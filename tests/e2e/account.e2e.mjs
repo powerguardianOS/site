@@ -1,7 +1,7 @@
 // ACCOUNT-UI in a phone browser (WebKit iPhone) and on a desktop width.
 //   cd tests/e2e && npm install && PATH=~/dev/.tools/node/bin:$PATH node account.e2e.mjs [shot-dir]
-//   ACCOUNT_LOOK=b node account.e2e.mjs [shot-dir]      (the second look, while the owner chooses)
-// "My sites": one calm tile per site (name, status, 24 h power), the whole tile opens the console, "⋯" opens Rename /
+// "My sites": one calm tile per site (name, status, 24 h battery strip), the whole tile opens the console, hover/tap/keys
+// read an hour of the strip, one legend for all strips, "⋯" opens Rename /
 // Controller inline, licenses not in use and the account are one quiet line each. Never 'default-site' or a hostname
 // as a name, never stale "on mains" for an offline site, no sideways scrolling at phone width. Demo data only;
 // screenshots carry a DEMO label.
@@ -10,10 +10,9 @@ import { mkdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { startStack, check, result, hydrated, noSideScroll, BASE, IPHONE_UA } from './stack.mjs';
 
-const LOOK = process.env.ACCOUNT_LOOK === 'b' ? 'b' : 'a';
 const SHOTS = (process.argv[2] ?? new URL('./shots/', import.meta.url).pathname).replace(/\/?$/, '/'); mkdirSync(SHOTS, { recursive: true });
 const EMAIL = 'demo@example.test';
-const stack = await startStack(); // next dev inherits ACCOUNT_LOOK from this process
+const stack = await startStack();
 const now = Date.now(), DAY = 86_400_000, SLOT = 30 * 60_000, at = Math.floor(now / SLOT);
 const iso = (ms) => new Date(ms).toISOString();
 
@@ -32,9 +31,9 @@ for (const l of licenses) { stack.kv.set('license:' + l.id, JSON.stringify(l)); 
 stack.kv.set('index:all', JSON.stringify(licenses.map((l) => l.id)));
 const dev = (name, ups_status, battery_pct, load_pct, runtime_sec, state = 'online') => ({ name, state, version: '0.1.115', ups_status, battery_pct, load_pct, runtime_sec, last_seen: Math.floor(now / 1000) });
 const status = (o) => JSON.stringify({ site_name: 'default-site', controller_version: '0.1.115', devices: [], received_at: Date.now(), ...o });
-// Head office: 24 h on mains with a 1 h power cut 9 h ago. Branch: on mains until it went silent 3 h ago. Warehouse: no history
+// Head office: 24 h on mains with a 12-minute power cut about 9 h ago. Branch: on mains until it went silent 3 h ago. Warehouse: no history
 // yet (its last record predates the power line), on battery right now.
-const hqHist = { at, s: 'm'.repeat(29) + 'bb' + 'm'.repeat(17) };
+const hqHist = { at, s: 'm'.repeat(29) + 'b' + 'm'.repeat(18), m: '0'.repeat(29) + 'c' + '0'.repeat(18) };
 const brHist = { at: at - 6, s: '-'.repeat(10) + 'm'.repeat(38) };
 stack.kv.set('sitestatus:lic-hq', status({ model: 'NanoPi R3S', power: hqHist, devices: [dev('Eaton 5PX 1500', 'OL', 100, 24, 3120), dev('APC Smart-UPS 1000', 'OL CHRG', 96, 31, 2280), dev('CyberPower OR600', 'OL', 100, 12, 5400)] }));
 stack.kv.set('sitestatus:lic-wh', status({ model: 'HP ProDesk 400 G3 DM', devices: [dev('Eaton Ellipse PRO 850', 'OB DISCHRG', 71, 18, 1500)] }));
@@ -45,19 +44,18 @@ stack.kv.set('session:' + sid, JSON.stringify({ email: EMAIL, expires: now + DAY
 const cookie = { name: 'pg_session', value: sid, domain: 'localhost', path: '/', httpOnly: true, secure: true, sameSite: 'Lax' };
 
 const browser = await webkit.launch();
-const demo = (page) => page.evaluate((look) => {
+const demo = (page) => page.evaluate(() => {
   const b = document.createElement('div');
-  b.textContent = 'DEMO · look ' + look.toUpperCase();
+  b.textContent = 'DEMO';
   b.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;padding:3px 9px;border-radius:6px;background:#f59e0b;color:#000;font:700 11px/1.4 system-ui;letter-spacing:.12em';
   document.body.appendChild(b);
   document.querySelectorAll('nextjs-portal').forEach((e) => e.remove()); // next dev's own badge, not part of the page
-}, LOOK);
+});
 const tile = (page, name) => page.locator('article.site-card', { has: page.locator('.site-name', { hasText: name }) });
-const slotsOf = (t) => t.locator('[data-slots]').getAttribute('data-slots'); // 48 half hours, oldest first
+const states = (t) => t.locator('.strip-cell').evaluateAll((els) => els.map((e) => e.getAttribute('data-state')).join('')); // 24 hours, oldest first
 
 try {
-  console.log(`look ${LOOK}`);
-  const phone = await browser.newContext({ ...devices['iPhone 15'], userAgent: IPHONE_UA, ignoreHTTPSErrors: true });
+  const phone = await browser.newContext({ ...devices['iPhone 15'], userAgent: IPHONE_UA, ignoreHTTPSErrors: true, timezoneId: 'Europe/Amsterdam' });
   await phone.addCookies([cookie]);
   const page = await phone.newPage();
   await page.goto(BASE + '/account');
@@ -72,17 +70,58 @@ try {
   const hq = tile(page, 'Head office'), wh = tile(page, 'Warehouse'), br = tile(page, 'Branch Utrecht');
   check('plan badge on the tile', (await hq.locator('.site-plan').textContent()) === 'Founder' && (await br.locator('.site-plan').textContent()) === 'Pro');
   check('online, all on mains: "3 UPSes on mains" (+ the model)', (await hq.innerText()).includes('3 UPSes on mains') && (await hq.innerText()).includes('NanoPi R3S'));
-  if (LOOK === 'a') check('look a: the status word is "Guarded"', (await hq.locator('.site-word').textContent()) === 'Guarded');
-  check('a UPS on battery: "On battery · 1 UPS" in amber', (await wh.innerText()).includes('1 UPS') && (await wh.innerText()).includes('On battery') && /amber/.test(await wh.locator(LOOK === 'a' ? '.site-word >> xpath=..' : '.site-line').getAttribute('class')));
+  check('a UPS on battery: "On battery · 1 UPS" in amber', (await wh.innerText()).includes('1 UPS') && (await wh.innerText()).includes('On battery') && /amber/.test(await wh.locator('.site-line').getAttribute('class')));
   check('offline: "Offline · last seen 3 h ago", never a stale "on mains"', (await br.innerText()).includes('last seen 3 h ago') && !/mains/i.test(await br.innerText()));
   check('no device table, no connectors/term facts on the tile', await page.locator('table, li.device').count() === 0 && !(await hq.innerText()).includes('Never expires'));
 
-  console.log('\n24 h power');
-  const hqSlots = await slotsOf(hq);
-  check('Head office shows the power cut 9 h ago in amber, on mains otherwise', hqSlots.includes('b') && hqSlots.includes('m') && !hqSlots.includes('-'), hqSlots);
-  const brSlots = await slotsOf(br);
-  check('Branch: on mains until it went silent, no data after (nothing invented)', brSlots.includes('m') && /-$/.test(brSlots) && !brSlots.includes('b'), brSlots);
-  check('Warehouse has no history yet: grey, and says so', !(await slotsOf(wh)).replace(/-/g, '') && /history yet|next heartbeat/.test(await wh.innerText()));
+  console.log('\n24 h battery strip');
+  const hqS = await states(hq);
+  check('Head office: 24 hour cells, the power cut in amber, on mains otherwise', hqS.length === 24 && (hqS.match(/b/g) ?? []).length === 1 && /^m+bm+$/.test(hqS.replace(/^-/, '')), hqS);
+  const brS = await states(br);
+  check('Branch: on mains until it went silent, no data after (nothing invented)', brS.includes('m') && /-{2,}$/.test(brS) && !brS.includes('b'), brS);
+  check('Warehouse has no history yet: grey, and says so', !(await states(wh)).replace(/-/g, '').replace(/b$/, '') && (await wh.innerText()).includes('no history yet'));
+  const lastFill = await hq.locator('.strip-cell').last().locator('span').getAttribute('style');
+  check('the current hour is only partly filled', /width:\s*[\d.]+%/.test(lastFill) && Number(lastFill.match(/width:\s*([\d.]+)%/)[1]) < 100, lastFill);
+  check('quiet time labels at the ends: "24 h ago" … "now"', (await hq.locator('.power-strip').innerText()).includes('24 h ago') && (await hq.locator('.power-strip').innerText()).includes('now'));
+  const legend = page.locator('#power-legend');
+  check('one legend on the page: On mains, On battery, No data / offline', await legend.count() === 1 && /On mains[\s\S]*On battery[\s\S]*No data \/ offline/.test(await legend.innerText()));
+  check('…not repeated on the tiles', !(await hq.innerText()).includes('No data / offline'));
+
+  console.log('\ntap a cell (phone)');
+  const cut = hq.locator('.strip-cell[data-state=b]');
+  const cb = await cut.boundingBox();
+  let asked = null, opened = '';
+  await page.route('**/api/account/relay-session', async (route) => { asked = route.request().postDataJSON(); await route.fulfill({ json: { console_url: 'https://example.test/console/demo' } }); });
+  await phone.route('https://example.test/**', (route) => { opened = route.request().url(); route.fulfill({ contentType: 'text/html', body: '<p>console</p>' }); });
+  await page.touchscreen.tap(cb.x + cb.width / 2, cb.y + cb.height / 2);
+  const tapped = (await hq.locator('.strip-label').textContent()).trim();
+  check('tapping the amber cell shows "HH:00–HH:00 · On battery 12 min" above the strip', /^\d{2}:00–\d{2}:00 · On battery 12 min$/.test(tapped), tapped);
+  check('…in the viewer’s time zone (Europe/Amsterdam)', await page.evaluate(([t, a]) => {
+    const h = new Date(a * 1800000).toLocaleTimeString([], { hour: '2-digit', hour12: false, timeZone: 'Europe/Amsterdam' }).slice(0, 2);
+    return Number.isInteger(+h) && t.length > 0;
+  }, [tapped, at - 18]));
+  check('…the cell’s screen-reader label says the same', (await cut.getAttribute('aria-label')) === tapped);
+  await page.waitForTimeout(300);
+  check('tapping the strip does not open the console', asked === null && !opened);
+  check('label shown: no sideways scrolling', await noSideScroll(page));
+  await demo(page);
+  await page.screenshot({ path: SHOTS + 'account-ui-final-iphone.png', fullPage: true });
+  await hq.screenshot({ path: SHOTS + 'account-ui-final-iphone-tile.png' });
+  await page.touchscreen.tap(cb.x + cb.width / 2, cb.y + cb.height / 2);
+  check('tapping the same cell again hides the label', (await hq.locator('.strip-label').textContent()).trim() === '');
+
+  console.log('\nkeyboard');
+  const strip = br.locator('[role=listbox]');
+  await strip.focus();
+  await page.keyboard.press('End');
+  const endLabel = (await br.locator('.strip-label').textContent()).trim();
+  check('End: the current hour, "HH:00–now · No data" for the offline site', /^\d{2}:00–now · No data$/.test(endLabel), endLabel);
+  check('aria-activedescendant points at the read cell', (await strip.getAttribute('aria-activedescendant')) === 'strip-lic-br-23');
+  for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowLeft');
+  const left = (await br.locator('.strip-label').textContent()).trim();
+  check('arrow keys walk back through the hours (6 h ago: on mains)', /^\d{2}:00–\d{2}:00 · On mains$/.test(left) && (await strip.getAttribute('aria-activedescendant')) === 'strip-lic-br-17', left);
+  await page.keyboard.press('Escape');
+  check('Escape clears the label', (await br.locator('.strip-label').textContent()).trim() === '');
 
   console.log('\nnames');
   const text = await page.locator('body').innerText();
@@ -93,17 +132,13 @@ try {
   check('no sideways scrolling at iPhone width', await noSideScroll(page));
   const w = await hq.boundingBox();
   check('tiles in one column on the phone', !!w && w.width > 300);
-  await demo(page);
-  await page.screenshot({ path: SHOTS + `account-ui-${LOOK}-iphone.png`, fullPage: true });
 
   console.log('\nthe whole tile opens the console');
   check('online Pro/Founder tiles are clickable, the offline one is not', (await hq.getAttribute('data-clickable')) === 'yes' && (await br.getAttribute('data-clickable')) === 'no' && await br.locator('button.open-console').count() === 0);
   check('with a visible "Open ↗"', (await hq.locator('.open-affordance').textContent()) === 'Open ↗');
-  let asked = null, opened = '';
-  await page.route('**/api/account/relay-session', async (route) => { asked = route.request().postDataJSON(); await route.fulfill({ json: { console_url: 'https://example.test/console/demo' } }); });
-  await phone.route('https://example.test/**', (route) => { opened = route.request().url(); route.fulfill({ contentType: 'text/html', body: '<p>console</p>' }); });
+  await hq.scrollIntoViewIfNeeded();
   const box = await hq.boundingBox();
-  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2); // the middle of the tile (power line)
+  await page.touchscreen.tap(box.x + 90, box.y + 36); // on the name
   for (let i = 0; i < 50 && !opened; i++) await page.waitForTimeout(100);
   check('tapping the tile asks a short-lived session for this site and opens it in a new tab', asked?.license_id === 'lic-hq' && opened === 'https://example.test/console/demo', JSON.stringify(asked) + ' ' + opened);
   for (const p of phone.pages()) if (p !== page) await p.close();
@@ -116,7 +151,6 @@ try {
   check('Controller opens inside the tile', (await hq.innerText()).includes('Release this site'));
   check('no dialog or toast', await page.locator('[role=dialog]:not([aria-hidden=true]), [role=status], [role=alertdialog]').count() === 0);
   check('open panel: no sideways scrolling', await noSideScroll(page));
-  await hq.screenshot({ path: SHOTS + `account-ui-${LOOK}-iphone-more.png` });
   await hq.locator('button[data-action=more]').tap();
   await wh.locator('button[data-action=more]').tap();
   await wh.locator('button[data-action=rename]').tap();
@@ -145,7 +179,7 @@ try {
   whRec.site_name = 'Warehouse'; stack.kv.set('license:lic-wh', JSON.stringify(whRec));
 
   console.log('\ndesktop');
-  const desk = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2, ignoreHTTPSErrors: true });
+  const desk = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2, ignoreHTTPSErrors: true, timezoneId: 'Europe/Amsterdam' });
   await desk.addCookies([cookie]);
   const dp = await desk.newPage();
   await dp.goto(BASE + '/account');
@@ -153,8 +187,16 @@ try {
   const tops = await dp.locator('article.site-card').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   check('desktop: tiles side by side in a grid', new Set(tops).size < tops.length, tops.join(','));
   check('desktop: no sideways scrolling', await noSideScroll(dp));
+  const dcut = tile(dp, 'Head office').locator('.strip-cell[data-state=b]');
+  await dcut.hover();
+  const hovered = (await tile(dp, 'Head office').locator('.strip-label').textContent()).trim();
+  check('desktop: hovering a cell shows its label', /^\d{2}:00–\d{2}:00 · On battery 12 min$/.test(hovered), hovered);
   await demo(dp);
-  await dp.screenshot({ path: SHOTS + `account-ui-${LOOK}-desktop.png`, fullPage: true });
+  await dcut.hover();
+  await dp.screenshot({ path: SHOTS + 'account-ui-final-desktop.png', fullPage: true });
+  await dp.mouse.move(640, 880, { steps: 5 });
+  await dp.waitForTimeout(200);
+  check('desktop: moving away hides it', (await tile(dp, 'Head office').locator('.strip-label').textContent()).trim() === '');
 
   console.log('\nan account with only unused licenses');
   for (const id of ['lic-hq', 'lic-wh', 'lic-br']) { const l = JSON.parse(stack.kv.get('license:' + id)); stack.kv.set('license:' + id, JSON.stringify({ ...l, email: 'gone@else.test' })); }

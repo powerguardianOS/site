@@ -7,7 +7,6 @@ import { effectiveLimit } from '@/app/lib/limits';
 import { power } from '@/app/lib/site-summary';
 import type { SiteTone } from '@/app/lib/site-summary';
 import { last24h } from '@/app/lib/power-history';
-import type { Slot } from '@/app/lib/power-history';
 
 export type SitePlan = 'home' | 'pro' | 'founder';
 export const PLAN_LABEL: Record<SitePlan, string> = { founder: 'Founder', pro: 'Pro', home: 'Home' };
@@ -102,10 +101,10 @@ export function statusLine(status: SiteStatus | null, now = Date.now()): Line {
 export type CardLicense = { id: string; plan: LicenseRecord['plan']; status: LicenseRecord['status']; capacity: number; details: string };
 export type SiteCard = {
   license: CardLicense; name: string; model: string | null; online: boolean; line: Line;
-  power: { slots: Slot[]; empty: boolean }; info: SiteInfo;
+  power: ReturnType<typeof last24h>; info: SiteInfo;
 };
 export type UnusedLicense = { id: string; plan: LicenseRecord['plan']; connectors: string; term: string; founderRoot: boolean };
-export type AccountView = { sites: SiteCard[]; unused: UnusedLicense[] };
+export type AccountView = { sites: SiteCard[]; unused: UnusedLicense[]; now: number };
 
 // withStatus: the site licenses with their last heartbeat, as sitesWithStatus() returns them; all: every license of the
 // account (for the connector add-ons).
@@ -129,5 +128,5 @@ export function accountView(withStatus: { lic: LicenseRecord; status: SiteStatus
       power: last24h(status?.power, now), info: siteInfo(lic, name === UNNAMED ? null : name, now),
     });
   }
-  return { sites, unused };
+  return { sites, unused, now };
 }
