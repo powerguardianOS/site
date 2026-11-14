@@ -123,11 +123,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </nav>
 
               <div className="flex items-center gap-3">
+                {/* Where a customer reaches their sites; signed out, /account sends them to /login first */}
                 <Link
-                  href="/pricing"
-                  className="px-4 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 text-sm font-medium hover:border-zinc-600 hover:text-zinc-300 transition-all"
+                  href="/account"
+                  className="px-4 py-1.5 rounded-lg bg-[#00C66F] text-black text-sm font-semibold hover:bg-[#00b564] transition-all"
                 >
-                  Pricing
+                  My sites
                 </Link>
               </div>
             </div>

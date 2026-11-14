@@ -122,6 +122,13 @@ export default function MobileNav() {
 
         {/* NAV LINKS */}
         <nav className="flex flex-col p-6 space-y-4 text-lg">
+          <Link
+            href="/account"
+            onClick={() => setOpen(false)}
+            className="inline-flex w-fit px-4 py-2 rounded-lg bg-[#00C66F] text-black text-base font-semibold"
+          >
+            My sites
+          </Link>
           {NAV_LINKS.map((l) => (
             <Link
               key={l.href}
