@@ -58,6 +58,9 @@ export async function ssoReturnFitsSite(origin: string, siteId: string): Promise
   return host === `${await siteLabel(siteId)}-console.powerguardian.cloud`;
 }
 
+// AUTO-SSO: whether the flow returns to a site's console host (through the relay), not to a LAN address.
+export const ssoIsConsoleOrigin = (origin: string) => CONSOLE_HOST_RE.test(new URL(origin).hostname);
+
 export type SSORequest = { controller: string; nonce: string; ret: string; origin: string };
 
 export function parseSSORequest(p: URLSearchParams): SSORequest | null {

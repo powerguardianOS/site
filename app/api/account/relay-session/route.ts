@@ -1,9 +1,17 @@
 export const runtime = 'edge';
 
-import { cookies } from 'next/headers';
 import { getSession } from '@/app/lib/session';
 import { getLicensesByEmail } from '@/app/lib/license-db';
 import { mintConsoleURL } from '@/app/lib/relay-mint';
+import { mintConsoleIntent } from '@/app/lib/console-intent';
+
+function sessionCookie(request: Request): string {
+  for (const part of (request.headers.get('cookie') ?? '').split(';')) {
+    const [k, ...v] = part.trim().split('=');
+    if (k === 'pg_session') return decodeURIComponent(v.join('='));
+  }
+  return '';
+}
 
 // Mints a short-lived, scoped relay sub-token for the caller's own license
 // and returns a ready-to-open console URL. The long-lived license token
@@ -11,8 +19,7 @@ import { mintConsoleURL } from '@/app/lib/relay-mint';
 // it used to be rendered directly in the browser as a clickable relay link,
 // which meant anyone who ever saw that page had permanent, unscoped access.
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get('pg_session')?.value ?? '';
+  const sessionId = sessionCookie(request);
   const email = await getSession(sessionId);
   if (!email) {
     return Response.json({ error: 'not authenticated' }, { status: 401 });
@@ -43,5 +50,8 @@ export async function POST(request: Request) {
 
   const m = await mintConsoleURL(license.id, email);
   if ('error' in m) return Response.json({ error: m.error }, { status: m.status });
-  return Response.json({ console_url: m.url });
+  // AUTO-SSO: the console page that opens now may complete "Sign in with PowerGuardian Cloud" without the Continue tap,
+  // once, within two minutes, in this browser session only (app/lib/console-intent.ts).
+  const intent = await mintConsoleIntent(license.id, sessionId).catch(() => null);
+  return Response.json({ console_url: m.url }, { headers: { 'cache-control': 'no-store', ...(intent ? { 'set-cookie': intent } : {}) } });
 }

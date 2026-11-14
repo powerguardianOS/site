@@ -284,6 +284,90 @@ try {
     const a5 = await fetch(SITE + '/sso/authorize', { method: 'POST', redirect: 'manual', headers: { cookie: acme, origin: ORIGIN, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ controller: q.get('controller'), nonce: q.get('nonce'), return: evil }).toString() });
     ok('acme\'s statement can never be sent to mallory\'s console origin', a5.status === 400 && !a5.headers.get('location'), String(a5.status));
   }
+
+  console.log('\nH. AUTO-SSO: Open Console lands the owner signed in on the controller (no login form, no Continue tap)');
+  {
+    // the browser on a console host, as the relay sees it: Host = the site's console host (local suffix), the page's own
+    // origin = the production console host (what the controller and the cloud check; the relay hides the host)
+    const prodHost = (id) => `${label(id)}-console.powerguardian.cloud`;
+    // a proxy may fold several Set-Cookie headers into one comma-joined line: split them again before each "name="
+    const cookiesOf = (res) => [].concat(res.headers['set-cookie'] ?? res.headers.getSetCookie?.() ?? []).flatMap((c) => String(c).split(/,(?=\s*[A-Za-z0-9_-]+=)/)).map((c) => c.trim().split(';')[0]);
+    const openConsole = async (session, id) => {
+      const r = await fetch(SITE + '/api/account/relay-session', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json', origin: ORIGIN, cookie: session }, body: JSON.stringify({ license_id: id }) });
+      const body = await r.json().catch(() => ({}));
+      return { status: r.status, url: body.console_url ?? '', intent: (r.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).find((c) => c.startsWith('pg_ci_')) ?? '' };
+    };
+    const enter = async (id, consoleUrl) => {
+      const t = consoleUrl.split('/console/')[1]?.replace(/\/$/, '');
+      const r = await relayReq(label(id) + SUFFIX, '/console/' + t);
+      return cookiesOf(r).find((c) => c.startsWith('pg_relay=')) ?? '';
+    };
+    // every request here comes from 127.0.0.1, so the controller's per-IP limit on /api/auth/ (10 a minute) is shared by
+    // all steps of this script: wait the window out on a 429 instead of failing (one browser stays far below it)
+    const viaRelay = async (id, jar, p, opt = {}) => {
+      for (let i = 0; ; i++) {
+        const r = await relayReq(label(id) + SUFFIX, p, { ...opt, headers: { 'x-requested-with': 'XMLHttpRequest', ...(opt.headers ?? {}), cookie: [...jar, opt.headers?.cookie].filter(Boolean).join('; ') } });
+        if (r.status !== 429 || i >= 2) return r;
+        await sleep(61000);
+      }
+    };
+    const start = async (id, jar) => {
+      const r = await viaRelay(id, jar, '/api/auth/sso/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ origin: `https://${prodHost(id)}` }) });
+      return { status: r.status, url: r.status === 200 ? JSON.parse(r.body).url : '', bind: cookiesOf(r).find((c) => c.startsWith('pg_sso=')) ?? '' };
+    };
+    const authorizeGet = async (startUrl, cookies) => {
+      const u = new URL(startUrl);
+      const r = await fetch(SITE + '/sso/authorize' + u.search, { redirect: 'manual', headers: { cookie: cookies.filter(Boolean).join('; '), 'sec-fetch-site': 'same-site' } });
+      return { status: r.status, location: r.headers.get('location') ?? '', body: await r.text() };
+    };
+
+    const oc = await openConsole(acme, L.acer);
+    ok('acme taps Open Console for Acer: a console link and a console intent', oc.status === 200 && !!oc.url && oc.intent.startsWith(`pg_ci_${label(L.acer)}=`), JSON.stringify(oc));
+    const relayCk = await enter(L.acer, oc.url);
+    ok('the console link opens Acer through the relay', !!relayCk);
+    const st = JSON.parse((await viaRelay(L.acer, [relayCk], '/api/auth/sso/status')).body || '{}');
+    const bs = JSON.parse((await viaRelay(L.acer, [relayCk], '/api/bootstrap')).body || '{}');
+    ok('Acer says: through the console, not signed in → start the cloud sign-in by itself', st.available === true && st.auto === true && bs.authenticated === false && bs.sso_auto === true, JSON.stringify({ st, bs: { a: bs.authenticated, s: bs.sso_auto } }));
+    const lanSt = JSON.parse((await ctlReq(CT.acer.port, `127.0.0.1:${CT.acer.port}`, '/api/auth/sso/status')).body || '{}');
+    ok('(control) on the LAN the same controller does not start it by itself', lanSt.auto !== true, JSON.stringify(lanSt));
+    const s1 = await start(L.acer, [relayCk]);
+    ok('the page starts the flow through the relay with the console origin', s1.status === 200 && !!s1.bind && new URL(s1.url).searchParams.get('return') === `https://${prodHost(L.acer)}/api/auth/sso/callback`, `${s1.status} ${s1.url}`);
+    const a1 = await authorizeGet(s1.url, [acme, oc.intent]);
+    ok('PG Cloud completes without the Continue page (owner, two-step session, fresh intent)', a1.status === 303 && a1.location.startsWith(`https://${prodHost(L.acer)}/api/auth/sso/callback?assertion=`), `${a1.status} ${a1.location.slice(0, 120)} ${a1.body.slice(0, 160)}`);
+    let sess = '';
+    if (a1.location) {
+      const cb = new URL(a1.location);
+      const d1 = await viaRelay(L.acer, [relayCk, s1.bind], cb.pathname + cb.search);
+      sess = cookiesOf(d1).find((c) => /^pg_session=.{8,}/.test(c)) ?? '';
+      ok('back on Acer\'s console host the controller starts a session (no TOTP: the cloud passed two-step)', !!sess && !/pending|sso=mfa/.test(d1.body), `${d1.status} ${JSON.stringify(d1.headers['set-cookie'])} ${d1.body.slice(0, 160)}`);
+    }
+    const me = sess ? JSON.parse((await viaRelay(L.acer, [relayCk, sess], '/api/auth/me')).body || '{}') : {};
+    ok('acme lands signed in on Acer', !!me.username && /admin|owner/.test(me.role ?? ''), JSON.stringify(me));
+
+    const s2 = await start(L.acer, [relayCk]);
+    const a2 = await authorizeGet(s2.url, [acme, oc.intent]);
+    ok('the same console intent replayed → the Continue page, no statement', a2.status === 200 && a2.body.includes('id="sso-continue"') && !a2.location, `${a2.status} ${a2.location.slice(0, 80)}`);
+    if (sess) await viaRelay(L.acer, [relayCk, sess], '/api/auth/logout', { method: 'POST' });
+    const s3 = await start(L.acer, [relayCk]);
+    const a3 = await authorizeGet(s3.url, [acme]);
+    ok('after signing out on the controller a new try is not silent (Continue page): no sign-in loop', a3.status === 200 && a3.body.includes('id="sso-continue"'), String(a3.status));
+    const hpConsole = await openConsole(acme, L.hp);
+    const s4 = await start(L.acer, [relayCk]);
+    const a4 = await authorizeGet(s4.url, [acme, hpConsole.intent.replace(`pg_ci_${label(L.hp)}`, `pg_ci_${label(L.acer)}`)]);
+    ok('an intent acme got for HP, put under Acer\'s name → Continue page, not silent', a4.status === 200 && !a4.location, `${a4.status} ${a4.location.slice(0, 80)}`);
+
+    const mo = await openConsole(mallory, L.mal);
+    ok('(control) mallory gets her own console link and intent for Mal', mo.status === 200 && !!mo.intent, JSON.stringify(mo));
+    for (const [what, cookies] of [['her own intent for Mal', [mallory, mo.intent]], ['her intent renamed to Acer', [mallory, mo.intent.replace(`pg_ci_${label(L.mal)}`, `pg_ci_${label(L.acer)}`)]], ['no intent', [mallory]]]) {
+      const sm = await start(L.acer, [relayCk]);
+      const am = await authorizeGet(sm.url, cookies);
+      ok(`mallory (cloud session) on acme's Acer console flow with ${what} → refused, no statement`, am.status >= 400 && am.status < 500 && !am.location, `${am.status} ${am.location.slice(0, 80)}`);
+    }
+    const acmeAgain = await openConsole(acme, L.acer);
+    const s5 = await start(L.acer, [relayCk]);
+    const a5 = await authorizeGet(s5.url, [mallory, acmeAgain.intent]);
+    ok('mallory holding acme\'s intent cookie (bound to acme\'s session) → refused, no statement', a5.status >= 400 && !a5.location, `${a5.status} ${a5.location.slice(0, 80)}`);
+  }
 } catch (e) { console.log(' FAIL  script error', e); fail++; }
 finally {
   cleanup();
