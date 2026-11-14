@@ -128,3 +128,18 @@ body {
 ::-webkit-scrollbar-track { background: var(--pg-bg); }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--pg-accent); }
+
+/* The installed home-screen app (app/manifest.ts, viewport-fit=cover): keep content clear of the notch and the home
+   indicator. */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+  }
+}
+/* iOS zooms in on a focused field with text under 16 px: never on a phone */
+@media (max-width: 1023px) {
+  input, select, textarea { font-size: 16px; }
+}

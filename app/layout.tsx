@@ -1,5 +1,5 @@
 // app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -69,8 +69,17 @@ export const metadata: Metadata = {
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/favicon.ico", sizes: "any" },
     ],
-    apple: [{ url: "/favicon-180.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
+  // the installable "PowerGuardian" app (app/manifest.ts): on iPhone from Share → Add to Home Screen
+  appleWebApp: { capable: true, title: "PowerGuardian", statusBarStyle: "black-translucent" },
+};
+
+// viewport-fit=cover for the installed app (safe-area padding in globals.css); zooming stays possible, inputs use
+// 16 px text so iOS does not zoom in on focus
+export const viewport: Viewport = {
+  themeColor: "#060a14",
+  viewportFit: "cover",
 };
 
 function NavLink({ href, label }: { href: string; label: string }) {

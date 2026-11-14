@@ -32,7 +32,11 @@ export default function OpenConsoleButton({ licenseId, name }: Props) {
         setError(data.error || 'Could not open console');
         return;
       }
-      window.open(data.console_url, '_blank', 'noopener,noreferrer');
+      // In the installed app (standalone) the same window: a new tab would leave the app for Safari, which has another
+      // cookie jar (no PG Cloud session there), and the console's "All sites" brings you back here.
+      const inApp = (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia?.('(display-mode: standalone)').matches === true;
+      if (inApp) window.location.assign(data.console_url);
+      else window.open(data.console_url, '_blank', 'noopener,noreferrer');
     } catch {
       setError('Network error');
     } finally {
