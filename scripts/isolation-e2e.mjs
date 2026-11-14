@@ -4,7 +4,7 @@
 //   mallory@mallory.test site "Mal" (one controller) — the attacker; she owns her controller and her licence token, and in some
 //                steps she sits on acme's LAN (worst case)
 //   beurs@beurs.test   site "Beurs" (licence only, no controller) — must never show up anywhere for the others
-// Each tenant then tries to reach the others by every path; everything must be refused. All processes are stopped and the
+// Each tenant then tries to reach the others by every path (REOPEN included); everything must be refused. All processes are stopped and the
 // temp dir removed at the end. Nothing live is touched: every URL is 127.0.0.1 (console hosts are sent as a Host header
 // to the local relay, never resolved).
 //   PATH=~/dev/.tools/node/bin:~/dev/.tools/go/bin:$PATH node scripts/isolation-e2e.mjs
@@ -460,6 +460,35 @@ try {
     const s5 = await start(L.acer, [relayCk]);
     const a5 = await authorizeGet(s5.url, [mallory, acmeAgain.intent]);
     ok('mallory holding acme\'s intent cookie (bound to acme\'s session) → refused, no statement', a5.status >= 400 && !a5.location, `${a5.status} ${a5.location.slice(0, 80)}`);
+  }
+
+  console.log('\nI. REOPEN: a refresh on a console host after its console token expired');
+  {
+    const nav = { accept: 'text/html,application/xhtml+xml', 'sec-fetch-mode': 'navigate' };
+    const r0 = await relayReq(hostA, '/settings?tab=ups', { headers: nav });
+    const to = r0.headers.location ? new URL(r0.headers.location) : null;
+    ok('a page load on acme\'s host without a cookie → 302 to the cloud reopen (label + path), not 404',
+      r0.status === 302 && to?.origin === new URL(SITE).origin && to?.pathname === '/console/reopen' && to?.searchParams.get('site') === label(L.acer) && to?.searchParams.get('path') === '/settings?tab=ups',
+      `${r0.status} ${r0.headers.location}`);
+    const r1 = await relayReq(hostA, '/api/auth/me');
+    ok('an API call there without a cookie → 401 console_session_expired', r1.status === 401 && /console_session_expired/.test(r1.body), `${r1.status} ${r1.body.slice(0, 80)}`);
+    const r2 = await relayReq(hostA, '//evil.com/x', { headers: nav });
+    ok('a path naming another host is never carried along (path=/)', r2.status === 302 && new URL(r2.headers.location).searchParams.get('path') === '/', `${r2.status} ${r2.headers.location}`);
+    const reo = (cookie, site, p = '/') => fetch(SITE + '/console/reopen?' + new URLSearchParams({ site, path: p }), { redirect: 'manual', headers: cookie ? { cookie } : {} });
+    for (const [name, id] of [['Acer', L.acer], ['HP', L.hp], ['Beurs', L.beurs]]) {
+      const m = await reo(mallory, label(id));
+      ok(`mallory (cloud session) reopening ${name}'s console label → 404, no console link`, m.status === 404 && !m.headers.get('location'), String(m.status));
+    }
+    const m0 = await reo('', label(L.acer));
+    ok('reopen without a cloud session → sign in first, no console link', m0.status === 303 && m0.headers.get('location') === '/login?next=console', `${m0.status} ${m0.headers.get('location')}`);
+    const a1 = await reo(acme, label(L.acer), '/settings?tab=ups');
+    const al = a1.headers.get('location') ?? '';
+    ok('(control) acme reopening Acer → a fresh Acer console link, same page', a1.status === 303 && al.includes('/console/') && al.endsWith('/settings?tab=ups'), `${a1.status} ${al}`);
+    const t = al.split('/console/')[1]?.split('/')[0] ?? '';
+    const e1 = await relayReq(hostA, '/console/' + t + '/settings?tab=ups');
+    ok('…which Acer\'s host accepts and sends back to /settings?tab=ups with a new cookie', e1.status === 302 && e1.headers.location === '/settings?tab=ups' && /pg_relay=/.test(String(e1.headers['set-cookie'])), `${e1.status} ${e1.headers.location}`);
+    const e2 = await relayReq(hostM, '/console/' + t);
+    ok('…and never mallory\'s host', e2.status === 403, String(e2.status));
   }
 } catch (e) { console.log(' FAIL  script error', e); fail++; }
 finally {

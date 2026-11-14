@@ -128,6 +128,6 @@ export async function deleteShare(owner: string, siteId: string, invitee: string
 }
 
 // Every console opening (portal, site switcher, later a share), per site: who, how, when. Shown to the site's owner.
-export async function logConsoleAccess(actor: string, siteId: string, via: 'portal' | 'switcher' | 'share', ownerEmail: string): Promise<void> {
+export async function logConsoleAccess(actor: string, siteId: string, via: 'portal' | 'switcher' | 'share' | 'reopen', ownerEmail: string): Promise<void> {
   await logAudit({ actor: actor.toLowerCase(), role: 'owner', action: 'console.open', email: ownerEmail.toLowerCase(), license_id: siteId, detail: via });
 }

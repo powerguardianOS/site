@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
 import { createSession } from '@/app/lib/session';
 import { getMfa, mfaRequired, newSecret, sealSecret } from '@/app/lib/mfa';
+import { REOPEN_NEXT_COOKIE, reopenTarget } from '@/app/lib/console-reopen';
 
 export const STEP_COOKIE = 'pg_signin';
 export const STEP_PATH = '/login/mfa';
@@ -48,16 +49,19 @@ export const dropPending = (id: string) => kvDel(stepKey(id));
 const cookieOpts = { httpOnly: true, secure: true, sameSite: 'lax' as const, path: STEP_PATH };
 
 // Where a confirmed sign-in goes on to: back to a controller's CLOUD-SSO request (pg_sso_next), on to a site switch
-// ticket (pg_open_next, AUTO-SSO), else the account. The cookies only ever point at those pages; each checks in full.
+// ticket (pg_open_next, AUTO-SSO), back to a refreshed console page (pg_reopen_next, REOPEN), else the account. The cookies only ever point at those pages; each checks in full.
 export function signInTarget(request: NextRequest): string {
   const ssoNext = request.cookies.get('pg_sso_next')?.value ?? '';
   const openNext = request.cookies.get('pg_open_next')?.value ?? '';
   if (ssoNext) return '/sso/authorize?' + new URLSearchParams(ssoNext).toString();
   if (/^[0-9a-f]{48}$/.test(openNext)) return '/console/open?' + new URLSearchParams({ t: openNext }).toString();
+  // REOPEN: back to the console page that was refreshed after its console token expired (app/console/reopen)
+  const reopen = reopenTarget(request.cookies.get(REOPEN_NEXT_COOKIE)?.value ?? '');
+  if (reopen) return reopen;
   return '/account';
 }
 export function clearSignInNext(request: NextRequest, res: NextResponse): void {
-  for (const n of ['pg_sso_next', 'pg_open_next']) {
+  for (const n of ['pg_sso_next', 'pg_open_next', REOPEN_NEXT_COOKIE]) {
     if (request.cookies.get(n)?.value) res.cookies.set(n, '', { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 0, path: '/' });
   }
 }
