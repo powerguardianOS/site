@@ -9,6 +9,7 @@ import https from 'node:https';
 import { spawn } from 'node:child_process';
 import { generateKeyPairSync, createHmac, createPublicKey } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { createFakeD1, storeFor, cfRoutes } from '../tests/fake-d1.mjs';
 
 export const H = '127.0.0.1', KV_PORT = 8788, SITE_PORT = 3100, RELAY_PORT = 8787;
 export const SITE = `http://${H}:${SITE_PORT}`;
@@ -17,17 +18,15 @@ export const ADMIN = 'admin@powerguardian.cloud', MINT = 'local-mint-secret';
 
 export async function startDev(opts = {}) {
   const site = opts.https ? `https://localhost:${SITE_PORT}` : SITE;
-  const kv = new Map(); const mails = [];
+  // EU-1: KV_BACKEND=kv|dual|d1 (default kv) picks the store the site uses; `kv` is that store (see tests/fake-d1.mjs)
+  const backend = process.env.KV_BACKEND || 'kv';
+  const kvMap = new Map(), kvExp = new Map(), d1 = createFakeD1(); const kv = storeFor(backend, kvMap, d1, kvExp); const mails = [];
+  const cf = cfRoutes({ kvMap, kvExp, d1 });
   const fake = http.createServer(async (req, res) => {
     const u = new URL(req.url, 'http://x'); let body = ''; for await (const c of req) body += c;
     if (u.pathname === '/__mails') { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(mails)); return; }
     if (u.pathname === '/v3/smtp/email') { const b = JSON.parse(body); mails.push({ to: b.to[0].email, subject: b.subject, text: b.textContent }); res.writeHead(201).end('{}'); return; }
-    if (u.pathname.endsWith('/keys')) { const p = u.searchParams.get('prefix') ?? ''; res.writeHead(200).end(JSON.stringify({ result: [...kv.keys()].filter((k) => k.startsWith(p)).sort().map((name) => ({ name })) })); return; }
-    const m = u.pathname.match(/\/values\/(.+)$/); if (!m) { res.writeHead(404).end(); return; }
-    const k = decodeURIComponent(m[1]);
-    if (req.method === 'PUT') { kv.set(k, body); res.writeHead(200).end('{}'); }
-    else if (req.method === 'DELETE') { kv.delete(k); res.writeHead(200).end('{}'); }
-    else if (kv.has(k)) res.writeHead(200).end(kv.get(k)); else res.writeHead(404).end();
+    if (!cf(u, req, body, res)) res.writeHead(404).end();
   });
   await new Promise((r) => fake.listen(KV_PORT, H, r));
 
@@ -39,7 +38,7 @@ export async function startDev(opts = {}) {
 
   const tls = opts.https ? ['--experimental-https', '--experimental-https-key', opts.https.key, '--experimental-https-cert', opts.https.cert] : [];
   const next = spawn('npx', ['next', 'dev', '-H', H, '-p', String(SITE_PORT), ...tls], {
-    env: { ...process.env, CLOUDFLARE_API_BASE: `http://${H}:${KV_PORT}`, BREVO_API_BASE: `http://${H}:${KV_PORT}`, CLOUDFLARE_KV_NAMESPACE_ID: 'ns', CLOUDFLARE_API_TOKEN: 't',
+    env: { ...process.env, CLOUDFLARE_API_BASE: `http://${H}:${KV_PORT}`, BREVO_API_BASE: `http://${H}:${KV_PORT}`, CLOUDFLARE_KV_NAMESPACE_ID: 'ns', CLOUDFLARE_API_TOKEN: 't', KV_BACKEND: backend, D1_DATABASE_ID: 'db',
       ADMIN_EMAIL: ADMIN, LEASE_PRIVATE_KEY: pkcs8, RELAY_MINT_SECRET: MINT, RELAY_BASE_URL: `http://${H}:${RELAY_PORT}`, NEXT_PUBLIC_BASE_URL: site, BREVO_API_KEY: 'x', NEXT_TELEMETRY_DISABLED: '1' },
     stdio: ['ignore', 'pipe', 'pipe'], cwd: fileURLToPath(new URL('..', import.meta.url)), // repo root, from wherever it is imported
   });
@@ -49,7 +48,7 @@ export async function startDev(opts = {}) {
     ? () => new Promise((ok, no) => https.request(`https://${H}:${SITE_PORT}/api/license/verify`, { method: 'POST', rejectUnauthorized: false }, (r) => { r.resume(); ok(); }).on('error', no).end('{}'))
     : () => fetch(SITE + '/api/license/verify', { method: 'POST', body: '{}' });
   for (let i = 0; i < 120; i++) { try { await probe(); break; } catch { await new Promise((r) => setTimeout(r, 500)); } }
-  return { kv, mails, rawPub, log, stop, site };
+  return { kv, kvMap, d1, backend, mails, rawPub, log, stop, site };
 }
 
 // CLOUD-MFA test helpers. totp(base32 key) = the 6-digit code an authenticator app shows now (RFC 6238).

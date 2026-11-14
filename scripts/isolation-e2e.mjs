@@ -77,7 +77,7 @@ try {
   symlinkSync(RELAY_DIR + '/node_modules', rdir + '/node_modules');
   // test only: no live routes in the temp copy, and no per-IP rate limit binding (it would throttle this script itself)
   writeFileSync(rdir + '/wrangler.toml', readFileSync(rdir + '/wrangler.toml', 'utf8').replace(/\[\[routes\]\][^[]*/g, '').replace(/\[\[unsafe\.bindings\]\][\s\S]*$/, ''));
-  const relay = spawn(RELAY_DIR + '/node_modules/.bin/wrangler', ['dev', '--local', '--ip', H, '--port', String(RELAY_PORT), '--var', `CLOUD_BASE:${SITE}`, '--var', `MINT_SECRET:${MINT}`, '--var', `CONSOLE_HOST_SUFFIX:${SUFFIX}`],
+  const relay = spawn(RELAY_DIR + '/node_modules/.bin/wrangler', ['dev', '--local', '--ip', H, '--port', String(RELAY_PORT), '--var', `CLOUD_BASE:${SITE}`, '--var', `MINT_SECRET:${MINT}`, '--var', `CONSOLE_HOST_SUFFIX:${SUFFIX}`, '--var', 'RELAY_DEV_GLOBAL_DO:1'] /* EU-1: workerd has no DO jurisdictions */,
     { cwd: rdir, env: { ...process.env, CI: '1', WRANGLER_SEND_METRICS: 'false' }, stdio: ['ignore', 'pipe', 'pipe'] });
   relay.stdout.on('data', (d) => (relayLog += d)); relay.stderr.on('data', (d) => (relayLog += d)); procs.push(relay);
   const bin = path.join(work, 'pg-controller');

@@ -1,6 +1,14 @@
-// Test harness: in-memory Cloudflare KV + Brevo, and a real Ed25519 lease key.
-// Run a test with:  npx tsx tests/<name>.test.mts
-export const kv = new Map<string, string>();
+// Test harness: in-memory Cloudflare KV + D1 (EU-1) + Brevo, and a real Ed25519 lease key.
+// Run a test with:  npx tsx tests/<name>.test.mts      (KV_BACKEND=d1 or dual: the same test against D1)
+// `kv` is the store the app reads in this mode: the KV Map (kv), or the D1 table (d1, dual) through a Map-like view.
+import { createFakeD1, D1_PATH, storeFor } from './fake-d1.mjs';
+process.env.KV_BACKEND ??= 'kv';
+process.env.D1_DATABASE_ID = 'db';
+export const kvMap = new Map<string, string>();      // Workers KV
+export const kvExp = new Map<string, number>();      // its expirations (unix s), as a key listing reports them
+export const d1 = createFakeD1();
+export const kv = storeFor(process.env.KV_BACKEND!, kvMap, d1, kvExp) as unknown as Map<string, string>;
+export const calls = { kv: 0, d1: 0 };
 export const mails: { to: string; subject: string; text: string }[] = [];
 export const DAY = 86_400_000;
 
@@ -20,14 +28,25 @@ export const PUBKEY = b64(await crypto.subtle.exportKey('raw', kp.publicKey));
     return new Response('{}', { status: 201 });
   }
   const method = init.method ?? 'GET';
+  if (D1_PATH.test(new URL(u).pathname)) {
+    calls.d1++;
+    const r = d1.handle(JSON.parse(init.body));
+    return Response.json(r.json, { status: r.status });
+  }
+  calls.kv++;
   if (u.includes('/keys?')) {
-    const prefix = decodeURIComponent(new URL(u).searchParams.get('prefix') ?? '');
-    return Response.json({ result: [...kv.keys()].filter((k) => k.startsWith(prefix)).sort().map((name) => ({ name })) });
+    const prefix = new URL(u).searchParams.get('prefix') ?? '';
+    return Response.json({ result: [...kvMap.keys()].filter((k) => k.startsWith(prefix)).sort().map((name) => (kvExp.has(name) ? { name, expiration: kvExp.get(name) } : { name })) });
   }
   const k = decodeURIComponent(u.match(/values\/([^?]+)/)![1]);
-  if (method === 'PUT') { kv.set(k, init.body); return new Response('{}'); }
-  if (method === 'DELETE') { kv.delete(k); return new Response('{}'); }
-  return kv.has(k) ? new Response(kv.get(k)!) : new Response('', { status: 404 });
+  if (method === 'PUT') {
+    kvMap.set(k, init.body);
+    const ttl = Number(new URL(u).searchParams.get('expiration_ttl') ?? 0);
+    if (ttl) kvExp.set(k, Math.floor(Date.now() / 1000) + ttl); else kvExp.delete(k);
+    return new Response('{}');
+  }
+  if (method === 'DELETE') { kvMap.delete(k); kvExp.delete(k); return new Response('{}'); }
+  return kvMap.has(k) ? new Response(kvMap.get(k)!) : new Response('', { status: 404 });
 };
 
 export const put = (k: string, v: unknown) => kv.set(k, typeof v === 'string' ? v : JSON.stringify(v));

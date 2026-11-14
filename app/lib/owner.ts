@@ -1,4 +1,3 @@
-import { cfApiBase } from '@/app/lib/kv';
 import { getSession } from '@/app/lib/session';
 import { sendEmail } from '@/app/lib/email';
 
@@ -31,15 +30,11 @@ export async function ownerGuard(request: Request): Promise<{ email: string; ses
 
 // ---- re-confirmation: sensitive actions need a fresh e-mail code on top of the session
 
-import { kvPut as kvPutChecked } from '@/app/lib/kv';
-const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
-const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
-const CF_TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
-const BASE = () => `${cfApiBase()}/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
-const H = () => ({ Authorization: `Bearer ${CF_TOKEN()}`, 'Content-Type': 'text/plain' });
-const kvGet = async (k: string) => { const r = await fetch(`${BASE()}/values/${encodeURIComponent(k)}`, { headers: H() }); return r.ok ? r.text() : null; };
+import { kvGet as kvGetChecked, kvPut as kvPutChecked, kvDel as kvDelChecked } from '@/app/lib/kv';
+// a failed read counts as "no code / not confirmed" (fail closed), a failed delete never blocks
+const kvGet = (k: string) => kvGetChecked(k).catch(() => null);
 const kvPut = (k: string, v: string, ttl: number) => kvPutChecked(k, v, ttl);
-const kvDel = (k: string) => fetch(`${BASE()}/values/${encodeURIComponent(k)}`, { method: 'DELETE', headers: H() });
+const kvDel = (k: string) => kvDelChecked(k).catch(() => {});
 
 export async function sendReconfirmCode(email: string): Promise<void> {
   const buf = new Uint32Array(1);

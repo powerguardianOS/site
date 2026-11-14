@@ -7,6 +7,7 @@ let failPuts = false;
 const base = globalThis.fetch;
 (globalThis as any).fetch = async (url: string, init: any = {}) => {
   if (failPuts && (init.method ?? 'GET') === 'PUT' && String(url).includes('/values/')) return new Response('boom', { status: 500 });
+  if (failPuts && String(url).includes('/d1/') && /^\s*INSERT/i.test(JSON.parse(init.body).sql)) return new Response('boom', { status: 500 }); // EU-1: D1 writes
   return base(url, init);
 };
 const logs: string[] = [];
