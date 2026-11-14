@@ -15,6 +15,8 @@ input:focus{outline:none;border-color:#00C66F}.code{font-size:24px;letter-spacin
 .err{color:#f87171;font-size:14px;text-align:left;margin:0 0 12px}summary::-webkit-details-marker{display:none}
 @media (hover:hover) and (pointer:fine){.phone-only{display:none}}.small{font-size:13px;color:#71717a}a{color:#00C66F}`;
 
+export const CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+
 export function page(status: number, title: string, body: string, extraHeaders: Record<string, string> = {}): Response {
   return new Response(
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
@@ -30,7 +32,7 @@ export function page(status: number, title: string, body: string, extraHeaders: 
         'Referrer-Policy': 'same-origin',
         'X-Frame-Options': 'DENY',
         'X-Robots-Tag': 'noindex',
-        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+        'Content-Security-Policy': CSP,
         ...extraHeaders,
       },
     },

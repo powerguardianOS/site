@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import CheckInbox from '@/app/login/check-inbox'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -9,16 +10,18 @@ export default function RegisterPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
+  const ask = () => fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      const r = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
+      const r = await ask()
       if (!r.ok) setError('Something went wrong — try again.')
       else setSent(true)
     } catch {
@@ -43,14 +46,7 @@ export default function RegisterPage() {
         </div>
 
         {sent ? (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 text-center space-y-3">
-            <div className="text-2xl">📬</div>
-            <p className="text-sm text-zinc-300 font-medium">Check your inbox</p>
-            <p className="text-xs text-zinc-500">
-              We sent a sign-in link to <span className="text-zinc-300">{email}</span>.
-              <br />Click it to activate your account.
-            </p>
-          </div>
+          <CheckInbox email={email} onReset={() => { setSent(false); setError('') }} onResend={async () => (await ask().catch(() => null))?.ok === true} />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
             <input
