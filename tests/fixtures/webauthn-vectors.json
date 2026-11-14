@@ -1,0 +1,65 @@
+{
+  "_how": "Made once with scripts/soft-authenticator.mjs (2026-11-14) for rpId powerguardian.cloud; fixed from then on. tests/passkeys.test.mts verifies them byte for byte.",
+  "rpId": "powerguardian.cloud",
+  "origin": "https://powerguardian.cloud",
+  "es256": {
+    "registration": {
+      "challenge": "cmVnaXN0cmF0aW9uIGNoYWxsZW5nZSBlczI1NiAuLi4",
+      "credential": {
+        "id": "GL1r0lcyMriB2WBwsOPWWgnLSAqfGYsHrVgevCfE7Uk",
+        "rawId": "GL1r0lcyMriB2WBwsOPWWgnLSAqfGYsHrVgevCfE7Uk",
+        "type": "public-key",
+        "response": {
+          "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiY21WbmFYTjBjbUYwYVc5dUlHTm9ZV3hzWlc1blpTQmxjekkxTmlBdUxpNCIsIm9yaWdpbiI6Imh0dHBzOi8vcG93ZXJndWFyZGlhbi5jbG91ZCJ9",
+          "attestationObject": "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVikXAPfhvlWBVKKy3rsH6jfE0nMJqS-yT8rrAQTfVVlo3hdAAAAAPv8MAcVTk7MjAtuAgVX170AIBi9a9JXMjK4gdlgcLDj1loJy0gKnxmLB61YHrwnxO1JpQECAyYgASFYIA4pHvWCzr0GUKlo7kpbeFGxxmVzHeRcxODUGtZPsGtSIlggSTNl2sYJx4an8MTgoiNARPmqrJURarjImTInnjm3Knc"
+        }
+      }
+    },
+    "assertion": {
+      "challenge": "YXNzZXJ0aW9uIGNoYWxsZW5nZSBlczI1NiAuLi4uLi4",
+      "credential": {
+        "id": "GL1r0lcyMriB2WBwsOPWWgnLSAqfGYsHrVgevCfE7Uk",
+        "rawId": "GL1r0lcyMriB2WBwsOPWWgnLSAqfGYsHrVgevCfE7Uk",
+        "type": "public-key",
+        "response": {
+          "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiWVhOelpYSjBhVzl1SUdOb1lXeHNaVzVuWlNCbGN6STFOaUF1TGk0dUxpNCIsIm9yaWdpbiI6Imh0dHBzOi8vcG93ZXJndWFyZGlhbi5jbG91ZCJ9",
+          "authenticatorData": "XAPfhvlWBVKKy3rsH6jfE0nMJqS-yT8rrAQTfVVlo3gdAAAAAQ",
+          "signature": "MEUCIQCmclbY0Cu3oc2ASxAAQFGRwMsangcoAs5FODATpaRt6gIgDuKYd6uPXxIBmVHc5q4MnRryXyPnqzA7SEFxLKUT6oc",
+          "userHandle": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc"
+        }
+      },
+      "counter": 1
+    },
+    "user_handle": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc"
+  },
+  "eddsa": {
+    "registration": {
+      "challenge": "cmVnaXN0cmF0aW9uIGNoYWxsZW5nZSBlZGRzYSAuLi4",
+      "credential": {
+        "id": "HWW98-7UqSieA-MlcH036yHU25xRf_YAANbTOEn2JrQ",
+        "rawId": "HWW98-7UqSieA-MlcH036yHU25xRf_YAANbTOEn2JrQ",
+        "type": "public-key",
+        "response": {
+          "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiY21WbmFYTjBjbUYwYVc5dUlHTm9ZV3hzWlc1blpTQmxaR1J6WVNBdUxpNCIsIm9yaWdpbiI6Imh0dHBzOi8vcG93ZXJndWFyZGlhbi5jbG91ZCJ9",
+          "attestationObject": "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViBXAPfhvlWBVKKy3rsH6jfE0nMJqS-yT8rrAQTfVVlo3hFAAAAAAAAAAAAAAAAAAAAAAAAAAAAIB1lvfPu1KkongPjJXB9N-sh1NucUX_2AADW0zhJ9ia0pAEBAycgBiFYIAgGpot_qu2locyDLPEuS4BbhDK6WYWQ2CPkmKDWymHO"
+        }
+      }
+    },
+    "assertion": {
+      "challenge": "YXNzZXJ0aW9uIGNoYWxsZW5nZSBlZGRzYSAuLi4uLi4",
+      "credential": {
+        "id": "HWW98-7UqSieA-MlcH036yHU25xRf_YAANbTOEn2JrQ",
+        "rawId": "HWW98-7UqSieA-MlcH036yHU25xRf_YAANbTOEn2JrQ",
+        "type": "public-key",
+        "response": {
+          "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiWVhOelpYSjBhVzl1SUdOb1lXeHNaVzVuWlNCbFpHUnpZU0F1TGk0dUxpNCIsIm9yaWdpbiI6Imh0dHBzOi8vcG93ZXJndWFyZGlhbi5jbG91ZCJ9",
+          "authenticatorData": "XAPfhvlWBVKKy3rsH6jfE0nMJqS-yT8rrAQTfVVlo3gFAAAAAQ",
+          "signature": "kZnkshj6iKQky8Tnf5qgAH0Stnh7DwxY2sX4AeKKtbDf0RS_Dg8MX11wQRcT7RwhCW2-wbVpv_0imvrC6FNuAQ",
+          "userHandle": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc"
+        }
+      },
+      "counter": 1
+    },
+    "user_handle": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc"
+  }
+}
