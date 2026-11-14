@@ -58,6 +58,15 @@ const loc = (r: Response) => new URL(r.headers.get('location') ?? '/', SITE);
 check('a used link (GET) goes to /login with the expired message, not the homepage', again.status >= 300 && again.status < 400 && loc(again).pathname === '/login' && loc(again).searchParams.get('error') === 'link');
 const again2 = await post(tokenOf(link));
 check('a used link (POST) also goes to /login?error=link and signs nobody in', loc(again2).pathname === '/login' && loc(again2).searchParams.get('error') === 'link' && !sessionCookie(again2));
+// A double tap on Sign in (the second POST wins in the browser) or an old mail link opened while already signed in
+// must land on the account, not on "expired".
+const signedIn = { cookie: 'pg_session=' + cookie };
+const dbl = await verifyPost(new NextRequest(SITE + '/api/auth/verify', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: SITE, ...signedIn }, body: new URLSearchParams({ token: tokenOf(link) }).toString() }));
+check('a second tap on Sign in while signed in goes to /account', loc(dbl).pathname === '/account', loc(dbl).toString());
+const oldTap = await get(link, signedIn);
+check('an old link opened while signed in goes to /account', loc(oldTap).pathname === '/account', loc(oldTap).toString());
+const bogus = await get(link, { cookie: 'pg_session=forged.cookie' });
+check('with a bad session cookie a used link still says expired', loc(bogus).pathname === '/login' && loc(bogus).searchParams.get('error') === 'link');
 const old = await askLink('old@x.nl');
 kv.set('magic:' + tokenOf(old), JSON.stringify({ email: 'old@x.nl', expires: Date.now() - 1000 }));
 const exp = await get(old);
