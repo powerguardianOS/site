@@ -5,7 +5,7 @@ export const runtime = 'edge';
 //   signin:req:<sha256(nonce)> = {email, h: sha256(code|nonce), exp, tries, state, next?}
 // and the link's record (magic:<token>, app/lib/magic-link.ts) carries the same sha256(nonce) as `req`.
 //   - the link opened in the browser that asked (the cookie matches) signs in at once (app/api/auth/verify GET);
-//     anywhere else it needs the "Sign in on this device" button, so a mail scanner (no cookie) never uses it up;
+//     anywhere else it needs the "Sign in" button, so a mail scanner (no cookie) never uses it up;
 //   - the code only works together with the cookie, 5 tries, then the whole pending sign-in is dead;
 //   - one of them used kills the other (the link only works while this record is pending; using the code drops it);
 //   - the tab that asked polls /api/auth/status (pending/done/expired) and goes on via /api/auth/continue.

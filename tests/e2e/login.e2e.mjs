@@ -3,7 +3,7 @@
 // The owner's bug (LOGIN-1): /account → /login → email → link in Gmail → Chrome → homepage, not signed in.
 // Here: a scanner opens the link first (it must change nothing), then the phone opens it in the same browser: signed in
 // at once (LOGIN-2, no button), and the "Check your inbox" tab goes on to /account by itself. Another device gets the
-// "Sign in on this device" button; the 6-digit code works in the browser that asked, pasted with a space too.
+// "Sign in" button. A browser gets no code (the installed app does: tests/e2e/pwa.e2e.mjs).
 import { webkit, devices, request } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { startStack, check, result, hydrated, noSideScroll, BASE, IPHONE_UA } from './stack.mjs';
@@ -35,18 +35,17 @@ try {
   await page.getByRole('button', { name: 'Send sign-in link' }).tap();
   await page.getByText('Check your inbox').waitFor();
   check('"Check your inbox" is shown', true);
-  const ci = page.locator('#signin-code');
-  check('it has the code field: numeric keyboard, one-time-code autofill', (await ci.getAttribute('inputmode')) === 'numeric' && (await ci.getAttribute('autocomplete')) === 'one-time-code');
+  check('in a browser: a magic link only, no code field', await page.locator('#signin-code').count() === 0);
   check('"Check your inbox": no sideways scrolling', await noSideScroll(page));
   await page.screenshot({ path: SHOTS + 'login-inbox.png' });
   const link = await stack.lastLink(EMAIL);
   const mail = stack.mails.filter((m) => m.to === EMAIL).at(-1);
-  check('the mail has the code, the logo (PNG, absolute URL) and the link', /\b\d{6}\b/.test(mail.text) && /src="https:\/\/powerguardian\.cloud\/icons\/[\w-]+\.png"/.test(mail.html ?? '') && mail.text.includes(link));
+  check('the mail has the link and the logo (PNG, absolute URL), no code', !/\b\d{6}\b/.test(mail.text.replace(link, '')) && /src="https:\/\/powerguardian\.cloud\/icons\/[\w-]+\.png"/.test(mail.html ?? '') && mail.text.includes(link));
 
   const scanner = await request.newContext({ ignoreHTTPSErrors: true, userAgent: 'Mozilla/5.0 (compatible; LinkScanner/1.0)' });
   const scan = await scanner.get(link, { maxRedirects: 0 });
   const scanHtml = await scan.text();
-  check('the scanner\'s GET gets the "Sign in on this device" page, no session', scan.status() === 200 && scanHtml.includes('Sign in on this device') && !(scan.headers()['set-cookie'] ?? '').includes('pg_session'));
+  check('the scanner\'s GET gets the "Sign in" button page, no session', scan.status() === 200 && scanHtml.includes('id="signin-confirm">Sign in</button>') && !(scan.headers()['set-cookie'] ?? '').includes('pg_session'));
   await scanner.get(link, { maxRedirects: 0 }); // and once more (preview + prefetch)
 
   const tab = await ctx.newPage(); // the mail app opens the link in a new tab of the same browser
@@ -92,8 +91,7 @@ try {
   const dev = await (await browser.newContext(phone)).newPage();
   await dev.goto(l3);
   const btn = dev.locator('#signin-confirm');
-  check('another device sees "Sign in on this device"', (await btn.textContent()) === 'Sign in on this device');
-  check('…and "Or type the code from the email on the device where you asked."', (await dev.locator('#signin-code-hint').textContent()) === 'Or type the code from the email on the device where you asked.');
+  check('another device sees one "Sign in" button, no code talk', (await btn.textContent()) === 'Sign in' && await dev.locator('#signin-code-hint').count() === 0);
   const box = await btn.boundingBox();
   check('the button is big enough to tap (≥ 44 px high)', !!box && box.height >= 44, String(box?.height));
   check('confirm page: no sideways scrolling at phone width', await noSideScroll(dev));
@@ -103,17 +101,6 @@ try {
   check('tapping it signs that device in', new URL(dev.url()).pathname === '/account');
   await asker.locator('#signin-dead').waitFor({ timeout: 10000 });
   check('the browser that asked now says the sign-in expired, with "Request a new link"', await asker.locator('#signin-new-link').isVisible());
-
-  console.log('\nthe code, in the browser that asked');
-  const cp = await (await browser.newContext(phone)).newPage();
-  await askOn(cp, 'code@example.test');
-  await stack.lastLink('code@example.test');
-  const code = codeOf('code@example.test');
-  await cp.locator('#signin-code').fill(code.slice(0, 3) + ' ' + code.slice(3)); // as pasted from the mail
-  check('a pasted "482 913" is taken as 6 digits', (await cp.locator('#signin-code').inputValue()) === code);
-  await cp.locator('#signin-code-submit').tap();
-  await cp.waitForURL(/\/account$/);
-  check('the code signs in → /account', new URL(cp.url()).pathname === '/account');
 
   console.log('\nsign out');
   await page.getByRole('link', { name: 'Sign out' }).tap();

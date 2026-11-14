@@ -4,7 +4,9 @@ export const runtime = 'edge';
 // address, KV-backed, fail closed), account upsert, magic link, mail. The link
 // is a credential: it only ever goes into the mail, never into a log line.
 // LOGIN-2: every request is one pending sign-in bound to this browser (cookie, app/lib/signin-code.ts): the mail has
-// the link and a 6-digit code, both for that same sign-in.
+// the link; only a request from the installed app (home screen: its own cookie jar, a link opens in the browser) also
+// gets a 6-digit code to type there.
+
 import { NextResponse } from 'next/server';
 import { getAccount, createAccount } from '@/app/lib/accounts';
 import { createMagicToken } from '@/app/lib/magic-link';
@@ -22,6 +24,7 @@ export async function requestSignIn(request: Request, mode: 'register' | 'magic'
     return NextResponse.json({ ok: false, error: 'valid email required' }, { status: 400 });
   }
   const email = raw.trim().toLowerCase();
+  const withCode = body?.app === true;
 
   try {
     if (
@@ -45,16 +48,16 @@ export async function requestSignIn(request: Request, mode: 'register' | 'magic'
     nonce = req.nonce;
     await sendEmail(
       email,
-      isNew ? 'Welcome to PowerGuardian' : `Your PowerGuardian sign-in code: ${req.code}`,
+      isNew ? 'Welcome to PowerGuardian' : withCode ? `Your PowerGuardian sign-in code: ${req.code}` : 'Sign in to PowerGuardian',
       (isNew ? 'Your account is ready. ' : '')
-      + 'Sign in with the link below, or type the code on the page where you asked.'
-      + `\n\nYour code: ${req.code}`
+      + (withCode ? 'Sign in with the link below, or type the code in the PowerGuardian app.' : 'Sign in with the link below.')
+      + (withCode ? `\n\nYour code: ${req.code}` : '')
       + `\n\nExpires in ${CODE_TTL_S / 60} minutes. Didn't ask? Ignore this email.`
       + '\n\n' + magicUrl + '\n\n— PowerGuardian',
       {
         heading: isNew ? 'Welcome to PowerGuardian' : 'Sign in to PowerGuardian',
-        lead: (isNew ? 'Your account is ready. ' : '') + 'Tap the button to sign in, or type the code on the page where you asked.',
-        button: { label: 'Sign in', url: magicUrl }, code: req.code,
+        lead: (isNew ? 'Your account is ready. ' : '') + (withCode ? 'Tap the button, or type this code in the PowerGuardian app.' : 'Tap the button to sign in.'),
+        button: { label: 'Sign in', url: magicUrl }, ...(withCode ? { code: req.code } : {}),
       },
     );
   } catch (err) {

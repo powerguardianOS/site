@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import CheckInbox from './check-inbox'
+import CheckInbox, { isInstalledApp } from './check-inbox'
 
 // LOGIN-1: /login?error=link is where a used, expired or unknown sign-in link lands (app/api/auth/verify).
 // CLOUD-MFA: error=timeout (the two-step page waited too long) and error=codes (too many wrong codes).
@@ -41,7 +41,7 @@ function LoginForm({ notice }: { notice: string }) {
     const r = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, app: isInstalledApp() }),
     })
     return r.status
   }
@@ -87,7 +87,7 @@ function LoginForm({ notice }: { notice: string }) {
 
         {/* Form / Sent state */}
         {sent ? (
-          <CheckInbox email={email} onReset={() => { setSent(false); setError('') }} onResend={async () => (await ask().catch(() => 0)) === 200} />
+          <CheckInbox email={email} withCode={isInstalledApp()} onReset={() => { setSent(false); setError('') }} onResend={async () => (await ask().catch(() => 0)) === 200} />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
             <input

@@ -84,8 +84,7 @@ export async function GET(request: NextRequest) {
     `<p>Sign in as <b id="signin-email">${esc(maskEmail(link.email))}</b></p>` +
     `<form method="post" action="/api/auth/verify" class="card">` +
     `<input type="hidden" name="token" value="${esc(token)}">` +
-    `<button type="submit" id="signin-confirm">Sign in on this device</button>` +
-    `<p class="small" style="margin-top:12px" id="signin-code-hint">Or type the code from the email on the device where you asked.</p>` +
+    `<button type="submit" id="signin-confirm">Sign in</button>` +
     `</form>` +
     `<p class="small" style="margin-top:16px">Not you, or you did not ask for this? Close this page. Nothing happens until you tap the button.</p>`);
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import CheckInbox from '@/app/login/check-inbox'
+import CheckInbox, { isInstalledApp } from '@/app/login/check-inbox'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -13,7 +13,7 @@ export default function RegisterPage() {
   const ask = () => fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, app: isInstalledApp() }),
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,7 +46,7 @@ export default function RegisterPage() {
         </div>
 
         {sent ? (
-          <CheckInbox email={email} onReset={() => { setSent(false); setError('') }} onResend={async () => (await ask().catch(() => null))?.ok === true} />
+          <CheckInbox email={email} withCode={isInstalledApp()} onReset={() => { setSent(false); setError('') }} onResend={async () => (await ask().catch(() => null))?.ok === true} />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
             <input

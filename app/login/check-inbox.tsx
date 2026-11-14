@@ -6,13 +6,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // browser only:
 //   - the link opened in this same browser signs in there; this tab notices (poll /api/auth/status every 2 s, plus a
 //     BroadcastChannel nudge from the link's page) and goes on via /api/auth/continue;
-//   - the 6-digit code from the same mail, typed here (the installed home-screen app, or the link opened on a phone).
+//   - the installed home-screen app only (its own cookie jar; the link opens in the browser): the 6-digit code from the
+//     same mail, typed here.
 // Stops after 15 minutes; pauses while the tab has been hidden for a while (and checks again when it is shown).
 const TTL_MS = 15 * 60_000
 const POLL_MS = 2000
 const HIDDEN_PAUSE_MS = 2 * 60_000
 
-export default function CheckInbox({ email, onReset, onResend }: { email: string; onReset: () => void; onResend: () => Promise<boolean> }) {
+// The installed app (display-mode standalone, or iOS navigator.standalone); the sign-in request says so (app: true).
+export const isInstalledApp = () =>
+  typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true)
+
+export default function CheckInbox({ email, onReset, onResend, withCode = false }: { email: string; onReset: () => void; onResend: () => Promise<boolean>; withCode?: boolean }) {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -95,11 +100,11 @@ export default function CheckInbox({ email, onReset, onResend }: { email: string
       <div className="text-center space-y-1">
         <p className="text-sm text-zinc-300 font-medium">Check your inbox</p>
         <p className="text-xs text-zinc-500">
-          We sent a sign-in link and a 6-digit code to <span className="text-zinc-300">{email}</span>.
-          <br />Open the link here and this page continues by itself.
+          We sent a sign-in link to <span className="text-zinc-300">{email}</span>.
+          {!withCode && <><br />Open it and this page continues by itself.</>}
         </p>
       </div>
-      <form onSubmit={handleCode} className="space-y-3" id="code-form">
+      {withCode && <form onSubmit={handleCode} className="space-y-3" id="code-form">
         <input
           id="signin-code"
           value={code}
@@ -117,7 +122,7 @@ export default function CheckInbox({ email, onReset, onResend }: { email: string
           {loading ? 'Checking…' : 'Sign in'}
         </button>
         {error && <p className="text-xs text-red-400" role="alert" id="signin-code-error">{error}</p>}
-      </form>
+      </form>}
       <p className="text-center text-xs text-zinc-600">
         Expires in 15 minutes.{' '}
         <button type="button" onClick={onReset} className="text-zinc-500 hover:text-zinc-300 transition-colors">Use a different email</button>
