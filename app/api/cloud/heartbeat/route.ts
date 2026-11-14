@@ -6,7 +6,7 @@ import { logAudit } from '@/app/lib/audit';
 import { withRoot } from '@/app/lib/founder';
 import { dateLong, notifyOwner } from '@/app/lib/notify';
 import { getSiteStatus, putSiteStatus } from '@/app/lib/site-status';
-import { recordBeat } from '@/app/lib/power-history';
+import { applyControllerPower, parseControllerPower, recordBeat } from '@/app/lib/power-history';
 import type { SiteDevice, SiteStatus } from '@/app/lib/site-status';
 import { privateLan } from '@/app/lib/site-summary';
 
@@ -103,14 +103,20 @@ export async function POST(request: Request) {
       last_seen: num(d.last_seen, 0, 4_102_444_800),
     }));
 
+  // HIST-24H: the controller's own 24 h summary wins over our heartbeat-derived history where it knows; a malformed one is
+  // ignored (never fails the heartbeat, which carries the lease). Only this license's record is written (token above).
+  const received = Date.now();
+  const ctlPower = parseControllerPower(body.power_24h, received);
+  const beat = recordBeat(previous?.power, devices, received, previous?.received_at);
   const status: SiteStatus = {
     site_name: str(body.site_name, 80) || 'My site',
     controller_version: str(body.controller_version, 40),
     devices,
-    received_at: Date.now(),
+    received_at: received,
     model: str(body.model, 80),
     lan: privateLan(body.lan),
-    power: recordBeat(previous?.power, devices, Date.now(), previous?.received_at),
+    power: ctlPower ? applyControllerPower(beat, ctlPower) : beat,
+    ...(ctlPower?.state === 'no_ups' ? { no_ups: true as const } : {}),
   };
 
   if (!(await putSiteStatus(license.id, status))) {

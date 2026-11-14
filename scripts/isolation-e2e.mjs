@@ -164,10 +164,15 @@ try {
     ok('POST /api/cloud/sites/console for another tenant\'s site → 404, no link', c.status === 404 && !c.console_url, JSON.stringify(c));
   }
   const before = JSON.parse(dev.kv.get('sitestatus:' + L.acer) ?? '{}');
+  const forgedPower = () => ({ v: 1, state: 'ups', at: Math.floor(Date.now() / 1800000), s: 'b'.repeat(48), m: 'u'.repeat(48) }); // 24 h on battery
   // the cloud refuses heartbeats closer than 15 s, and her real controller beats every 60 s: retry until one gets in
-  const hb = await until(async () => { const r = await j(await fetch(SITE + '/api/cloud/heartbeat', { method: 'POST', headers: bearer(tok.mal), body: JSON.stringify({ controller_id: cid, site_name: 'Acer', license_id: L.acer, devices: [{ name: 'pwned' }] }) })); return r.status === 429 ? null : r; }, 90000, 3000) ?? {};
+  const hb = await until(async () => { const r = await j(await fetch(SITE + '/api/cloud/heartbeat', { method: 'POST', headers: bearer(tok.mal), body: JSON.stringify({ controller_id: cid, site_name: 'Acer', license_id: L.acer, devices: [{ name: 'pwned' }], power_24h: forgedPower() }) })); return r.status === 429 ? null : r; }, 90000, 3000) ?? {};
   const after = JSON.parse(dev.kv.get('sitestatus:' + L.acer) ?? '{}');
   ok('a heartbeat naming acme\'s site lands in mallory\'s own site only', hb.status === 200 && !JSON.stringify(after.devices ?? []).includes('pwned') && after.site_name === before.site_name, JSON.stringify(hb).slice(0, 160));
+  ok('…its 24 h power summary (HIST-24H) does not land in acme\'s battery strip', after.power?.s !== 'b'.repeat(48) && !after.no_ups === !before.no_ups, JSON.stringify(after.power));
+  // its first heartbeat may still be on its way (10 s after start, then every 60 s)
+  const real = await until(async () => { const r = JSON.parse(dev.kv.get('sitestatus:' + L.acer) ?? '{}'); return r.no_ups === true || /[mb]/.test(r.power?.s ?? '') ? r : null; }, 90000, 2000) ?? {};
+  ok('acme\'s real controller sends its own 24 h summary and the cloud took it (no UPS on this test box)', real.no_ups === true || /[mb]/.test(real.power?.s ?? ''), JSON.stringify({ no_ups: real.no_ups, power: real.power }));
   const rn = await j(await fetch(SITE + '/api/cloud/site', { method: 'PATCH', headers: bearer(tok.mal), body: JSON.stringify({ name: 'pwned', controller_id: cid, license_id: L.acer }) }));
   ok('a controller rename naming acme\'s site renames only her own', licOf(L.acer).site_name === 'Acer', JSON.stringify(rn));
   await fetch(SITE + '/api/cloud/site', { method: 'PATCH', headers: bearer(tok.mal), body: JSON.stringify({ name: 'Mal', controller_id: cid }) });

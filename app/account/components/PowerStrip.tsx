@@ -8,7 +8,21 @@ import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react';
 import { hourCells } from '@/app/lib/power-history';
 import type { Slot } from '@/app/lib/power-history';
 
-type Props = { id: string; at: number; slots: Slot[]; minutes: number[]; empty: boolean; now: number };
+type Props = { id: string; at: number; slots: Slot[]; minutes: number[]; empty: boolean; now: number; noUps?: boolean };
+
+// HIST-24H: a controller without any UPS has no power history to draw. Instead of a strip (whose grey would read as "no
+// data / offline") the tile says so plainly, in a neutral dashed outline of the same height.
+function NoUps({ id }: { id: string }) {
+  return (
+    <div className="power-strip relative select-none" data-ups="none">
+      <p className="strip-label h-4 text-[11px] leading-4" aria-hidden="true" />
+      <div id={`strip-${id}`} className="no-ups mt-1 flex h-[22px] items-center justify-center rounded-[4px] border border-dashed border-white/20 text-[11px] text-white/50">
+        No UPS on this controller
+      </div>
+      <div className="mt-1 h-[15px]" aria-hidden="true" />
+    </div>
+  );
+}
 
 const COLOR: Record<Slot, string> = { m: '#00C66F', b: '#fbbf24', n: '#71717a', '-': 'transparent' };
 // Server render: UTC hours (the same on server and client, so hydration matches); after mount: the viewer's own hours.
@@ -18,7 +32,11 @@ const localHour = (t: number) => { const d = new Date(t); d.setMinutes(0, 0, 0);
 const noop = () => () => {};
 const localFmt = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
-export default function PowerStrip({ id, at, slots, minutes, empty, now }: Props) {
+export default function PowerStrip(props: Props) {
+  return props.noUps ? <NoUps id={props.id} /> : <Strip {...props} />;
+}
+
+function Strip({ id, at, slots, minutes, empty, now }: Props) {
   const local = useSyncExternalStore(noop, () => true, () => false); // false while hydrating, true after
   const [sel, setSel] = useState<number | null>(null);
   const [pinned, setPinned] = useState(false);
@@ -48,7 +66,7 @@ export default function PowerStrip({ id, at, slots, minutes, empty, now }: Props
   const label = sel === null ? '' : cells[sel].label;
 
   return (
-    <div className="power-strip pointer-events-auto relative z-10 select-none">
+    <div className="power-strip pointer-events-auto relative z-10 select-none" data-ups="yes">
       <p className="strip-label h-4 truncate text-[11px] leading-4 text-white/80" aria-live="polite">{label}</p>
       <div className="mt-1 flex items-center">
         <div ref={ref} tabIndex={0} role="listbox" id={`strip-${id}`}
