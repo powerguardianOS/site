@@ -3,28 +3,19 @@
 // ACCOUNT-UI: the 24 h battery strip of a site tile — 24 cells on clock hours (the viewer's time zone), the last one the
 // current hour, filled as far as it has run. Hover (desktop), tap (phone) or arrow keys (keyboard) show a small label
 // above the strip: "13:00–14:00 · On battery 12 min". No library.
+// CONN-24H: a controller without any UPS gets the same strip as a connection strip: green online, grey offline, red an
+// hour with a network drop ("13:00–14:00 · Connection lost ~6 min").
 import { useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react';
 import { hourCells } from '@/app/lib/power-history';
 import type { Slot } from '@/app/lib/power-history';
 
-type Props = { id: string; at: number; slots: Slot[]; minutes: number[]; empty: boolean; now: number; noUps?: boolean };
-
-// HIST-24H: a controller without any UPS has no power history to draw. Instead of a strip (whose grey would read as "no
-// data / offline") the tile says so plainly, in a neutral dashed outline of the same height.
-function NoUps({ id }: { id: string }) {
-  return (
-    <div className="power-strip relative select-none" data-ups="none">
-      <p className="strip-label h-4 text-[11px] leading-4" aria-hidden="true" />
-      <div id={`strip-${id}`} className="no-ups mt-1 flex h-[22px] items-center justify-center rounded-[4px] border border-dashed border-white/20 text-[11px] text-white/50">
-        No UPS on this controller
-      </div>
-      <div className="mt-1 h-[15px]" aria-hidden="true" />
-    </div>
-  );
-}
+type Props = { id: string; at: number; slots: Slot[]; minutes: number[]; lost?: number[]; empty: boolean; now: number; noUps?: boolean };
 
 const COLOR: Record<Slot, string> = { m: '#00C66F', b: '#fbbf24', n: '#71717a', '-': 'transparent' };
+export const DROP_COLOR = '#ef4444';
+const cellColor = (state: Slot, lost: number, conn: boolean) =>
+  !conn ? COLOR[state] : state === '-' ? COLOR['-'] : lost > 0 ? DROP_COLOR : COLOR.m;
 // Server render: UTC hours (the same on server and client, so hydration matches); after mount: the viewer's own hours.
 const utcHour = (t: number) => Math.floor(t / 3_600_000) * 3_600_000;
 const utcFmt = (t: number) => `${String(new Date(t).getUTCHours()).padStart(2, '0')}:00`;
@@ -32,17 +23,14 @@ const localHour = (t: number) => { const d = new Date(t); d.setMinutes(0, 0, 0);
 const noop = () => () => {};
 const localFmt = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
-export default function PowerStrip(props: Props) {
-  return props.noUps ? <NoUps id={props.id} /> : <Strip {...props} />;
-}
-
-function Strip({ id, at, slots, minutes, empty, now }: Props) {
+export default function PowerStrip({ id, at, slots, minutes, lost, empty, now, noUps }: Props) {
+  const conn = noUps === true;
   const local = useSyncExternalStore(noop, () => true, () => false); // false while hydrating, true after
   const [sel, setSel] = useState<number | null>(null);
   const [pinned, setPinned] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const cells = hourCells({ at, slots, minutes }, now, local ? localHour : utcHour, local ? localFmt : utcFmt);
+  const cells = hourCells({ at, slots, minutes, lost }, now, local ? localHour : utcHour, local ? localFmt : utcFmt, conn ? 'connection' : 'power');
   const indexAt = (x: number) => {
     const r = ref.current!.getBoundingClientRect();
     return Math.max(0, Math.min(23, Math.floor(((x - r.left) / r.width) * 24)));
@@ -66,20 +54,20 @@ function Strip({ id, at, slots, minutes, empty, now }: Props) {
   const label = sel === null ? '' : cells[sel].label;
 
   return (
-    <div className="power-strip pointer-events-auto relative z-10 select-none" data-ups="yes">
+    <div className="power-strip pointer-events-auto relative z-10 select-none" data-ups={conn ? 'none' : 'yes'}>
       <p className="strip-label h-4 truncate text-[11px] leading-4 text-white/80" aria-live="polite">{label}</p>
       <div className="mt-1 flex items-center">
         <div ref={ref} tabIndex={0} role="listbox" id={`strip-${id}`}
-          aria-label={`Power, last 24 hours${empty ? ', no history yet' : ''}. Use the arrow keys to read each hour.`}
+          aria-label={`${conn ? 'Connection (no UPS on this controller)' : 'Power'}, last 24 hours${empty ? ', no history yet' : ''}. Use the arrow keys to read each hour.`}
           aria-activedescendant={sel === null ? undefined : `strip-${id}-${sel}`}
           onPointerMove={onMove} onMouseLeave={onLeave} onClick={onTap} onKeyDown={onKey}
           onBlur={() => { setSel(null); setPinned(false); }}
           className="-my-2 flex flex-1 cursor-pointer gap-[2px] rounded-[5px] py-2 outline-none focus-visible:ring-2 focus-visible:ring-[#00C66F]/60">
           <div className="flex flex-1 gap-[2px] rounded-[4px] border border-white/15 p-[2px]">
             {cells.map((c, i) => (
-              <span key={i} id={`strip-${id}-${i}`} role="option" aria-selected={sel === i} aria-label={c.label} data-state={c.state}
+              <span key={i} id={`strip-${id}-${i}`} role="option" aria-selected={sel === i} aria-label={c.label} data-state={c.state} data-drop={c.lost > 0 ? 'yes' : undefined}
                 className={`strip-cell relative h-4 flex-1 overflow-hidden rounded-[1px] bg-white/[0.06] ${sel === i ? 'ring-1 ring-white/70' : ''}`}>
-                <span className="absolute inset-y-0 left-0" style={{ width: `${c.fill * 100}%`, background: COLOR[c.state] }} />
+                <span className="absolute inset-y-0 left-0" style={{ width: `${c.fill * 100}%`, background: cellColor(c.state, c.lost, conn) }} />
               </span>
             ))}
           </div>
@@ -88,7 +76,7 @@ function Strip({ id, at, slots, minutes, empty, now }: Props) {
       </div>
       <div className="mt-1 flex justify-between pr-[3px] text-[10px] text-white/30">
         <span>24 h ago</span>
-        {empty && <span>no history yet</span>}
+        {empty ? <span>no history yet</span> : conn && <span className="no-ups">Connection · no UPS</span>}
         <span>now</span>
       </div>
     </div>

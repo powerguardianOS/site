@@ -39,8 +39,9 @@ const brHist = { at: at - 6, s: '-'.repeat(10) + 'm'.repeat(38) };
 stack.kv.set('sitestatus:lic-hq', status({ model: 'NanoPi R3S', power: hqHist, devices: [dev('Eaton 5PX 1500', 'OL', 100, 24, 3120), dev('APC Smart-UPS 1000', 'OL CHRG', 96, 31, 2280), dev('CyberPower OR600', 'OL', 100, 12, 5400)] }));
 stack.kv.set('sitestatus:lic-wh', status({ model: 'HP ProDesk 400 G3 DM', devices: [dev('Eaton Ellipse PRO 850', 'OB DISCHRG', 71, 18, 1500)] }));
 stack.kv.set('sitestatus:lic-br', status({ model: 'Acer Veriton', power: brHist, received_at: now - 3 * 3600_000, devices: [dev('APC Back-UPS 700', 'OL', 100, 9, 1800)] }));
-// Lab: a controller without any UPS (HIST-24H: it says so in its heartbeat): no strip, a clear "No UPS on this controller".
-stack.kv.set('sitestatus:lic-lab', status({ model: 'Mini PC', no_ups: true, power: { at, s: '-'.repeat(46) + 'nn', m: '0'.repeat(48) } }));
+// Lab: a controller without any UPS (HIST-24H: it says so in its heartbeat): a connection strip (CONN-24H), here with a
+// network drop of 6 minutes in the last slot.
+stack.kv.set('sitestatus:lic-lab', status({ model: 'Mini PC', no_ups: true, power: { at, s: '-'.repeat(46) + 'nn', m: '0'.repeat(48), g: '0'.repeat(47) + '6' } }));
 stack.kv.set('mfa:' + EMAIL, JSON.stringify({ v: 1, totp: 'demo', created_at: iso(now - 20 * DAY), last_step: 0, recovery: Array(10).fill('x'), recovery_created_at: iso(now - 20 * DAY) }));
 const sid = randomBytes(32).toString('hex');
 stack.kv.set('session:' + sid, JSON.stringify({ email: EMAIL, expires: now + DAY, mfa: true }));
@@ -128,11 +129,15 @@ try {
 
   console.log('\na controller without any UPS');
   const lab = tile(page, 'Lab');
-  check('no strip cells, a clear "No UPS on this controller" instead', await lab.locator('.strip-cell').count() === 0 && (await lab.locator('.power-strip').innerText()).includes('No UPS on this controller'));
+  check('a connection strip instead of a power strip, saying there is no UPS', await lab.locator('.strip-cell').count() === 24 && (await lab.locator('.power-strip').innerText()).includes('Connection · no UPS'));
   check('the status line says it too, not "no UPS data yet"', (await lab.locator('.site-line').innerText()) === 'Online · No UPS on this controller');
-  check('its look is the neutral dashed outline, not the grey of "no data / offline"', (await lab.locator('.power-strip').getAttribute('data-ups')) === 'none' && /dashed/.test(await lab.locator('.no-ups').evaluate((e) => getComputedStyle(e).borderStyle)));
+  const labOnline = await lab.locator('.strip-cell[data-state="n"]:not([data-drop]) > span').first().evaluate((e) => getComputedStyle(e).backgroundColor);
+  check('online hours are green, not the grey of "no data / offline"', (await lab.locator('.power-strip').getAttribute('data-ups')) === 'none' && labOnline === 'rgb(0, 198, 111)', labOnline);
+  const drop = lab.locator('.strip-cell[data-drop="yes"]');
+  check('the hour with the drop is red', await drop.count() === 1 && (await drop.locator('> span').evaluate((e) => getComputedStyle(e).backgroundColor)) === 'rgb(239, 68, 68)');
+  check('its label says how long the connection was lost', /· Connection lost ~6 min$/.test(await drop.getAttribute('aria-label')), await drop.getAttribute('aria-label'));
   check('sites with a UPS keep their strip', await hq.locator('.strip-cell').count() === 24 && await hq.locator('.no-ups').count() === 0);
-  check('the legend explains it', (await page.locator('#power-legend').innerText()).includes('No UPS'));
+  check('the legend explains it', /On mains \/ online/.test(await page.locator('#power-legend').innerText()) && (await page.locator('#power-legend').innerText()).includes('Connection drop (no UPS)'));
 
   console.log('\nnames');
   const text = await page.locator('body').innerText();

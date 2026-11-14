@@ -6,12 +6,14 @@
 //   'n' online, no UPS data       'm' every UPS on mains       'b' a UPS on battery (or low battery)
 // A slot keeps the worst state seen in it (b > m > n > -). `m` counts the minutes on battery per slot (0–30, one
 // base-32 digit each), from the time between heartbeats; records from before it simply have no minutes.
+// CONN-24H: `g` counts the minutes per slot without a heartbeat while the controller was otherwise online (a network
+// drop: three or more missed beats in a row), same encoding; records from before it have no drops.
 import { power } from '@/app/lib/site-summary';
 import type { SiteDevice } from '@/app/lib/site-status';
 
 export const SLOT_MS = 30 * 60_000;
 export const SLOTS = 48;
-export type PowerHistory = { at: number; s: string; m?: string }; // at = slot number (ms / SLOT_MS) of the last character
+export type PowerHistory = { at: number; s: string; m?: string; g?: string }; // at = slot number (ms / SLOT_MS) of the last character
 export type Slot = '-' | 'n' | 'm' | 'b';
 
 export const RANK: Record<Slot, number> = { '-': 0, n: 1, m: 2, b: 3 };
@@ -29,27 +31,41 @@ export function slotOf(devices: SiteDevice[]): Slot {
 }
 
 // The history moved to slot `to`: slots that passed without a heartbeat become '-' (and 0 minutes).
-function shift(h: PowerHistory | null | undefined, to: number): { s: string; m: string } {
-  if (!valid(h)) return { s: EMPTY, m: ZERO };
-  const m = validM(h.m) ? h.m : ZERO;
+function shift(h: PowerHistory | null | undefined, to: number): { s: string; m: string; g: string } {
+  if (!valid(h)) return { s: EMPTY, m: ZERO, g: ZERO };
+  const m = validM(h.m) ? h.m : ZERO, g = validM(h.g) ? h.g : ZERO;
   const by = to - h.at;
-  if (by <= 0) return { s: h.s, m };
-  if (by >= SLOTS) return { s: EMPTY, m: ZERO };
-  return { s: h.s.slice(by) + '-'.repeat(by), m: m.slice(by) + '0'.repeat(by) };
+  if (by <= 0) return { s: h.s, m, g };
+  if (by >= SLOTS) return { s: EMPTY, m: ZERO, g: ZERO };
+  return { s: h.s.slice(by) + '-'.repeat(by), m: m.slice(by) + '0'.repeat(by), g: g.slice(by) + '0'.repeat(by) };
+}
+
+// A controller heartbeats every 60 s; a gap of more than three minutes is a drop. The time after the beat that was due
+// is spread over the slots it covered (whole slots without any beat stay '-', offline).
+const BEAT_MS = 60_000, DROP_MS = 3 * 60_000;
+function addDrop(g: string, at: number, lastAt: number | undefined, now: number): string {
+  if (!lastAt || now - lastAt <= DROP_MS) return g;
+  const out = g.split(''), base = at - (SLOTS - 1);
+  for (let t0 = lastAt + BEAT_MS; t0 < now;) {
+    const slot = Math.floor(t0 / SLOT_MS), t1 = Math.min(now, (slot + 1) * SLOT_MS), i = slot - base;
+    if (i >= 0 && i < SLOTS) out[i] = Math.min(30, parseInt(out[i], 32) + Math.max(1, Math.round((t1 - t0) / 60_000))).toString(32);
+    t0 = t1;
+  }
+  return out.join('');
 }
 
 // The history after a heartbeat with these devices at `now`. lastAt: when the previous heartbeat came in (ms), for the
 // battery minutes; a long gap counts as one minute (we do not know what happened in between).
 export function recordBeat(prev: PowerHistory | null | undefined, devices: SiteDevice[], now = Date.now(), lastAt?: number): PowerHistory {
   const at = Math.floor(now / SLOT_MS);
-  const { s, m } = shift(prev, at);
+  const { s, m, g } = shift(prev, at);
   const cur = s[SLOTS - 1] as Slot, next = slotOf(devices);
   let min = parseInt(m[SLOTS - 1], 32);
   if (next === 'b') {
     const gap = lastAt && now > lastAt ? (now - lastAt) / 60_000 : 1;
     min = Math.min(30, min + (gap <= 3 ? Math.max(1, Math.round(gap)) : 1));
   }
-  return { at, s: s.slice(0, -1) + (RANK[next] > RANK[cur] ? next : cur), m: m.slice(0, -1) + min.toString(32) };
+  return { at, s: s.slice(0, -1) + (RANK[next] > RANK[cur] ? next : cur), m: m.slice(0, -1) + min.toString(32), g: addDrop(g, at, lastAt, now) };
 }
 
 // ---- HIST-24H: the controller's own summary (power_24h in its heartbeat) ----
@@ -86,43 +102,49 @@ export function applyControllerPower(h: PowerHistory, c: ControllerPower): Power
     if (j < 0 || j >= SLOTS || c.s[i] === 'u') continue;
     s[j] = c.s[i]; m[j] = c.m[i];
   }
-  return { at: h.at, s: s.join(''), m: m.join('') };
+  return { ...h, s: s.join(''), m: m.join('') };
 }
 
 // The last 24 hours up to now, oldest first. Slots after the last heartbeat are '-' (no data), never a stale state.
-export function last24h(h: PowerHistory | null | undefined, now = Date.now()): { at: number; slots: Slot[]; minutes: number[]; empty: boolean } {
+export function last24h(h: PowerHistory | null | undefined, now = Date.now()): { at: number; slots: Slot[]; minutes: number[]; lost: number[]; empty: boolean } {
   const at = Math.floor(now / SLOT_MS);
-  const { s, m } = shift(h, at);
-  return { at, slots: s.split('') as Slot[], minutes: m.split('').map((c) => parseInt(c, 32)), empty: s === EMPTY };
+  const { s, m, g } = shift(h, at);
+  const n32 = (x: string) => x.split('').map((c) => parseInt(c, 32));
+  return { at, slots: s.split('') as Slot[], minutes: n32(m), lost: n32(g), empty: s === EMPTY };
 }
 
 // ---- hour cells (shared by the tile and its tests) ----
-export type HourCell = { start: number; end: number; current: boolean; fill: number; state: Slot; minutes: number | null; label: string };
+export type HourCell = { start: number; end: number; current: boolean; fill: number; state: Slot; minutes: number | null; lost: number; label: string };
 const STATE_LABEL: Record<Slot, string> = { m: 'On mains', b: 'On battery', n: 'Online, no UPS data', '-': 'No data' };
 
 // 24 cells on clock hours, the last one the current hour (filled as far as it has run). hourStart(t) gives the start of
 // t's hour in the viewer's time zone; fmt(t) its "13:00". Pure, so the browser runs it with local time and tests with any.
+// CONN-24H: mode 'connection' (a controller without any UPS) reads the same slots as online / offline, plus the drops.
 export function hourCells(
-  p: { at: number; slots: Slot[]; minutes: number[] }, now: number,
-  hourStart: (t: number) => number, fmt: (t: number) => string,
+  p: { at: number; slots: Slot[]; minutes: number[]; lost?: number[] }, now: number,
+  hourStart: (t: number) => number, fmt: (t: number) => string, mode: 'power' | 'connection' = 'power',
 ): HourCell[] {
   const base = p.at - (SLOTS - 1); // slot number of slots[0]
   const h0 = hourStart(now);
   const cells: HourCell[] = [];
   for (let j = 0; j < 24; j++) {
     const start = h0 - (23 - j) * 3_600_000, end = start + 3_600_000, current = j === 23;
-    let state: Slot = '-', min = 0, known = true;
+    let state: Slot = '-', min = 0, known = true, lost = 0;
     for (let t = start; t < Math.min(end, now + 1); t += SLOT_MS) {
       const i = Math.floor(t / SLOT_MS) - base;
       if (i < 0 || i >= SLOTS) continue;
       const s = p.slots[i];
       if (RANK[s] > RANK[state]) state = s;
+      lost += p.lost?.[i] ?? 0;
       if (s === 'b') { if (p.minutes[i] > 0) min += p.minutes[i]; else known = false; }
     }
     const minutes = state === 'b' && known && min > 0 ? min : null;
     const range = `${fmt(start)}–${current ? 'now' : fmt(end)}`;
-    const label = `${range} · ${STATE_LABEL[state]}${minutes ? ` ${minutes} min` : ''}`;
-    cells.push({ start, end, current, fill: current ? Math.max(0.08, Math.min(1, (now - start) / 3_600_000)) : 1, state, minutes, label });
+    lost = state === '-' ? 0 : Math.min(60, lost);
+    const label = mode === 'connection'
+      ? `${range} · ${state === '-' ? 'Offline / no data' : lost ? `Connection lost ~${lost} min` : 'Online'}`
+      : `${range} · ${STATE_LABEL[state]}${minutes ? ` ${minutes} min` : ''}`;
+    cells.push({ start, end, current, fill: current ? Math.max(0.08, Math.min(1, (now - start) / 3_600_000)) : 1, state, minutes, lost, label });
   }
   return cells;
 }

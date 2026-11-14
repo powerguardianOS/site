@@ -2,7 +2,7 @@ import type { SiteTone } from '@/app/lib/site-summary';
 import { PLAN_LABEL } from '@/app/lib/account-view';
 import type { AccountView, SiteCard, SitePlan, UnusedLicense } from '@/app/lib/account-view';
 import OpenConsoleButton from './OpenConsoleButton';
-import PowerStrip from './PowerStrip';
+import PowerStrip, { DROP_COLOR } from './PowerStrip';
 import SiteControls from './SiteControls';
 import UnderlicensedBanner from './UnderlicensedBanner';
 import { planBadge } from './ui';
@@ -78,8 +78,8 @@ function Legend({ noUps }: { noUps: boolean }) {
   return (
     <p id="power-legend" className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/40">
       <span className="text-white/30">Power, last 24 h:</span>
-      {item('#00C66F', 'On mains')}{item('#fbbf24', 'On battery')}{item('rgba(255,255,255,0.12)', 'No data / offline')}
-      {noUps && <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2.5 w-3 rounded-[1px] border border-dashed border-white/30" />No UPS on the controller</span>}
+      {item('#00C66F', noUps ? 'On mains / online' : 'On mains')}{item('#fbbf24', 'On battery')}{item('rgba(255,255,255,0.12)', 'No data / offline')}
+      {noUps && item(DROP_COLOR, 'Connection drop (no UPS)')}
     </p>
   );
 }
