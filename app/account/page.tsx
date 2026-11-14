@@ -71,7 +71,8 @@ export default async function AccountPage() {
                 <span className="bg-[#00C66F] text-black px-2 py-0.5 rounded text-xs font-semibold uppercase">
                   {lic.plan}
                 </span>
-                <span className="text-sm text-white/60">{lic.site_id || 'default'}</span>
+                {/* The site this license runs, never the internal site_id ('default-site') or a hostname. */}
+                <span className="text-sm text-white/60">{lic.site_name || (lic.claimed_by ? 'Unnamed site' : 'Not in use yet')}</span>
               </div>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
                 lic.status === 'active' ? 'bg-green-900/50 text-green-400' :
