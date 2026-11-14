@@ -1,0 +1,282 @@
+// ISO-1: tenant isolation, end to end, on loopback only. A full local stack: PG Cloud (next dev + fake KV/Brevo, cloud-dev.mjs),
+// the relay (wrangler dev, temp copy) and three REAL controller binaries (pge2e build). Fake customers:
+//   acme@acme.test    sites "Acer" + "HP" (two controllers)
+//   mallory@mallory.test site "Mal" (one controller) — the attacker; she owns her controller and her licence token, and in some
+//                steps she sits on acme's LAN (worst case)
+//   beurs@beurs.test   site "Beurs" (licence only, no controller) — must never show up anywhere for the others
+// Each tenant then tries to reach the others by every path; everything must be refused. All processes are stopped and the
+// temp dir removed at the end. Nothing live is touched: every URL is 127.0.0.1 (console hosts are sent as a Host header
+// to the local relay, never resolved).
+//   PATH=~/dev/.tools/node/bin:~/dev/.tools/go/bin:$PATH node scripts/isolation-e2e.mjs
+//   env CTL_DIR (default ~/.pg-work/ctl-iso), RELAY_DIR (default ~/.pg-work/relay-iso), KEEP=1 keeps the temp dir
+// Note: the three controllers run on one machine, so they derive the SAME hardware ID. That is the strongest form of the
+// "mallory registers acme's hardware ID on her own licence" attack, and the checks below rely on the site binding.
+import { spawn, execFileSync } from 'node:child_process';
+import { mkdtempSync, cpSync, readFileSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
+import { tmpdir, homedir, hostname } from 'node:os';
+import http from 'node:http';
+import path from 'node:path';
+import { createHash, createPrivateKey } from 'node:crypto';
+import { startDev, finishTwoStep, SITE, ORIGIN, ADMIN, MINT, H, RELAY_PORT } from './cloud-dev.mjs';
+
+const CTL_DIR = process.env.CTL_DIR ?? path.join(homedir(), '.pg-work/ctl-iso');
+const RELAY_DIR = process.env.RELAY_DIR ?? path.join(homedir(), '.pg-work/relay-iso');
+const SUFFIX = `-console.localhost:${RELAY_PORT}`; // the relay's CONSOLE_HOST_SUFFIX in this run (Host header only)
+const RELAY = `http://${H}:${RELAY_PORT}`;
+const work = mkdtempSync(path.join(tmpdir(), 'pg-iso-e2e-'));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (fn, ms, step = 500) => { const t = Date.now(); while (Date.now() - t < ms) { const v = await fn().catch(() => null); if (v) return v; await sleep(step); } return null; };
+let pass = 0, fail = 0;
+const ok = (label, cond, extra = '') => { console.log(`${cond ? '  ok  ' : ' FAIL '} ${label}${extra && !cond ? '  -> ' + extra : ''}`); cond ? pass++ : fail++; return cond; };
+const refused = (s) => s >= 400 && s !== 429 && s < 500 || s === 404;
+const procs = [];
+let dev, relayLog = '';
+const label = (id) => createHash('sha256').update(id).digest('hex').slice(0, 16);
+
+// raw HTTP to the local relay with any Host header (a console host), never following redirects
+function relayReq(hostHdr, p, { method = 'GET', headers = {}, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: H, port: RELAY_PORT, path: p, method, headers: { Host: hostHdr, ...headers } }, (res) => {
+      let data = ''; res.on('data', (d) => (data += d)); res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on('error', reject); if (body) req.write(body); req.end();
+  });
+}
+// raw HTTP to a controller with a chosen Host header (a LAN name of that controller)
+function ctlReq(port, hostHdr, p, { method = 'GET', headers = {}, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: H, port, path: p, method, headers: { Host: hostHdr, 'x-requested-with': 'XMLHttpRequest', ...headers } }, (res) => {
+      let data = ''; res.on('data', (d) => (data += d)); res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on('error', reject); if (body) req.write(body); req.end();
+  });
+}
+
+const cleanup = () => { for (const p of procs) { try { p.kill('SIGTERM'); } catch {} } dev?.stop(); };
+for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => { cleanup(); process.exit(1); });
+
+try {
+  // the pge2e controller build trusts only the committed lease TEST key (controller/testdata/e2e-signing), so the local
+  // cloud signs with that one; it is a test fixture, never a production key
+  dev = await startDev({ leaseKey: createPrivateKey(readFileSync(CTL_DIR + '/controller/testdata/e2e-signing/lease.testkey.pem')) });
+  const j = async (r) => ({ status: r.status, ...(await r.json().catch(() => ({}))) });
+  const sitePost = (p, body, headers = {}, method = 'POST') => fetch(SITE + p, { method, redirect: 'manual', headers: { 'content-type': 'application/json', origin: ORIGIN, ...headers }, body: JSON.stringify(body) }).then(j);
+  const mailTo = async (to, n = 1) => until(async () => { const m = dev.mails.filter((x) => x.to === to); return m.length >= n ? m.at(-1) : null; }, 8000, 100);
+  const signIn = async (email) => {
+    const before = dev.mails.filter((x) => x.to === email).length;
+    await sitePost('/api/auth/magic', { email });
+    const m = await mailTo(email, before + 1);
+    const link = m?.text.match(/https?:\/\/\S+\/api\/auth\/verify\?token=\w+/)?.[0];
+    const v = await fetch(SITE + '/api/auth/verify', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: ORIGIN }, body: new URLSearchParams({ token: new URL(link).searchParams.get('token') }).toString() });
+    return (await finishTwoStep(v, ORIGIN)).cookie;
+  };
+  const licOf = (id) => { const v = dev.kv.get('license:' + id); return v ? JSON.parse(v) : null; };
+
+  console.log('setup: relay (wrangler dev, temp copy), controller binary');
+  const rdir = path.join(work, 'relay'); cpSync(RELAY_DIR + '/src', rdir + '/src', { recursive: true }); cpSync(RELAY_DIR + '/wrangler.toml', rdir + '/wrangler.toml');
+  symlinkSync(RELAY_DIR + '/node_modules', rdir + '/node_modules');
+  // test only: no live routes in the temp copy, and no per-IP rate limit binding (it would throttle this script itself)
+  writeFileSync(rdir + '/wrangler.toml', readFileSync(rdir + '/wrangler.toml', 'utf8').replace(/\[\[routes\]\][^[]*/g, '').replace(/\[\[unsafe\.bindings\]\][\s\S]*$/, ''));
+  const relay = spawn(RELAY_DIR + '/node_modules/.bin/wrangler', ['dev', '--local', '--ip', H, '--port', String(RELAY_PORT), '--var', `CLOUD_BASE:${SITE}`, '--var', `MINT_SECRET:${MINT}`, '--var', `CONSOLE_HOST_SUFFIX:${SUFFIX}`],
+    { cwd: rdir, env: { ...process.env, CI: '1', WRANGLER_SEND_METRICS: 'false' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  relay.stdout.on('data', (d) => (relayLog += d)); relay.stderr.on('data', (d) => (relayLog += d)); procs.push(relay);
+  const bin = path.join(work, 'pg-controller');
+  execFileSync('go', ['build', '-tags', 'pge2e', '-o', bin, '.'], { cwd: CTL_DIR + '/controller', stdio: 'inherit' });
+  ok('relay up (unknown controller token → 401)', (await until(async () => (await fetch(`${RELAY}/status/x`, { headers: { Authorization: 'Bearer ' + 'a'.repeat(32) } })).status === 401, 120000, 2000)) === true, relayLog.slice(-400));
+
+  console.log('setup: admin creates the fake licences');
+  const adminCookie = await signIn(ADMIN);
+  const mk = async (email, name) => (await sitePost('/api/admin/licenses', { email, plan: 'pro', connector_limit: 5, expires_at: new Date(Date.now() + 365 * 864e5).toISOString(), site_name: name }, { cookie: adminCookie })).license?.id;
+  const L = { acer: await mk('acme@acme.test', 'Acer'), hp: await mk('acme@acme.test', 'HP'), mal: await mk('mallory@mallory.test', 'Mal'), beurs: await mk('beurs@beurs.test', 'Beurs') };
+  if (!ok('four licences created', Object.values(L).every(Boolean), JSON.stringify(L))) throw new Error('setup failed');
+
+  console.log('setup: three real controllers on 127.0.0.1, each linked to its own site');
+  const CT = {};
+  for (const [key, port, email] of [['acer', 19191, 'acme@acme.test'], ['hp', 19192, 'acme@acme.test'], ['mal', 19193, 'mallory@mallory.test']]) {
+    let log = '';
+    const p = spawn(bin, ['-addr', `${H}:${port}`, '-db', path.join(work, key + '.db')], { cwd: work,
+      env: { ...process.env, PG_CLOUD_URL: SITE, PG_RELAY_URL: `ws://${H}:${RELAY_PORT}`, PG_LEASE_PUBKEY: dev.rawPub, PG_E2E_NO_DISCOVERY: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    p.stdout.on('data', (d) => (log += d)); p.stderr.on('data', (d) => (log += d)); procs.push(p);
+    const C = `http://${H}:${port}`;
+    await until(async () => (await fetch(C + '/api/auth/me')).status > 0, 30000);
+    const cpost = (pp, body, cookie) => fetch(C + pp, { method: 'POST', headers: { 'content-type': 'application/json', 'x-requested-with': 'XMLHttpRequest', ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+    await cpost('/api/setup/admin', { username: 'owner', email: 'owner-' + key + '@example.test', password: 'Correct-horse-1', password2: 'Correct-horse-1' });
+    const lg = await cpost('/api/auth/login', { username: 'owner', password: 'Correct-horse-1' });
+    const ck = (lg.headers.get('set-cookie') ?? '').split(';')[0];
+    const n0 = dev.mails.filter((x) => x.to === email).length;
+    await cpost('/api/license/link-email', { email }, ck);
+    const code = (await mailTo(email, n0 + 1))?.text.match(/code is: (\d{6})/)?.[1];
+    await j(await cpost('/api/license/confirm-email', { code }, ck));
+    const cl = await j(await cpost('/api/license/claim', { license_id: L[key] }, ck));
+    CT[key] = { port, C, ck, cpost, log: () => log, proc: p };
+    if (!ok(`controller ${key} linked to its own site`, cl.status === 'linked', JSON.stringify(cl).slice(0, 200))) throw new Error('setup failed: ' + log.slice(-400));
+  }
+  const tok = Object.fromEntries(Object.entries(L).map(([k, id]) => [k, licOf(id)?.token]));
+  const statusOf = async (t) => j(await fetch(`${RELAY}/status/x`, { headers: { Authorization: 'Bearer ' + t } }));
+  for (const k of ['acer', 'hp', 'mal']) ok(`relay tunnel of ${k} connected`, !!(await until(async () => /cloud relay: connected/.test(CT[k].log()) && (await statusOf(tok[k])).connected === true, 60000, 2000)), CT[k].log().slice(-300));
+
+  console.log('setup: the tenants sign in to PG Cloud');
+  const acme = await signIn('acme@acme.test'), mallory = await signIn('mallory@mallory.test');
+  ok('acme and mallory have sessions', !!acme && !!mallory);
+
+  // ─────────────────────────────────────────────────────────────── attacks
+  console.log('\nA. portal: mallory reaches for acme\'s sites');
+  const acct = await (await fetch(SITE + '/account', { headers: { cookie: mallory } })).text();
+  ok('mallory\'s account page never names another tenant\'s site or licence', !/Acer|>HP<|Beurs/.test(acct) && !acct.includes(L.acer) && !acct.includes(L.beurs));
+  for (const id of [L.acer, L.hp, L.beurs]) {
+    const rs = await sitePost('/api/account/relay-session', { license_id: id }, { cookie: mallory });
+    ok(`mallory asks a console link for another tenant's site → refused, no link`, refused(rs.status) && !rs.console_url, JSON.stringify(rs));
+    const rn = await sitePost(`/api/account/sites/${id}`, { name: 'pwned' }, { cookie: mallory }, 'PATCH');
+    ok('mallory renames it → refused, name unchanged', refused(rn.status) && licOf(id).site_name !== 'pwned', JSON.stringify(rn));
+    const ac = await sitePost(`/api/account/sites/${id}/actions`, { action: 'release' }, { cookie: mallory });
+    ok('mallory releases it → refused, still claimed', refused(ac.status) && (id === L.beurs || !!licOf(id).claimed_by), JSON.stringify(ac));
+  }
+  const own = await sitePost('/api/account/relay-session', { license_id: L.mal }, { cookie: mallory });
+  ok('(control) mallory gets a console link for her own site', own.status === 200 && !!own.console_url, JSON.stringify(own));
+  const acmeLink = await sitePost('/api/account/relay-session', { license_id: L.acer }, { cookie: acme });
+  ok('(control) acme gets a console link for Acer', acmeLink.status === 200 && !!acmeLink.console_url, JSON.stringify(acmeLink));
+
+  console.log('\nB. admin endpoints with mallory\'s (and acme\'s) session');
+  for (const cookie of [mallory, acme]) {
+    const who = cookie === mallory ? 'mallory' : 'acme';
+    const calls = [
+      ['GET', '/api/admin/licenses'], ['POST', '/api/admin/licenses', { email: 'mallory@mallory.test', plan: 'pro', connector_limit: 0 }],
+      ['PATCH', `/api/admin/licenses/${L.acer}`, { status: 'revoked' }], ['DELETE', `/api/admin/licenses/${L.acer}`, { confirm: true }],
+      ['POST', `/api/admin/licenses/${L.acer}/rotate-token`, {}], ['POST', `/api/admin/licenses/${L.acer}/release`, {}],
+      ['DELETE', '/api/admin/tenants/acme%40acme.test', {}], ['GET', '/api/admin/export-csv'],
+    ];
+    for (const [m, p, b] of calls) {
+      const r = await fetch(SITE + p, { method: m, redirect: 'manual', headers: { cookie, origin: ORIGIN, 'content-type': 'application/json' }, ...(b ? { body: JSON.stringify(b) } : {}) });
+      ok(`${who}: ${m} ${p.replace(/[0-9a-f-]{36}/, '<id>')} → refused`, refused(r.status), String(r.status));
+    }
+    const page = await fetch(SITE + '/admin', { headers: { cookie }, redirect: 'manual' });
+    ok(`${who}: /admin page → redirect to login`, page.status >= 300 && page.status < 400, String(page.status));
+  }
+  ok('acme\'s licence is still active and claimed after all that', licOf(L.acer).status === 'active' && !!licOf(L.acer).claimed_by && licOf(L.acer).token === tok.acer);
+
+  console.log('\nC. controller APIs with mallory\'s own licence token (she owns her box)');
+  const bearer = (t, extra = {}) => ({ authorization: 'Bearer ' + t, 'content-type': 'application/json', ...extra });
+  const cid = licOf(L.mal).claimed_by;
+  const sites = await j(await fetch(SITE + '/api/cloud/sites', { headers: bearer(tok.mal, { 'x-controller-id': cid }) }));
+  ok('GET /api/cloud/sites lists her own site only', sites.status === 200 && sites.sites?.length === 1 && sites.sites[0].id === L.mal, JSON.stringify(sites).slice(0, 200));
+  for (const id of [L.acer, L.hp, L.beurs]) {
+    const c = await j(await fetch(SITE + '/api/cloud/sites/console', { method: 'POST', headers: bearer(tok.mal, { 'x-controller-id': cid }), body: JSON.stringify({ site_id: id }) }));
+    ok('POST /api/cloud/sites/console for another tenant\'s site → 404, no link', c.status === 404 && !c.console_url, JSON.stringify(c));
+  }
+  const before = JSON.parse(dev.kv.get('sitestatus:' + L.acer) ?? '{}');
+  // the cloud refuses heartbeats closer than 15 s, and her real controller beats every 60 s: retry until one gets in
+  const hb = await until(async () => { const r = await j(await fetch(SITE + '/api/cloud/heartbeat', { method: 'POST', headers: bearer(tok.mal), body: JSON.stringify({ controller_id: cid, site_name: 'Acer', license_id: L.acer, devices: [{ name: 'pwned' }] }) })); return r.status === 429 ? null : r; }, 90000, 3000) ?? {};
+  const after = JSON.parse(dev.kv.get('sitestatus:' + L.acer) ?? '{}');
+  ok('a heartbeat naming acme\'s site lands in mallory\'s own site only', hb.status === 200 && !JSON.stringify(after.devices ?? []).includes('pwned') && after.site_name === before.site_name, JSON.stringify(hb).slice(0, 160));
+  const rn = await j(await fetch(SITE + '/api/cloud/site', { method: 'PATCH', headers: bearer(tok.mal), body: JSON.stringify({ name: 'pwned', controller_id: cid, license_id: L.acer }) }));
+  ok('a controller rename naming acme\'s site renames only her own', licOf(L.acer).site_name === 'Acer', JSON.stringify(rn));
+  await fetch(SITE + '/api/cloud/site', { method: 'PATCH', headers: bearer(tok.mal), body: JSON.stringify({ name: 'Mal', controller_id: cid }) });
+  const v = await j(await fetch(SITE + '/api/relay/validate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: tok.acer }) }));
+  ok('relay validate (token → licence) without the relay secret → 401', v.status === 401 && !v.license_id);
+  const st = await fetch(`${RELAY}/status/${L.acer}`);
+  ok('relay status with acme\'s licence id instead of a token → 401', st.status === 401, String(st.status));
+
+  console.log('\nD. mallory\'s controller UI (she is its admin): the site switcher');
+  const ms = await j(await fetch(CT.mal.C + '/api/sites', { headers: { cookie: CT.mal.ck, 'x-requested-with': 'XMLHttpRequest' } }));
+  ok('her switcher never lists acme\'s or beurs\' sites', ms.status === 200 && !/Acer|"HP"|Beurs/.test(JSON.stringify(ms)), JSON.stringify(ms).slice(0, 200));
+  const mc = await j(await CT.mal.cpost('/api/sites/console', { id: L.acer }, CT.mal.ck));
+  ok('her switcher cannot open Acer through the relay', !mc.console_url, JSON.stringify(mc));
+
+  console.log('\nE. licence claim from mallory\'s controller');
+  const m0 = dev.mails.filter((x) => x.to === 'mallory@mallory.test').length;
+  await CT.mal.cpost('/api/license/link-email', { email: 'mallory@mallory.test' }, CT.mal.ck);
+  const mcode = (await mailTo('mallory@mallory.test', m0 + 1))?.text.match(/code is: (\d{6})/)?.[1];
+  const ce = await j(await CT.mal.cpost('/api/license/confirm-email', { code: mcode }, CT.mal.ck));
+  ok('the site choice offers her own site only', !JSON.stringify(ce).includes(L.acer) && !JSON.stringify(ce).includes(L.beurs), JSON.stringify(ce).slice(0, 200));
+  const steal = await j(await CT.mal.cpost('/api/license/claim', { license_id: L.acer, transfer: true, acknowledge: true }, CT.mal.ck));
+  ok('claiming acme\'s Acer from her controller → refused, Acer untouched', steal.status !== 'linked' && licOf(L.acer).token === tok.acer, JSON.stringify(steal));
+  const n0 = dev.mails.length;
+  const le = await j(await CT.mal.cpost('/api/license/link-email', { email: 'acme@acme.test' }, CT.mal.ck));
+  await until(async () => dev.mails.length > n0, 5000, 100);
+  const fresh = dev.mails.slice(n0);
+  ok('linking to acme@acme.test sends the code to acme\'s mailbox only, never back to mallory', fresh.every((m) => m.to === 'acme@acme.test') && !/\b\d{6}\b/.test(JSON.stringify(le)), JSON.stringify(le) + ' ' + fresh.map((m) => m.to).join(','));
+  const guess = await j(await CT.mal.cpost('/api/license/confirm-email', { code: '000000' }, CT.mal.ck));
+  ok('a guessed code for acme@acme.test → refused, no site list', !guess.sites && guess.status !== 'choose', JSON.stringify(guess));
+
+  console.log('\nF. relay: mallory\'s console token against acme\'s console host');
+  const tm = own.console_url?.split('/console/')[1]?.replace(/\/$/, '');
+  const ta = acmeLink.console_url?.split('/console/')[1]?.replace(/\/$/, '');
+  const hostA = label(L.acer) + SUFFIX, hostM = label(L.mal) + SUFFIX;
+  const shared = await relayReq(`${H}:${RELAY_PORT}`, '/console/' + tm);
+  ok('the shared relay host only redirects to her own site host, no cookie', shared.status === 302 && (shared.headers.location ?? '').includes(label(L.mal)) && !shared.headers['set-cookie'], JSON.stringify(shared.headers));
+  const ctrlAcme = await relayReq(hostA, '/console/' + ta);
+  ok('(control) acme\'s token on acme\'s host → cookie set', ctrlAcme.status === 302 && /pg_relay=/.test(String(ctrlAcme.headers['set-cookie'])), `${ctrlAcme.status} ${ctrlAcme.body.slice(0, 120)}`);
+  const ui = await relayReq(hostA, '/api/auth/me', { headers: { cookie: 'pg_relay=' + ta } });
+  ok('(control) acme reaches the Acer controller through the relay (401 = its own login asks)', ui.status === 401 || ui.status === 200, `${ui.status} ${ui.body.slice(0, 120)}`);
+  for (const [what, p, hdr] of [['/console/', '/console/' + tm, {}], ['/proxy/', '/proxy/' + tm + '/api/auth/me', {}], ['cookie', '/api/auth/me', { cookie: 'pg_relay=' + tm }]]) {
+    const r = await relayReq(hostA, p, { headers: hdr });
+    ok(`mallory's own token on acme's host via ${what} → 403`, r.status === 403, `${r.status} ${r.body.slice(0, 120)}`);
+  }
+  const stolen = await relayReq(hostM, '/api/auth/me', { headers: { cookie: 'pg_relay=' + ta } });
+  ok('acme\'s token replayed on mallory\'s host (her controller would see it) → 403', stolen.status === 403, String(stolen.status));
+  const [pl, sig] = (tm ?? 'x.y').split('.');
+  const edited = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(pl, 'base64url').toString() || '{}'), do: L.acer })).toString('base64url') + '.' + sig;
+  for (const h of [hostA, `${H}:${RELAY_PORT}`]) {
+    const r = await relayReq(h, '/console/' + edited);
+    ok(`her token edited to name Acer (on ${h === hostA ? 'acme\'s host' : 'the shared host'}) → 401`, r.status === 401, String(r.status));
+  }
+  const px = await relayReq(`${H}:${RELAY_PORT}`, '/proxy/' + tm + '/');
+  ok('no controller page on the shared relay host (/proxy/ there → 404)', px.status === 404, String(px.status));
+  const mint = await fetch(`${RELAY}/mint/${L.acer}`, { method: 'POST', headers: { 'content-type': 'application/json', 'X-Mint-Secret': 'guess' }, body: '{"scope":"customer","actor":"m"}' });
+  ok('minting a token for Acer without the relay secret → 401', mint.status === 401, String(mint.status));
+
+  console.log('\nG. CLOUD-SSO: mallory on acme\'s LAN, signed in to PG Cloud as herself');
+  const lan = hostname().toLowerCase();
+  if (!/^[a-z0-9-]{1,63}(\.local)?$/.test(lan)) {
+    ok(`SSO leg skipped: this machine's host name (${lan}) is not a LAN name the flow accepts`, true);
+  } else {
+    const startOn = async (ct, cookieJar) => {
+      const r = await ctlReq(ct.port, `${lan}:${ct.port}`, '/api/auth/sso/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ origin: `https://${lan}:${ct.port}` }) });
+      const bind = String(r.headers['set-cookie'] ?? '').match(/pg_sso=[^;]+/)?.[0];
+      return { status: r.status, url: r.status === 200 ? JSON.parse(r.body).url : '', bind, cookieJar };
+    };
+    const authorize = async (startUrl, session) => {
+      const q = new URL(startUrl).searchParams;
+      const r = await fetch(SITE + '/sso/authorize', { method: 'POST', redirect: 'manual', headers: { cookie: session, origin: ORIGIN, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ controller: q.get('controller'), nonce: q.get('nonce'), return: q.get('return') }).toString() });
+      return { status: r.status, location: r.headers.get('location') ?? '' };
+    };
+    const deliver = async (ct, location, bind) => {
+      const u = new URL(location);
+      const r = await ctlReq(ct.port, `${lan}:${ct.port}`, u.pathname + u.search, { headers: bind ? { cookie: bind } : {} });
+      return { status: r.status, session: /pg_session=[^;]{8,}/.test(String(r.headers['set-cookie'] ?? '')), body: r.body };
+    };
+    const s1 = await startOn(CT.acer);
+    ok('mallory starts "Sign in with PowerGuardian Cloud" on acme\'s Acer (she is on its LAN)', s1.status === 200 && !!s1.bind, String(s1.status));
+    const a1 = await authorize(s1.url, mallory);
+    // the three test controllers share one hardware ID, so the cloud finds mallory's own site for "this" controller
+    const stmt = a1.location.includes('assertion=') ? JSON.parse(Buffer.from(decodeURIComponent(a1.location.split('assertion=')[1]).split('.')[1], 'base64url').toString()) : null;
+    ok('the cloud never signs a statement naming acme\'s site for mallory', !stmt || (stmt.site_id === L.mal && stmt.email === 'mallory@mallory.test'), JSON.stringify(stmt));
+    if (a1.location.includes('assertion=')) {
+      const d1 = await deliver(CT.acer, a1.location, s1.bind);
+      ok('acme\'s controller refuses mallory\'s statement (another site), no session', !d1.session && /another site/.test(d1.body), `${d1.status} ${d1.body.slice(0, 200)}`);
+    }
+    const s2 = await startOn(CT.acer);
+    const a2 = await authorize(s2.url, acme);
+    const d2 = await deliver(CT.acer, a2.location, s2.bind);
+    ok('(control) acme signs in to Acer with PowerGuardian Cloud', a2.status === 303 && d2.session, `${a2.status} ${d2.status} ${d2.body.slice(0, 160)}`);
+    const s3 = await startOn(CT.hp);
+    const a3 = await authorize(s3.url, acme);
+    const d3 = await deliver(CT.acer, a3.location, s2.bind);
+    ok('a statement acme got for HP is refused by Acer (other site / other nonce)', !d3.session, `${d3.status} ${d3.body.slice(0, 160)}`);
+    const d4 = await deliver(CT.acer, a2.location, s2.bind);
+    ok('a used statement replayed on Acer → refused', !d4.session, String(d4.status));
+    const s5 = await startOn(CT.acer);
+    const evil = `https://${label(L.mal)}-console.powerguardian.cloud/api/auth/sso/callback`;
+    const q = new URL(s5.url).searchParams;
+    const a5 = await fetch(SITE + '/sso/authorize', { method: 'POST', redirect: 'manual', headers: { cookie: acme, origin: ORIGIN, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ controller: q.get('controller'), nonce: q.get('nonce'), return: evil }).toString() });
+    ok('acme\'s statement can never be sent to mallory\'s console origin', a5.status === 400 && !a5.headers.get('location'), String(a5.status));
+  }
+} catch (e) { console.log(' FAIL  script error', e); fail++; }
+finally {
+  cleanup();
+  await sleep(500);
+  if (!process.env.KEEP) { try { rmSync(work, { recursive: true, force: true }); } catch {} }
+  console.log(`\n${pass} passed, ${fail} failed${process.env.KEEP ? '  (kept ' + work + ')' : ''}`);
+  if (fail) console.log('--- relay requests ---\n' + relayLog.split('\n').filter((l) => /\[wrangler:info\] (GET|POST|PUT|PATCH|DELETE)|error|Error/.test(l)).slice(-60).join('\n'));
+  setTimeout(() => process.exit(fail ? 1 : 0), 300);
+}
