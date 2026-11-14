@@ -3,7 +3,9 @@
 //   PATH=~/dev/.tools/node/bin:$PATH node scripts/cloud-dev.mjs
 // Prints the lease public key (PG_LEASE_PUBKEY for a controller). Mailbox: GET http://127.0.0.1:8788/__mails
 // Also importable: `const dev = await startDev(); ... dev.stop()`.
+// startDev({ https: { key, cert } }) serves https://localhost:3100 instead (browser tests: real Secure cookies).
 import http from 'node:http';
+import https from 'node:https';
 import { spawn } from 'node:child_process';
 import { generateKeyPairSync } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +15,8 @@ export const SITE = `http://${H}:${SITE_PORT}`;
 export const ORIGIN = `http://localhost:${SITE_PORT}`; // next dev reports its own URL as localhost
 export const ADMIN = 'admin@powerguardian.cloud', MINT = 'local-mint-secret';
 
-export async function startDev() {
+export async function startDev(opts = {}) {
+  const site = opts.https ? `https://localhost:${SITE_PORT}` : SITE;
   const kv = new Map(); const mails = [];
   const fake = http.createServer(async (req, res) => {
     const u = new URL(req.url, 'http://x'); let body = ''; for await (const c of req) body += c;
@@ -33,15 +36,19 @@ export async function startDev() {
   const spki = publicKey.export({ type: 'spki', format: 'der' });
   const rawPub = spki.subarray(spki.length - 32).toString('base64'); // 32-byte raw key, what the controller expects
 
-  const next = spawn('npx', ['next', 'dev', '-H', H, '-p', String(SITE_PORT)], {
+  const tls = opts.https ? ['--experimental-https', '--experimental-https-key', opts.https.key, '--experimental-https-cert', opts.https.cert] : [];
+  const next = spawn('npx', ['next', 'dev', '-H', H, '-p', String(SITE_PORT), ...tls], {
     env: { ...process.env, CLOUDFLARE_API_BASE: `http://${H}:${KV_PORT}`, BREVO_API_BASE: `http://${H}:${KV_PORT}`, CLOUDFLARE_KV_NAMESPACE_ID: 'ns', CLOUDFLARE_API_TOKEN: 't',
-      ADMIN_EMAIL: ADMIN, LEASE_PRIVATE_KEY: pkcs8, RELAY_MINT_SECRET: MINT, RELAY_BASE_URL: `http://${H}:${RELAY_PORT}`, NEXT_PUBLIC_BASE_URL: SITE, BREVO_API_KEY: 'x', NEXT_TELEMETRY_DISABLED: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
+      ADMIN_EMAIL: ADMIN, LEASE_PRIVATE_KEY: pkcs8, RELAY_MINT_SECRET: MINT, RELAY_BASE_URL: `http://${H}:${RELAY_PORT}`, NEXT_PUBLIC_BASE_URL: site, BREVO_API_KEY: 'x', NEXT_TELEMETRY_DISABLED: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'], cwd: fileURLToPath(new URL('..', import.meta.url)), // repo root, from wherever it is imported
   });
   const log = { text: '' }; next.stdout.on('data', (d) => (log.text += d)); next.stderr.on('data', (d) => (log.text += d));
   const stop = () => { next.kill('SIGTERM'); fake.close(); };
-  for (let i = 0; i < 120; i++) { try { await fetch(SITE + '/api/license/verify', { method: 'POST', body: '{}' }); break; } catch { await new Promise((r) => setTimeout(r, 500)); } }
-  return { kv, mails, rawPub, log, stop };
+  const probe = opts.https
+    ? () => new Promise((ok, no) => https.request(`https://${H}:${SITE_PORT}/api/license/verify`, { method: 'POST', rejectUnauthorized: false }, (r) => { r.resume(); ok(); }).on('error', no).end('{}'))
+    : () => fetch(SITE + '/api/license/verify', { method: 'POST', body: '{}' });
+  for (let i = 0; i < 120; i++) { try { await probe(); break; } catch { await new Promise((r) => setTimeout(r, 500)); } }
+  return { kv, mails, rawPub, log, stop, site };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

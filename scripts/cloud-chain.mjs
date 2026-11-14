@@ -51,10 +51,14 @@ try {
   ok('magic request accepted', (await post('/api/auth/magic', { email: ADMIN })).ok === true);
   const link = (await waitMail(ADMIN))?.text.match(/https?:\/\/\S+\/api\/auth\/verify\?token=\w+/)?.[0];
   ok('mail contains the link', !!link);
-  const v = await fetch(link, { redirect: 'manual' });
+  // LOGIN-1: opening the link (GET) only shows the confirm page; the button POSTs the token.
+  const g = await fetch(link, { redirect: 'manual' });
+  ok('opening the link shows the confirm page and signs nobody in', g.status === 200 && g.headers.get('set-cookie') === null);
+  const confirm = () => fetch(SITE + '/api/auth/verify', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: ORIGIN }, body: new URLSearchParams({ token: new URL(link).searchParams.get('token') }).toString() });
+  const v = await confirm();
   const cookie = (v.headers.get('set-cookie') ?? '').match(/pg_session=[^;]+/)?.[0];
-  ok('link sets a session cookie', !!cookie);
-  ok('the link is single-use', (await fetch(link, { redirect: 'manual' })).headers.get('set-cookie') === null);
+  ok('the confirm button sets a session cookie', !!cookie);
+  ok('the link is single-use', (await confirm()).headers.get('set-cookie') === null);
   ok('app logs no sign-in link (only the dev server access log has the URL)', !/FALLBACK|magicUrl/.test(nextLog));
 
   console.log('2. admin creates a licence');
