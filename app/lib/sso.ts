@@ -6,6 +6,7 @@
 // The signed bytes start with "pgsso1." so a statement can never pass as a lease (signed bytes = the bare body).
 import { signWithLeaseKey } from '@/app/lib/lease';
 import { getLicensesByEmail, type LicenseRecord } from '@/app/lib/license-db';
+import { siteLabel } from '@/app/lib/relay-mint';
 
 export const SSO_PREFIX = 'pgsso1.';
 export const SSO_CALLBACK_PATH = '/api/auth/sso/callback';
@@ -25,7 +26,9 @@ export type SSOAssertion = {
 
 const CTRL_RE = /^[0-9a-f]{64}$/;
 const NONCE_RE = /^[0-9a-f]{16,128}$/;
-const RELAY_HOST_RE = /^(relay|console)\.powerguardian\.cloud$|^[a-z0-9-]{1,63}\.console\.powerguardian\.cloud$/;
+// ISO-1: through the relay only a site's OWN console origin (SITE-2: <16 hex of sha256(licence id)>-console.powerguardian.cloud),
+// never the shared relay hosts. Which site's host is checked in ssoReturnFitsSite, once the site is known.
+const CONSOLE_HOST_RE = /^[0-9a-f]{16}-console\.powerguardian\.cloud$/;
 
 function privateIPv4(host: string): boolean {
   const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
@@ -36,15 +39,23 @@ function privateIPv4(host: string): boolean {
 }
 
 // The address the browser may be sent back to: only the controller's callback on a LAN address (private IPv4, a
-// .local name or a single-label host name) or on the PowerGuardian console host. Returns the origin, or null.
+// .local name or a single-label host name) or on a site's own PowerGuardian console host. Returns the origin, or null.
 export function ssoReturnOrigin(ret: string): string | null {
   let u: URL;
   try { u = new URL(ret); } catch { return null; }
   if (u.protocol !== 'https:' || u.username || u.password || u.search || u.hash || u.pathname !== SSO_CALLBACK_PATH) return null;
   const host = u.hostname.toLowerCase();
-  if (RELAY_HOST_RE.test(host)) return u.port ? null : `https://${host}`;
+  if (CONSOLE_HOST_RE.test(host)) return u.port ? null : `https://${host}`;
   const lan = privateIPv4(host) || /^[a-z0-9-]{1,63}\.local$/.test(host) || /^[a-z0-9-]{1,63}$/.test(host);
   return lan ? `https://${u.host.toLowerCase()}` : null;
+}
+
+// ISO-1: a statement for site X may only go back to a LAN address or to site X's own console host, never to the console
+// host of another site (of this or any other account).
+export async function ssoReturnFitsSite(origin: string, siteId: string): Promise<boolean> {
+  const host = new URL(origin).hostname;
+  if (!CONSOLE_HOST_RE.test(host)) return true;
+  return host === `${await siteLabel(siteId)}-console.powerguardian.cloud`;
 }
 
 export type SSORequest = { controller: string; nonce: string; ret: string; origin: string };

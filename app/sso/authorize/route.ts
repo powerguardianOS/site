@@ -5,7 +5,7 @@ export const runtime = 'edge';
 // sends the browser back to the controller. No statement ever goes to a controller of another account.
 import { getSessionInfo, type SessionInfo } from '@/app/lib/session';
 import { sameOrigin } from '@/app/lib/page-html';
-import { parseSSORequest, ssoSiteFor, buildAssertion, signSSO, ssoHtml, esc } from '@/app/lib/sso';
+import { parseSSORequest, ssoSiteFor, ssoReturnFitsSite, buildAssertion, signSSO, ssoHtml, esc } from '@/app/lib/sso';
 
 const NEXT_COOKIE = 'pg_sso_next';
 
@@ -54,6 +54,7 @@ export async function GET(request: Request) {
   }
   const site = await ssoSiteFor(email, req.controller);
   if (!site) return noAccess(email);
+  if (!(await ssoReturnFitsSite(req.origin, site.id))) return bad();
   const name = site.site_name || 'your site';
   const host = new URL(req.origin).host;
   return ssoHtml(200, `Sign in to ${name}`,
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
   if (!who || !email) return ssoHtml(401, 'Sign in first', '<p style="color:#9aa4b2">Your PowerGuardian Cloud session ended. Start again from your controller.</p>');
   const site = await ssoSiteFor(email, req.controller);
   if (!site) return noAccess(email);
+  if (!(await ssoReturnFitsSite(req.origin, site.id))) return bad();
   const token = await signSSO(buildAssertion(email, site, req, undefined, who.mfa));
   if (!token) return ssoHtml(503, 'Sign-in is not available right now', '<p style="color:#9aa4b2">Sign in on the controller with its own username and password.</p>');
   return new Response(null, {

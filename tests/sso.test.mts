@@ -47,8 +47,11 @@ for (const [u, ok] of [
   ['https://10.1.2.3/api/auth/sso/callback', true],
   ['https://172.20.0.1/api/auth/sso/callback', true],
   ['https://powerguardian.local/api/auth/sso/callback', true],
-  ['https://console.powerguardian.cloud/api/auth/sso/callback', true],
-  ['https://hp-3f9a.console.powerguardian.cloud/api/auth/sso/callback', true],
+  ['https://e1beb6d6a5ea79e7-console.powerguardian.cloud/api/auth/sso/callback', true], // a site's own console host (ISO-1)
+  ['https://console.powerguardian.cloud/api/auth/sso/callback', false], // ISO-1: shared relay hosts no longer
+  ['https://relay.powerguardian.cloud/api/auth/sso/callback', false],
+  ['https://hp-3f9a.console.powerguardian.cloud/api/auth/sso/callback', false],
+  ['https://e1beb6d6a5ea79e7-console.powerguardian.cloud:8443/api/auth/sso/callback', false],
   ['https://evil.example/api/auth/sso/callback', false],
   ['https://console.powerguardian.cloud.evil.example/api/auth/sso/callback', false],
   ['https://8.8.8.8/api/auth/sso/callback', false],
