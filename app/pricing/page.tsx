@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { PRICING, VAT_NOTE, eur, monthsFree } from "@/app/lib/pricing";
 import type { Period } from "@/app/lib/pricing";
+import TesterCta from "@/app/components/TesterCta";
 
 // Every number on this page comes from app/lib/pricing.ts — the same table PayPal charges from.
 const PLANS = [
@@ -138,6 +139,8 @@ export default function PricingPage() {
       <p className="text-xs text-zinc-500 -mt-4 md:-mt-6">
         {VAT_NOTE}
       </p>
+
+      <TesterCta />
 
       {/* Add-on */}
       <div data-plan="addon_connector" className="rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.02] to-transparent p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

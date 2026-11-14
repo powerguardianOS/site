@@ -36,3 +36,14 @@ export async function adminGuard(request: Request): Promise<Response | null> {
   }
   return null;
 }
+
+// The same admin check, read from the request's own Cookie header (for handlers that are also unit tested
+// outside Next, where next/headers has no request).
+export async function adminFromRequest(request: Request): Promise<string | null> {
+  const sid = (request.headers.get('cookie') ?? '').split(/;\s*/).find((c) => c.startsWith('pg_session='))?.slice('pg_session='.length) ?? '';
+  if (!sid) return null;
+  const email = await getSession(decodeURIComponent(sid));
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!email || !adminEmail || email.toLowerCase() !== adminEmail.toLowerCase()) return null;
+  return email;
+}

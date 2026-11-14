@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import TesterCta from '@/app/components/TesterCta'
 
 export default function HomePage() {
   return (
@@ -68,6 +69,9 @@ export default function HomePage() {
         </div>
         <span className="text-[11px] font-mono text-zinc-700 shrink-0">via NUT · SNMP</span>
       </div>
+
+      {/* BETA TESTERS — right under the hero and the brand strip */}
+      <TesterCta className="mt-16" />
 
       {/* FEATURES — bento grid */}
       <section className="py-24 space-y-12">

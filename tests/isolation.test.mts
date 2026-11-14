@@ -154,11 +154,12 @@ console.log('\nadmin endpoints: every handler checks the admin itself (route han
   for (const f of walk(root).filter((f) => f.endsWith('route.ts'))) {
     const src = readFileSync(f, 'utf8');
     const handlers = [...src.matchAll(/export async function (GET|POST|PUT|PATCH|DELETE)\([^)]*\)\s*\{\s*([^\n]*\n[^\n]*)/g)];
-    const ok = handlers.length > 0 && handlers.every((m) => /adminGuard\(request\)|getAdminEmail\(\)/.test(m[2]));
+    const ok = handlers.length > 0 && handlers.every((m) => /adminGuard\(request\)|getAdminEmail\(\)|adminFromRequest\(request\)/.test(m[2]));
     check(`${f.slice(root.length)}: every handler starts with the admin check`, ok, handlers.map((m) => m[1]).join(','));
   }
   const admin = readFileSync(new URL('../app/lib/admin.ts', import.meta.url), 'utf8');
   check('admin = exactly ADMIN_EMAIL (case-insensitive), refused when ADMIN_EMAIL is unset', /!adminEmail \|\| email\.toLowerCase\(\) !== adminEmail\.toLowerCase\(\)/.test(admin));
+  check('…in both admin checks (cookies() and the request Cookie header)', (admin.match(/!adminEmail \|\| email\.toLowerCase\(\) !== adminEmail\.toLowerCase\(\)/g) ?? []).length === 2);
 }
 
 console.log('\nids are not guessable');
