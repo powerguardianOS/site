@@ -22,6 +22,7 @@ const licenses = [
   L('lic-hq', { plan: 'founder', connector_limit: 0, site_name: 'Head office', claimed_by: '1a'.repeat(32), claimed_hostname: 'nanopi-r3s' }),
   L('lic-wh', { plan: 'founder', connector_limit: 0, site_name: 'Warehouse', minted_from: 'lic-hq', claimed_by: '2b'.repeat(32), claimed_hostname: 'hp-prodesk-400' }),
   L('lic-br', { plan: 'pro', site_name: 'Branch Utrecht', claimed_by: '3c'.repeat(32), claimed_hostname: 'acer-veriton', expires_at: iso(now + 200 * DAY) }),
+  L('lic-lab', { plan: 'pro', site_name: 'Lab', claimed_by: '5e'.repeat(32), claimed_hostname: 'lab-box' }),
   L('lic-add', { plan: 'addon_connector', connector_limit: 3, parent_id: 'lic-br' }),
   L('lic-spare', { plan: 'pro', expires_at: iso(now + 300 * DAY) }),
   L('lic-home', { plan: 'home', connector_limit: 2 }),
@@ -38,6 +39,8 @@ const brHist = { at: at - 6, s: '-'.repeat(10) + 'm'.repeat(38) };
 stack.kv.set('sitestatus:lic-hq', status({ model: 'NanoPi R3S', power: hqHist, devices: [dev('Eaton 5PX 1500', 'OL', 100, 24, 3120), dev('APC Smart-UPS 1000', 'OL CHRG', 96, 31, 2280), dev('CyberPower OR600', 'OL', 100, 12, 5400)] }));
 stack.kv.set('sitestatus:lic-wh', status({ model: 'HP ProDesk 400 G3 DM', devices: [dev('Eaton Ellipse PRO 850', 'OB DISCHRG', 71, 18, 1500)] }));
 stack.kv.set('sitestatus:lic-br', status({ model: 'Acer Veriton', power: brHist, received_at: now - 3 * 3600_000, devices: [dev('APC Back-UPS 700', 'OL', 100, 9, 1800)] }));
+// Lab: a controller without any UPS (HIST-24H: it says so in its heartbeat): no strip, a clear "No UPS on this controller".
+stack.kv.set('sitestatus:lic-lab', status({ model: 'Mini PC', no_ups: true, power: { at, s: '-'.repeat(46) + 'nn', m: '0'.repeat(48) } }));
 stack.kv.set('mfa:' + EMAIL, JSON.stringify({ v: 1, totp: 'demo', created_at: iso(now - 20 * DAY), last_step: 0, recovery: Array(10).fill('x'), recovery_created_at: iso(now - 20 * DAY) }));
 const sid = randomBytes(32).toString('hex');
 stack.kv.set('session:' + sid, JSON.stringify({ email: EMAIL, expires: now + DAY, mfa: true }));
@@ -66,7 +69,7 @@ try {
   check('no "Total connectors" box', !(await page.locator('body').innerText()).includes('Total connectors'));
 
   console.log('\none tile per site, health at a glance');
-  check('three site tiles (only this account’s) and an "+ Add site" tile', await page.locator('article.site-card').count() === 3 && !(await page.locator('body').innerText()).includes('Not yours') && await page.locator('#add-site').isVisible());
+  check('four site tiles (only this account’s) and an "+ Add site" tile', await page.locator('article.site-card').count() === 4 && !(await page.locator('body').innerText()).includes('Not yours') && await page.locator('#add-site').isVisible());
   const hq = tile(page, 'Head office'), wh = tile(page, 'Warehouse'), br = tile(page, 'Branch Utrecht');
   check('plan badge on the tile', (await hq.locator('.site-plan').textContent()) === 'Founder' && (await br.locator('.site-plan').textContent()) === 'Pro');
   check('online, all on mains: "3 UPSes on mains" (+ the model)', (await hq.innerText()).includes('3 UPSes on mains') && (await hq.innerText()).includes('NanoPi R3S'));
@@ -123,10 +126,18 @@ try {
   await page.keyboard.press('Escape');
   check('Escape clears the label', (await br.locator('.strip-label').textContent()).trim() === '');
 
+  console.log('\na controller without any UPS');
+  const lab = tile(page, 'Lab');
+  check('no strip cells, a clear "No UPS on this controller" instead', await lab.locator('.strip-cell').count() === 0 && (await lab.locator('.power-strip').innerText()).includes('No UPS on this controller'));
+  check('the status line says it too, not "no UPS data yet"', (await lab.locator('.site-line').innerText()) === 'Online · No UPS on this controller');
+  check('its look is the neutral dashed outline, not the grey of "no data / offline"', (await lab.locator('.power-strip').getAttribute('data-ups')) === 'none' && /dashed/.test(await lab.locator('.no-ups').evaluate((e) => getComputedStyle(e).borderStyle)));
+  check('sites with a UPS keep their strip', await hq.locator('.strip-cell').count() === 24 && await hq.locator('.no-ups').count() === 0);
+  check('the legend explains it', (await page.locator('#power-legend').innerText()).includes('No UPS'));
+
   console.log('\nnames');
   const text = await page.locator('body').innerText();
   check('no "default-site" anywhere (text or page source)', !/default-site/i.test(text) && !/default-site/.test(await page.content()));
-  check('no hostname shown', !/nanopi-r3s|hp-prodesk-400|acer-veriton/.test(text));
+  check('no hostname shown', !/nanopi-r3s|hp-prodesk-400|acer-veriton|lab-box/.test(text));
 
   console.log('\nphone layout');
   check('no sideways scrolling at iPhone width', await noSideScroll(page));
@@ -199,7 +210,7 @@ try {
   check('desktop: moving away hides it', (await tile(dp, 'Head office').locator('.strip-label').textContent()).trim() === '');
 
   console.log('\nan account with only unused licenses');
-  for (const id of ['lic-hq', 'lic-wh', 'lic-br']) { const l = JSON.parse(stack.kv.get('license:' + id)); stack.kv.set('license:' + id, JSON.stringify({ ...l, email: 'gone@else.test' })); }
+  for (const id of ['lic-hq', 'lic-wh', 'lic-br', 'lic-lab']) { const l = JSON.parse(stack.kv.get('license:' + id)); stack.kv.set('license:' + id, JSON.stringify({ ...l, email: 'gone@else.test' })); }
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await page.goto(BASE + '/account');
   await page.locator('#unused-licenses').waitFor();
