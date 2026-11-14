@@ -24,6 +24,9 @@ const keyOf = async (page, sel) => (await page.locator(sel).textContent()).repla
 
 async function signInByLink(page, email, n) {
   await page.goto(BASE + '/login');
+  // PASSKEYS-1: a browser that signed in before shows "Continue as …" first
+  await hydrated(page, '#remembered-other, input[type=email]');
+  if (await page.locator('#remembered-other').isVisible().catch(() => false)) await page.locator('#remembered-other').tap();
   await hydrated(page);
   await page.fill('input[type=email]', email);
   await page.getByRole('button', { name: 'Send sign-in link' }).tap();
