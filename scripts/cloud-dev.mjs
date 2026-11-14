@@ -7,7 +7,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import { spawn } from 'node:child_process';
-import { generateKeyPairSync, createHmac } from 'node:crypto';
+import { generateKeyPairSync, createHmac, createPublicKey } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 export const H = '127.0.0.1', KV_PORT = 8788, SITE_PORT = 3100, RELAY_PORT = 8787;
@@ -31,7 +31,8 @@ export async function startDev(opts = {}) {
   });
   await new Promise((r) => fake.listen(KV_PORT, H, r));
 
-  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  // opts.leaseKey: a KeyObject to sign leases with (e.g. the controller's committed e2e test key), else a fresh one
+  const { privateKey, publicKey } = opts.leaseKey ? { privateKey: opts.leaseKey, publicKey: createPublicKey(opts.leaseKey) } : generateKeyPairSync('ed25519');
   const pkcs8 = privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64');
   const spki = publicKey.export({ type: 'spki', format: 'der' });
   const rawPub = spki.subarray(spki.length - 32).toString('base64'); // 32-byte raw key, what the controller expects
