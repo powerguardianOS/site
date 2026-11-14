@@ -48,7 +48,7 @@ const cloudBat = { at: AT, s: '-'.repeat(40) + 'bbbbmmmm', m: '0'.repeat(40) + '
 merged = applyControllerPower(cloudBat, parseControllerPower(good({ s: 'u'.repeat(48), m: '0'.repeat(48) }), now) as any);
 check('"u" (the controller has no data) keeps the cloud’s own slots', merged.s === cloudBat.s && merged.m === cloudBat.m);
 merged = applyControllerPower(cloudBat, parseControllerPower(good({ at: AT + 1, s: 'm'.repeat(48), m: '0'.repeat(48) }), now) as any);
-check('a controller clock one slot ahead: its slots are placed by number, the future one is dropped', merged.at === AT && merged.s === 'm'.repeat(48));
+check('a controller clock one slot ahead: its slots are placed by number, the future one is dropped', merged.at === AT && merged.s === '-' + 'm'.repeat(47), merged.s);
 merged = applyControllerPower(cloudBat, parseControllerPower(good({ at: AT - 1, s: 'b' + 'm'.repeat(47), m: '1' + '0'.repeat(47) }), now) as any);
 check('a controller clock one slot behind: the slot it does not cover is the cloud’s', merged.s === 'm'.repeat(47) + 'm' && merged.s[47] === cloudBat.s[47]);
 check('the result is a valid history (read back for the tile)', last24h(merged, now).slots.length === SLOTS && !last24h(merged, now).empty);

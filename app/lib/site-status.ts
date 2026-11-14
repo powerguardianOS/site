@@ -19,6 +19,7 @@ export type SiteStatus = {
   model?: string;      // the controller's hardware ("HP ProDesk 400 G3 DM"); absent in beats from before SITE-2
   lan?: string[];      // its private LAN addresses, for the site switcher of the account's other controllers
   power?: PowerHistory; // ACCOUNT-UI: 24 h power history (lib/power-history.ts), carried from beat to beat
+  no_ups?: true;        // HIST-24H: the controller said in its last heartbeat that it has no UPS at all
 };
 
 // A controller heartbeats every 60 s; three missed beats = offline.

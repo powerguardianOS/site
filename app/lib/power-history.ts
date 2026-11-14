@@ -52,6 +52,43 @@ export function recordBeat(prev: PowerHistory | null | undefined, devices: SiteD
   return { at, s: s.slice(0, -1) + (RANK[next] > RANK[cur] ? next : cur), m: m.slice(0, -1) + min.toString(32) };
 }
 
+// ---- HIST-24H: the controller's own summary (power_24h in its heartbeat) ----
+// {v:1, state:'ups', at, s, m}: 48 half-hour slots up to slot `at` (the same slot numbers as ours: unix time / 30 min), per
+// slot m (mains), b (battery) or u (the controller has no data), and the battery minutes as one base-32 digit (0–30, never 0
+// for b, always 0 otherwise). {v:1, state:'no_ups'}: the controller has no UPS at all. Built from what the controller has
+// stored for weeks, so the strip is right from the first heartbeat. Untrusted input: checked strictly, anything else = null.
+export type ControllerPower = { state: 'ups'; at: number; s: string; m: string } | { state: 'no_ups' };
+const MAX_SKEW_SLOTS = 1; // a controller clock more than one slot off: its slots would land on the wrong hours
+
+export function parseControllerPower(v: unknown, now = Date.now()): ControllerPower | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const keys = Object.keys(o);
+  if (o.v !== 1) return null;
+  if (o.state === 'no_ups') return keys.length === 2 ? { state: 'no_ups' } : null;
+  if (o.state !== 'ups' || keys.length !== 5 || !['v', 'state', 'at', 's', 'm'].every((k) => k in o)) return null;
+  const { at, s, m } = o;
+  if (typeof at !== 'number' || !Number.isSafeInteger(at) || Math.abs(at - Math.floor(now / SLOT_MS)) > MAX_SKEW_SLOTS) return null;
+  if (typeof s !== 'string' || typeof m !== 'string' || !/^[mbu]{48}$/.test(s) || !/^[0-9a-u]{48}$/.test(m)) return null;
+  for (let i = 0; i < SLOTS; i++) if ((s[i] === 'b') !== (m[i] !== '0')) return null;
+  return { state: 'ups', at, s, m };
+}
+
+// The cloud's history with the controller's summary on top: for every slot the controller knows (m or b) its state and
+// minutes win; where it says u, or for slots outside its window, the cloud's own history stays (older controllers send
+// nothing and simply keep the cloud's history).
+export function applyControllerPower(h: PowerHistory, c: ControllerPower): PowerHistory {
+  if (c.state !== 'ups') return h;
+  const s = h.s.split(''), m = (validM(h.m) ? h.m : ZERO).split('');
+  const base = h.at - (SLOTS - 1), cbase = c.at - (SLOTS - 1);
+  for (let i = 0; i < SLOTS; i++) {
+    const j = cbase + i - base;
+    if (j < 0 || j >= SLOTS || c.s[i] === 'u') continue;
+    s[j] = c.s[i]; m[j] = c.m[i];
+  }
+  return { at: h.at, s: s.join(''), m: m.join('') };
+}
+
 // The last 24 hours up to now, oldest first. Slots after the last heartbeat are '-' (no data), never a stale state.
 export function last24h(h: PowerHistory | null | undefined, now = Date.now()): { at: number; slots: Slot[]; minutes: number[]; empty: boolean } {
   const at = Math.floor(now / SLOT_MS);

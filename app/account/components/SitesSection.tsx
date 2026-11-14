@@ -51,7 +51,7 @@ export function Site({ site, now }: { site: SiteCard; now: number }) {
         </div>
       </div>
       <div className="relative mt-2 sm:pl-[52px]">
-        <PowerStrip id={lic.id} {...site.power} now={now} />
+        <PowerStrip id={lic.id} {...site.power} now={now} noUps={site.noUps} />
       </div>
       <div className="relative empty:hidden"><UnderlicensedBanner connectorLimit={lic.capacity} /></div>
       <SiteControls site={site.info} title={name} details={lic.details} hint={hint}
@@ -71,7 +71,7 @@ function AddSite({ href }: { href: string }) {
 }
 
 // Shown once on the page, for every strip.
-function Legend() {
+function Legend({ noUps }: { noUps: boolean }) {
   const item = (color: string, text: string) => (
     <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2.5 w-1.5 rounded-[1px]" style={{ background: color }} />{text}</span>
   );
@@ -79,6 +79,7 @@ function Legend() {
     <p id="power-legend" className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/40">
       <span className="text-white/30">Power, last 24 h:</span>
       {item('#00C66F', 'On mains')}{item('#fbbf24', 'On battery')}{item('rgba(255,255,255,0.12)', 'No data / offline')}
+      {noUps && <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2.5 w-3 rounded-[1px] border border-dashed border-white/30" />No UPS on the controller</span>}
     </p>
   );
 }
@@ -119,7 +120,7 @@ export default function SitesSection({ view }: { view: AccountView }) {
         {view.sites.map((s) => <Site key={s.license.id} site={s} now={view.now} />)}
         <AddSite href={view.unused.length ? '?add=1#unused-licenses' : '/pricing'} />
       </div>
-      {view.sites.length > 0 && <Legend />}
+      {view.sites.length > 0 && <Legend noUps={view.sites.some((s) => s.noUps)} />}
     </div>
   );
 }

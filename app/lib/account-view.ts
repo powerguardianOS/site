@@ -93,6 +93,7 @@ export function statusLine(status: SiteStatus | null, now = Date.now()): Line {
   const down = status.devices.filter((d) => d.state !== 'online').length;
   if (down) return mk('Attention', `${down} ${down === 1 ? 'connector' : 'connectors'} offline`, 'warn', 'Online');
   if (withUps.length) return mk('Guarded', `${ups(withUps.length)} on mains`, 'ok', 'Online');
+  if (status.no_ups) return mk('Online', 'No UPS on this controller', 'ok');
   return mk('Online', 'no UPS data yet', 'ok');
 }
 
@@ -102,6 +103,7 @@ export type CardLicense = { id: string; plan: LicenseRecord['plan']; status: Lic
 export type SiteCard = {
   license: CardLicense; name: string; model: string | null; online: boolean; line: Line;
   power: ReturnType<typeof last24h>; info: SiteInfo;
+  noUps: boolean; // HIST-24H: the controller has no UPS at all: the tile shows that instead of a strip
 };
 export type UnusedLicense = { id: string; plan: LicenseRecord['plan']; connectors: string; term: string; founderRoot: boolean };
 export type AccountView = { sites: SiteCard[]; unused: UnusedLicense[]; now: number };
@@ -125,7 +127,7 @@ export function accountView(withStatus: { lic: LicenseRecord; status: SiteStatus
         details: `${connectorsText(lic, all, status && online ? status.devices.length : null)} · ${termText(lic)}`,
       },
       name, model: status?.model || null, online, line: statusLine(status, now),
-      power: last24h(status?.power, now), info: siteInfo(lic, name === UNNAMED ? null : name, now),
+      power: last24h(status?.power, now), noUps: status?.no_ups === true, info: siteInfo(lic, name === UNNAMED ? null : name, now),
     });
   }
   return { sites, unused, now };
