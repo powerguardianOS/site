@@ -116,6 +116,38 @@ check('no cloud session → sign in first (login), never a statement', r.status 
 r = await authorize({ session: roy, cookies: [o6.pair] });
 check('(control) the owner\'s untouched intent still works once', silent(r));
 
+console.log('\none controller id on two sites of the account (a copy, or the local test stack)');
+{
+  const { seed: _s } = await import('./harness.mts');
+  _s(lic('site-twin', 'roy@x.nl', { plan: 'pro', claimed_by: CTRL_A, site_name: 'Twin' }));
+  const ot = await openConsole(roy, 'site-twin');
+  const RET_TWIN = `https://${await host('site-twin')}/api/auth/sso/callback`;
+  const rt = await authorize({ session: roy, ret: RET_TWIN, cookies: [ot.pair] });
+  const at = await decode(rt.headers.get('location') ?? '');
+  check('the console host the flow returns to decides which of them the statement names', silent(rt, RET_TWIN) && at?.site_id === 'site-twin', `${rt.status} ${JSON.stringify(at)}`);
+  const ra = await authorize({ session: roy });
+  check('(control) Acer\'s console host still gets Acer', await continuePage(ra) && (await ra.clone().text()).includes('Sign in to Acer'));
+  const { put } = await import('./harness.mts');
+  put('sitestatus:site-twin', { site_name: 'Twin', devices: [], received_at: Date.now() - 30_000, lan: ['192.168.10.77'] });
+  const rl = await authorize({ session: roy, ret: 'https://192.168.10.77/api/auth/sso/callback' });
+  check('on the LAN the site that reported that address decides', await continuePage(rl) && (await rl.clone().text()).includes('Sign in to Twin'));
+}
+
+console.log('\nsilent on the LAN only to an address the site itself reported');
+{
+  const { put } = await import('./harness.mts');
+  put('sitestatus:site-roy', { site_name: 'Acer', devices: [], received_at: Date.now() - 30_000, lan: ['192.168.10.235'] });
+  const ol = await openConsole(roy, 'site-roy');
+  r = await authorize({ session: roy, ret: RET_LAN, cookies: [ol.pair] });
+  check('LAN return to Acer\'s own reported address + fresh intent → straight back', silent(r, RET_LAN), `${r.status}`);
+  const ol2 = await openConsole(roy, 'site-roy');
+  r = await authorize({ session: roy, ret: 'https://192.168.10.99/api/auth/sso/callback', cookies: [ol2.pair] });
+  check('a LAN address Acer never reported → Continue page', await continuePage(r));
+  const ol3 = await openConsole(roy, 'site-roy');
+  r = await authorize({ session: roy, ret: 'https://192.168.10.235:8443/api/auth/sso/callback', cookies: [ol3.pair] });
+  check('the reported address on another port → still that address (straight back)', silent(r, 'https://192.168.10.235:8443/api/auth/sso/callback'));
+}
+
 console.log('\nthe way back to the controller');
 r = await authorize({ session: eve });
 check('the no-access page links back to the controller sign-in without starting again (?sso=failed)', (await r.text()).includes(`https://${await host('site-roy')}/?sso=failed`));

@@ -1,7 +1,7 @@
 // CLOUD-MFA: the step between "the sign-in link was confirmed" and "the session exists". When the account has two-step
 // sign-in (or must set it up because it manages sites), no session is made yet: a pending sign-in (KV, 10 minutes,
 // 5 code tries) is kept under a random id in an HttpOnly cookie that only /login/mfa receives.
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
 import { createSession } from '@/app/lib/session';
 import { getMfa, mfaRequired, newSecret, sealSecret } from '@/app/lib/mfa';
@@ -46,6 +46,21 @@ export const savePending = (id: string, p: PendingSignIn) => kvPut(stepKey(id), 
 export const dropPending = (id: string) => kvDel(stepKey(id));
 
 const cookieOpts = { httpOnly: true, secure: true, sameSite: 'lax' as const, path: STEP_PATH };
+
+// Where a confirmed sign-in goes on to: back to a controller's CLOUD-SSO request (pg_sso_next), on to a site switch
+// ticket (pg_open_next, AUTO-SSO), else the account. The cookies only ever point at those pages; each checks in full.
+export function signInTarget(request: NextRequest): string {
+  const ssoNext = request.cookies.get('pg_sso_next')?.value ?? '';
+  const openNext = request.cookies.get('pg_open_next')?.value ?? '';
+  if (ssoNext) return '/sso/authorize?' + new URLSearchParams(ssoNext).toString();
+  if (/^[0-9a-f]{48}$/.test(openNext)) return '/console/open?' + new URLSearchParams({ t: openNext }).toString();
+  return '/account';
+}
+export function clearSignInNext(request: NextRequest, res: NextResponse): void {
+  for (const n of ['pg_sso_next', 'pg_open_next']) {
+    if (request.cookies.get(n)?.value) res.cookies.set(n, '', { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 0, path: '/' });
+  }
+}
 
 // Sets pg_session and the security headers on a response that ends a sign-in.
 export async function withSession(res: NextResponse, email: string, mfa: boolean): Promise<NextResponse> {

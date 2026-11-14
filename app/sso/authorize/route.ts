@@ -5,10 +5,12 @@ export const runtime = 'edge';
 // sends the browser back to the controller. No statement ever goes to a controller of another account.
 import { getSessionInfo, type SessionInfo } from '@/app/lib/session';
 import { sameOrigin } from '@/app/lib/page-html';
-import { parseSSORequest, ssoSiteFor, ssoReturnFitsSite, ssoIsConsoleOrigin, buildAssertion, signSSO, ssoHtml, esc } from '@/app/lib/sso';
+import { parseSSORequest, ssoSiteFor, ssoReturnFitsSite, ssoSilentOrigin, buildAssertion, signSSO, ssoHtml, esc } from '@/app/lib/sso';
+import { getSiteStatus } from '@/app/lib/site-status';
 import { intentCookieName, consumeConsoleIntent, clearConsoleIntent } from '@/app/lib/console-intent';
 
 const NEXT_COOKIE = 'pg_sso_next';
+const ssoIsLan = (origin: string) => !/-console\.powerguardian\.cloud$/.test(new URL(origin).hostname);
 
 function cookie(request: Request, name: string): string {
   const raw = request.headers.get('cookie') ?? '';
@@ -65,12 +67,13 @@ export async function GET(request: Request) {
       },
     });
   }
-  const site = await ssoSiteFor(email, req.controller);
+  const site = await ssoSiteFor(email, req.controller, req.origin);
   if (!site) return noAccess(email, req.origin);
   if (!(await ssoReturnFitsSite(req.origin, site.id))) return bad();
 
   // AUTO-SSO: started by Open Console moments ago (a console intent for this site and this session): no Continue tap,
-  // when the session passed two-step sign-in and the browser goes back to this site's own console host. The intent
+  // when the session passed two-step sign-in and the browser goes back to this site's own console host (or to a
+  // LAN address this site itself reported: the site switcher on the LAN). The intent
   // is burned at this first try, whatever the outcome; without it, or when anything does not hold: the Continue page.
   const intentName = await intentCookieName(site.id);
   const intent = cookie(request, intentName);
@@ -78,7 +81,8 @@ export async function GET(request: Request) {
   if (intent) {
     clear = { 'Set-Cookie': await clearConsoleIntent(site.id) };
     const fetchSite = (request.headers.get('sec-fetch-site') ?? '').toLowerCase();
-    if (await consumeConsoleIntent(intent, site.id, who.sid) && who.mfa && ssoIsConsoleOrigin(req.origin) && fetchSite !== 'cross-site') {
+    const lan = ssoIsLan(req.origin) ? ((await getSiteStatus(site.id).catch(() => null))?.lan ?? []) : [];
+    if (await consumeConsoleIntent(intent, site.id, who.sid) && who.mfa && fetchSite !== 'cross-site' && await ssoSilentOrigin(req.origin, site.id, lan)) {
       const token = await signSSO(buildAssertion(email, site, req, undefined, true));
       if (token) return sendBack(req, token, clear);
     }
@@ -112,7 +116,7 @@ export async function POST(request: Request) {
   const who = await signedIn(request);
   const email = who?.email;
   if (!who || !email) return ssoHtml(401, 'Sign in first', '<p style="color:#9aa4b2">Your PowerGuardian Cloud session ended. Start again from your controller.</p>');
-  const site = await ssoSiteFor(email, req.controller);
+  const site = await ssoSiteFor(email, req.controller, req.origin);
   if (!site) return noAccess(email, req.origin);
   if (!(await ssoReturnFitsSite(req.origin, site.id))) return bad();
   const token = await signSSO(buildAssertion(email, site, req, undefined, who.mfa));

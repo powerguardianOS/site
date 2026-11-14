@@ -347,6 +347,94 @@ try {
     const s2 = await start(L.acer, [relayCk]);
     const a2 = await authorizeGet(s2.url, [acme, oc.intent]);
     ok('the same console intent replayed → the Continue page, no statement', a2.status === 200 && a2.body.includes('id="sso-continue"') && !a2.location, `${a2.status} ${a2.location.slice(0, 80)}`);
+    console.log('   site switcher: on Acer tap HP → signed in on HP');
+    {
+      const cidAcer = licOf(L.acer).claimed_by, cidMal = licOf(L.mal).claimed_by;
+      // what Acer's controller sends for its admin linked to acme (the controller side is in controller/sites_api_test.go;
+      // here the local relay's console links would not pass its exact console-host check)
+      const askCloud = (t, cid, body) => fetch(SITE + '/api/cloud/sites/console', { method: 'POST', headers: { authorization: 'Bearer ' + t, 'x-controller-id': cid, 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(j);
+      const sw = await askCloud(tok.acer, cidAcer, { site_id: L.hp, actor: 'acme@acme.test' });
+      ok('Acer asks the cloud for HP for its admin linked to acme: console link + switch ticket', sw.status === 200 && !!sw.console_url && (sw.open_url ?? '').startsWith(SITE + '/console/open?t='), JSON.stringify(sw));
+      const plain = await askCloud(tok.acer, cidAcer, { site_id: L.hp });
+      ok('a local admin without a cloud link: the console link only (HP asks its own login)', plain.status === 200 && !plain.open_url, JSON.stringify(plain));
+      const toMal = await askCloud(tok.acer, cidAcer, { site_id: L.mal, actor: 'acme@acme.test' });
+      ok('acme\'s controller switching to mallory\'s site → refused, no link, no ticket', toMal.status === 404 && !toMal.console_url && !toMal.open_url, JSON.stringify(toMal));
+      const asAcme = await askCloud(tok.mal, cidMal, { site_id: L.hp, actor: 'acme@acme.test' });
+      ok('mallory\'s controller naming acme as actor for HP → refused, no ticket', asAcme.status === 404 && !asAcme.open_url, JSON.stringify(asAcme));
+      if (sess) {
+        const viaCtl = JSON.parse((await viaRelay(L.acer, [relayCk, sess], '/api/sites/console', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: L.mal }) })).body || '{}');
+        ok('acme signed in on Acer, the switcher asking for Mal → refused, no link', !viaCtl.console_url && !viaCtl.open_url, JSON.stringify(viaCtl));
+      }
+      const openT = (cookie) => fetch(sw.open_url, { redirect: 'manual', headers: cookie ? { cookie } : {} });
+      const o0 = await openT('');
+      ok('the ticket without a cloud session → sign in to PG Cloud first, then on to HP', o0.status === 303 && o0.headers.get('location') === '/login?next=console' && /pg_open_next=/.test(o0.headers.get('set-cookie') ?? ''), String(o0.status));
+      const om = await openT(mallory);
+      ok('mallory\'s cloud session on acme\'s ticket → refused, no redirect to HP', om.status === 403 && !om.headers.get('location'), String(om.status));
+      const oa = await openT(acme);
+      const hpConsoleUrl = oa.headers.get('location') ?? '';
+      const hpIntent = (oa.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).find((c) => c.startsWith(`pg_ci_${label(L.hp)}=`)) ?? '';
+      ok('acme\'s session on the ticket → HP\'s console link with HP\'s console intent', oa.status === 303 && hpConsoleUrl.includes('/console/') && !!hpIntent, `${oa.status} ${hpConsoleUrl}`);
+      const again = await openT(acme);
+      ok('the ticket replayed → expired, no second link', again.status === 410 && !again.headers.get('location'), String(again.status));
+      if (hpConsoleUrl && hpIntent) {
+        const hpRelay = await enter(L.hp, hpConsoleUrl);
+        const sh = await start(L.hp, [hpRelay]);
+        const ah = await authorizeGet(sh.url, [acme, hpIntent]);
+        ok('HP starts the cloud sign-in by itself and PG Cloud completes without Continue', ah.status === 303 && ah.location.startsWith(`https://${prodHost(L.hp)}/api/auth/sso/callback?assertion=`), `${ah.status} ${ah.body.slice(0, 120)}`);
+        if (ah.location) {
+          const cb = new URL(ah.location);
+          const dh = await viaRelay(L.hp, [hpRelay, sh.bind], cb.pathname + cb.search);
+          const hs = cookiesOf(dh).find((c) => /^pg_session=.{8,}/.test(c)) ?? '';
+          const meHp = hs ? JSON.parse((await viaRelay(L.hp, [hpRelay, hs], '/api/auth/me')).body || '{}') : {};
+          ok('acme lands signed in on HP (switched from Acer, no login)', !!meHp.username && /admin|owner/.test(meHp.role ?? ''), `${dh.status} ${JSON.stringify(meHp)}`);
+        }
+      }
+    }
+    console.log('   site switcher on the LAN (e.g. the controller\'s home-screen app): on Acer tap HP → HP\'s LAN address, signed in');
+    {
+      const cidAcer = licOf(L.acer).claimed_by, cidMal = licOf(L.mal).claimed_by;
+      const askCloud = (t, cid, body) => fetch(SITE + '/api/cloud/sites/console', { method: 'POST', headers: { authorization: 'Bearer ' + t, 'x-controller-id': cid, 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(j);
+      const hpLan = (JSON.parse(dev.kv.get('sitestatus:' + L.hp) ?? '{}').lan ?? []).find((a) => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a));
+      const noTicket = await askCloud(tok.acer, cidAcer, { site_id: L.hp, via: 'lan' });
+      ok('via lan without a linked cloud account → no ticket (the page opens the LAN address directly)', noTicket.status === 403 && !noTicket.open_url, JSON.stringify(noTicket));
+      const malLan = await askCloud(tok.mal, cidMal, { site_id: L.hp, actor: 'acme@acme.test', via: 'lan' });
+      ok('mallory\'s controller asking a LAN ticket for acme\'s HP → refused', malLan.status === 404 && !malLan.open_url, JSON.stringify(malLan));
+      const toMalLan = await askCloud(tok.acer, cidAcer, { site_id: L.mal, actor: 'acme@acme.test', via: 'lan' });
+      ok('acme\'s controller asking a LAN ticket for mallory\'s site → refused', toMalLan.status === 404 && !toMalLan.open_url, JSON.stringify(toMalLan));
+      if (!hpLan) {
+        ok('LAN leg skipped: HP reported no private LAN address on this machine', true);
+      } else {
+        const lt = await askCloud(tok.acer, cidAcer, { site_id: L.hp, actor: 'acme@acme.test', via: 'lan' });
+        ok('Acer asks a LAN ticket for HP for its admin linked to acme: an open_url only', lt.status === 200 && (lt.open_url ?? '').startsWith(SITE + '/console/open?t=') && !lt.console_url, JSON.stringify(lt));
+        const om = await fetch(lt.open_url, { redirect: 'manual', headers: { cookie: mallory } });
+        ok('mallory\'s cloud session on that ticket → refused', om.status === 403 && !om.headers.get('location'), String(om.status));
+        const oa = await fetch(lt.open_url, { redirect: 'manual', headers: { cookie: acme } });
+        const intent = (oa.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).find((c) => c.startsWith(`pg_ci_${label(L.hp)}=`)) ?? '';
+        ok('acme\'s session → HP\'s own reported LAN address with ?sso=auto and HP\'s console intent', oa.status === 303 && oa.headers.get('location') === `https://${hpLan}/?sso=auto` && !!intent, `${oa.status} ${oa.headers.get('location')}`);
+        // the browser on HP's LAN address (this machine: the port of the HP test controller)
+        const lanReq = async (p, opt = {}) => {
+          for (let i = 0; ; i++) { const r = await ctlReq(CT.hp.port, `${hpLan}:${CT.hp.port}`, p, opt); if (r.status !== 429 || i >= 2) return r; await sleep(61000); }
+        };
+        // the three test controllers share this machine and so report the SAME LAN address; on a real LAN each site
+        // reports its own. Give Acer (and Mal) another address in the fake KV for this leg, so HP's address is HP's.
+        for (const k of [L.acer, L.mal]) { const v = JSON.parse(dev.kv.get('sitestatus:' + k) ?? '{}'); dev.kv.set('sitestatus:' + k, JSON.stringify({ ...v, lan: ['10.255.255.' + (k === L.acer ? 1 : 2)] })); }
+        const st = await lanReq('/api/auth/sso/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ origin: `https://${hpLan}:${CT.hp.port}` }) });
+        const url = st.status === 200 ? JSON.parse(st.body).url : '';
+        const bind = cookiesOf(st).find((c) => c.startsWith('pg_sso=')) ?? '';
+        const ah = url ? await authorizeGet(url, [acme, intent]) : { status: st.status, location: '', body: st.body };
+        ok('HP (LAN) starts the cloud sign-in by itself; PG Cloud completes without Continue to HP\'s reported address', ah.status === 303 && ah.location.startsWith(`https://${hpLan}:${CT.hp.port}/api/auth/sso/callback?assertion=`), `${ah.status} ${ah.location.slice(0, 100)} ${ah.body.slice(0, 120)}`);
+        if (ah.location) {
+          const cb = new URL(ah.location);
+          const d = await lanReq(cb.pathname + cb.search, { headers: { cookie: bind } });
+          const hs = cookiesOf(d).find((c) => /^pg_session=.{8,}/.test(c)) ?? '';
+          const me = hs ? JSON.parse((await lanReq('/api/auth/me', { headers: { cookie: hs } })).body || '{}') : {};
+          ok('acme lands signed in on HP at its LAN address (no login)', !!me.username && /admin|owner/.test(me.role ?? ''), `${d.status} ${JSON.stringify(me)}`);
+        }
+        const st2 = await lanReq('/api/auth/sso/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ origin: `https://${hpLan}:${CT.hp.port}` }) });
+        const a2 = st2.status === 200 ? await authorizeGet(JSON.parse(st2.body).url, [acme, intent]) : { status: 0, location: '' };
+        ok('the LAN intent replayed → Continue page, not silent', a2.status === 200 && !a2.location, String(a2.status));
+      }
+    }
     if (sess) await viaRelay(L.acer, [relayCk, sess], '/api/auth/logout', { method: 'POST' });
     const s3 = await start(L.acer, [relayCk]);
     const a3 = await authorizeGet(s3.url, [acme]);

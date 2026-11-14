@@ -8,7 +8,7 @@ export const runtime = 'edge';
 // A used, expired or unknown link goes to /login?error=link, which says so and offers a new link.
 import { NextRequest, NextResponse } from 'next/server';
 import { peekMagicToken, consumeMagicToken, maskEmail } from '@/app/lib/magic-link';
-import { afterLinkConfirmed } from '@/app/lib/signin-step';
+import { afterLinkConfirmed, signInTarget, clearSignInNext } from '@/app/lib/signin-step';
 import { page, esc, sameOrigin } from '@/app/lib/page-html';
 import { getSession } from '@/app/lib/session';
 
@@ -45,10 +45,9 @@ export async function POST(request: NextRequest) {
 
   // CLOUD-SSO: a controller sent this browser to sign in first (app/sso/authorize). Go back there; the request is checked
   // again in full, so the cookie can only ever point at the authorize page.
-  const ssoNext = request.cookies.get('pg_sso_next')?.value ?? '';
-  const target = ssoNext ? '/sso/authorize?' + new URLSearchParams(ssoNext).toString() : '/account';
+  // (AUTO-SSO: or on to a site switch ticket, app/console/open; see signInTarget)
   // CLOUD-MFA: with two-step sign-in (or when it must be set up) the session is only made after the code.
-  const response = await afterLinkConfirmed(request, email, target);
-  if (ssoNext) response.cookies.set('pg_sso_next', '', { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 0, path: '/' });
+  const response = await afterLinkConfirmed(request, email, signInTarget(request));
+  clearSignInNext(request, response);
   return response;
 }

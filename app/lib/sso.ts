@@ -7,6 +7,7 @@
 import { signWithLeaseKey } from '@/app/lib/lease';
 import { getLicensesByEmail, type LicenseRecord } from '@/app/lib/license-db';
 import { siteLabel } from '@/app/lib/relay-mint';
+import { getSiteStatus } from '@/app/lib/site-status';
 
 export const SSO_PREFIX = 'pgsso1.';
 export const SSO_CALLBACK_PATH = '/api/auth/sso/callback';
@@ -30,7 +31,7 @@ const NONCE_RE = /^[0-9a-f]{16,128}$/;
 // never the shared relay hosts. Which site's host is checked in ssoReturnFitsSite, once the site is known.
 const CONSOLE_HOST_RE = /^[0-9a-f]{16}-console\.powerguardian\.cloud$/;
 
-function privateIPv4(host: string): boolean {
+export function privateIPv4(host: string): boolean {
   const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (!m) return false;
   const [a, b, c, d] = m.slice(1).map(Number);
@@ -61,6 +62,14 @@ export async function ssoReturnFitsSite(origin: string, siteId: string): Promise
 // AUTO-SSO: whether the flow returns to a site's console host (through the relay), not to a LAN address.
 export const ssoIsConsoleOrigin = (origin: string) => CONSOLE_HOST_RE.test(new URL(origin).hostname);
 
+// AUTO-SSO: where a sign-in may complete without the Continue tap: that site's own console host, or a private LAN
+// address the site itself reported in its heartbeat (any port). Never any other LAN address.
+export async function ssoSilentOrigin(origin: string, siteId: string, reportedLan: string[] = []): Promise<boolean> {
+  const host = new URL(origin).hostname;
+  if (CONSOLE_HOST_RE.test(host)) return host === `${await siteLabel(siteId)}-console.powerguardian.cloud`;
+  return privateIPv4(host) && reportedLan.includes(host);
+}
+
 export type SSORequest = { controller: string; nonce: string; ret: string; origin: string };
 
 export function parseSSORequest(p: URLSearchParams): SSORequest | null {
@@ -73,9 +82,21 @@ export function parseSSORequest(p: URLSearchParams): SSORequest | null {
 }
 
 // The site licence of this account that the controller holds, or null: no statement for anyone else's controller.
-export async function ssoSiteFor(email: string, controller: string): Promise<LicenseRecord | null> {
-  const mine = await getLicensesByEmail(email);
-  return mine.find((l) => l.plan !== 'addon_connector' && l.claimed_by === controller) ?? null;
+// When one controller id is on more than one site of the account (a copy of a controller, or a local test stack), the
+// console host the flow returns to decides (on the LAN: the site that reported that address); ssoReturnFitsSite still
+// checks the result.
+export async function ssoSiteFor(email: string, controller: string, origin?: string): Promise<LicenseRecord | null> {
+  const mine = (await getLicensesByEmail(email)).filter((l) => l.plan !== 'addon_connector' && l.claimed_by === controller);
+  if (mine.length > 1 && origin) {
+    const host = new URL(origin).hostname;
+    if (ssoIsConsoleOrigin(origin)) {
+      for (const l of mine) if (host === `${await siteLabel(l.id)}-console.powerguardian.cloud`) return l;
+    } else {
+      // on the LAN: the site that reported this address in its heartbeat
+      for (const l of mine) if ((await getSiteStatus(l.id).catch(() => null))?.lan?.includes(host)) return l;
+    }
+  }
+  return mine[0] ?? null;
 }
 
 export async function signSSO(a: SSOAssertion): Promise<string | null> {
