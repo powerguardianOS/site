@@ -5,11 +5,15 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { generateKeyPairSync, createPrivateKey, verify as edVerify, createPublicKey } from 'node:crypto';
+import { createFakeD1, storeFor, cfRoutes } from '../tests/fake-d1.mjs';
 
 const KV_PORT = 8788, SITE_PORT = 3100, H = '127.0.0.1';
 const SITE = `http://${H}:${SITE_PORT}`;
 const ORIGIN = `http://localhost:${SITE_PORT}`; // next dev reports its own URL as localhost
-const kv = new Map(); const mails = [];
+// EU-1: KV_BACKEND=kv|dual|d1 (default kv); `kv` is the store the site uses in that mode
+const backend = process.env.KV_BACKEND || 'kv';
+const kvMap = new Map(), kvExp = new Map(), d1 = createFakeD1(); const kv = storeFor(backend, kvMap, d1, kvExp); const mails = [];
+const cf = cfRoutes({ kvMap, kvExp, d1 });
 const ADMIN = 'admin@powerguardian.cloud', CUSTOMER = 'customer@example.test', MINT = 'local-mint-secret';
 const CTRL = 'c0ffee'.repeat(8); // 48 hex = hardware id of the test controller
 
@@ -17,12 +21,7 @@ const CTRL = 'c0ffee'.repeat(8); // 48 hex = hardware id of the test controller
 const fake = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x'); let body = ''; for await (const c of req) body += c;
   if (u.pathname === '/v3/smtp/email') { const b = JSON.parse(body); mails.push({ to: b.to[0].email, subject: b.subject, text: b.textContent }); res.writeHead(201).end('{}'); return; }
-  if (u.pathname.endsWith('/keys')) { const p = u.searchParams.get('prefix') ?? ''; res.writeHead(200).end(JSON.stringify({ result: [...kv.keys()].filter((k) => k.startsWith(p)).sort().map((name) => ({ name })) })); return; }
-  const m = u.pathname.match(/\/values\/(.+)$/); if (!m) { res.writeHead(404).end(); return; }
-  const k = decodeURIComponent(m[1]);
-  if (req.method === 'PUT') { kv.set(k, body); res.writeHead(200).end('{}'); }
-  else if (req.method === 'DELETE') { kv.delete(k); res.writeHead(200).end('{}'); }
-  else if (kv.has(k)) res.writeHead(200).end(kv.get(k)); else res.writeHead(404).end();
+  if (!cf(u, req, body, res)) res.writeHead(404).end();
 });
 await new Promise((r) => fake.listen(KV_PORT, H, r));
 
@@ -31,7 +30,7 @@ const pkcs8 = privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base
 const spki = publicKey.export({ type: 'spki', format: 'der' });
 
 const next = spawn('npx', ['next', 'dev', '-H', H, '-p', String(SITE_PORT)], {
-  env: { ...process.env, CLOUDFLARE_API_BASE: `http://${H}:${KV_PORT}`, BREVO_API_BASE: `http://${H}:${KV_PORT}`, CLOUDFLARE_KV_NAMESPACE_ID: 'ns', CLOUDFLARE_API_TOKEN: 't',
+  env: { ...process.env, CLOUDFLARE_API_BASE: `http://${H}:${KV_PORT}`, BREVO_API_BASE: `http://${H}:${KV_PORT}`, CLOUDFLARE_KV_NAMESPACE_ID: 'ns', CLOUDFLARE_API_TOKEN: 't', KV_BACKEND: backend, D1_DATABASE_ID: 'db',
     ADMIN_EMAIL: ADMIN, LEASE_PRIVATE_KEY: pkcs8, RELAY_MINT_SECRET: MINT, NEXT_PUBLIC_BASE_URL: SITE, BREVO_API_KEY: 'x', NEXT_TELEMETRY_DISABLED: '1' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });

@@ -1,13 +1,8 @@
 export const runtime = 'edge';
-import { cfApiBase } from '@/app/lib/kv';
 
 export type AccountRecord = { email: string; created_at: string; verified: boolean };
 
-import { kvGet, kvPut } from '@/app/lib/kv';
-const ACCOUNT_ID = '5f4b3228b678331dd09cf6bfe8514857';
-const KV_NS = () => process.env.CLOUDFLARE_KV_NAMESPACE_ID!;
-const TOKEN = () => process.env.CLOUDFLARE_API_TOKEN!;
-const BASE = () => `${cfApiBase()}/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NS()}`;
+import { kvGet, kvPut, kvDel, kvList } from '@/app/lib/kv';
 
 export async function createAccount(email: string): Promise<AccountRecord> {
   const record: AccountRecord = { email: email.toLowerCase(), created_at: new Date().toISOString(), verified: false };
@@ -21,17 +16,12 @@ export async function getAccount(email: string): Promise<AccountRecord | null> {
 }
 
 export async function getAccounts(): Promise<AccountRecord[]> {
-  const r = await fetch(`${BASE()}/keys?prefix=account%3A&limit=1000`, { headers: { Authorization: `Bearer ${TOKEN()}` } });
-  if (!r.ok) return [];
-  const data: { result: { name: string }[] } = await r.json();
-  const records = await Promise.all(data.result.map(k => kvGet(k.name).then(v => v ? JSON.parse(v) as AccountRecord : null)));
+  const names = await kvList('account:', 1000).catch(() => null);
+  if (!names) return [];
+  const records = await Promise.all(names.map(k => kvGet(k).then(v => v ? JSON.parse(v) as AccountRecord : null)));
   return records.filter(Boolean) as AccountRecord[];
 }
 
 export async function deleteAccount(email: string): Promise<void> {
-  const r = await fetch(`${BASE()}/values/${encodeURIComponent(`account:${email.toLowerCase()}`)}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${TOKEN()}` },
-  });
-  if (!r.ok && r.status !== 404) throw new Error(`KV delete failed (${r.status})`);
+  await kvDel(`account:${email.toLowerCase()}`);
 }

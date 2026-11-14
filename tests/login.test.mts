@@ -103,7 +103,9 @@ const saved = kv.get(sid)!;
 kv.delete(sid); // KV has not caught up yet
 check('a just-created session is trusted from its signed cookie while KV lags', (await getSession(fresh)) === 'lag@x.nl');
 check('after the grace period, a session KV does not know is refused', (await getSession(fresh, Date.now() + 5 * 60_000)) === null);
-const forged = fresh.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A'));
+// flip the signature's FIRST character: the last one of 43 base64url characters also holds 2 padding bits, so A<->B
+// there can decode to the same bytes (a ~5 % flaky pass of a forged cookie in this test, not in the code)
+const forged = fresh.replace(/\.([^.])([^.]*)$/, (_, c, rest) => '.' + (c === 'A' ? 'B' : 'A') + rest);
 check('a cookie with a changed signature is refused', (await getSession(forged)) === null);
 const otherEmail = fresh.split('.').map((p, i) => (i === 3 ? Buffer.from('evil@x.nl').toString('base64url') : p)).join('.');
 check('a cookie with a changed email is refused', (await getSession(otherEmail)) === null);
