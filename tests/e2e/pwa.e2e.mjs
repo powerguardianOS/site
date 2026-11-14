@@ -1,6 +1,7 @@
 // The installable "PowerGuardian" home-screen app on an iPhone (WebKit, standalone emulated: navigator.standalone and
 // display-mode: standalone). One app with all sites (My sites). Inside the app a mail link would open in Safari, so the
-// sign-in page offers the 6-digit code first; then two-step sign-in, then My sites; a site tile opens the console in the
+// "Check your inbox" step takes the 6-digit code from the same mail (LOGIN-2: every sign-in mail has both); then
+// two-step sign-in, then My sites; a site tile opens the console in the
 // same window (never a new tab: that would leave the app). Demo data only; screenshots carry a DEMO label.
 //   cd tests/e2e && npm install && PATH=~/dev/.tools/node/bin:$PATH node pwa.e2e.mjs [shot-dir]
 import { webkit, devices } from 'playwright';
@@ -64,17 +65,15 @@ try {
   check('viewport-fit=cover, and zooming is not switched off', /viewport-fit=cover/.test(head.viewport) && !/user-scalable=no|maximum-scale=1/.test(head.viewport), head.viewport);
   check('(test) the page sees itself as the installed app', await page.evaluate(() => navigator.standalone === true && matchMedia('(display-mode: standalone)').matches));
 
-  console.log('\nsigning in inside the app: the 6-digit code first');
+  console.log('\nsigning in inside the app: the 6-digit code from the mail');
   await hydrated(page);
-  await page.waitForFunction(() => /6-digit code/.test(document.querySelector('button[type=submit]')?.textContent ?? '') && /link instead/.test(document.querySelector('#signin-mode')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => {});
-  check('the code is the default in the app', ((await page.locator('button[type=submit]').textContent()) ?? '').includes('6-digit code'));
-  check('the link stays one tap away', ((await page.locator('#signin-mode').textContent()) ?? '').includes('link instead'));
   const fs = await page.locator('input[type=email]').evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   check('the e-mail field uses 16 px text (iOS does not zoom in)', fs >= 16, String(fs));
   await page.locator('input[type=email]').fill(EMAIL);
   const before = stack.mails.filter((m) => m.to === EMAIL).length;
   await page.locator('button[type=submit]').tap();
   await page.locator('#signin-code').waitFor();
+  check('"Check your inbox" asks for the code right there', await page.locator('#signin-code').isVisible());
   let code = '';
   for (let i = 0; i < 50 && !code; i++) { const m = stack.mails.filter((x) => x.to === EMAIL); if (m.length > before) code = m.at(-1).text.match(/\b(\d{6})\b/)?.[1] ?? ''; else await page.waitForTimeout(100); }
   check('the mail carries the code', /^\d{6}$/.test(code));
@@ -120,12 +119,8 @@ try {
   console.log('\nin a normal browser (not installed)');
   const ctx2 = await browser.newContext({ ...devices['iPhone 15'], userAgent: IPHONE_UA, ignoreHTTPSErrors: true });
   const p2 = await ctx2.newPage();
-  await p2.goto(BASE + '/login'); await hydrated(p2);
-  check('the link stays the default in a browser', ((await p2.locator('button[type=submit]').textContent()) ?? '').includes('sign-in link'));
   await p2.goto(BASE + '/login?next=console'); await hydrated(p2);
-  check('…but a controller site switch (next=console) offers the code first', ((await p2.locator('button[type=submit]').textContent()) ?? '').includes('6-digit code'));
-  await p2.goto(BASE + '/login?next=sso'); await hydrated(p2);
-  check('…and so does a controller sign-in (next=sso)', ((await p2.locator('button[type=submit]').textContent()) ?? '').includes('6-digit code'));
+  check('one way to ask, also for a controller site switch: "Send sign-in link" (the mail has the link and the code)', ((await p2.locator('button[type=submit]').textContent()) ?? '').includes('sign-in link') && (await p2.locator('#signin-mode').count()) === 0);
   await ctx2.close();
 } catch (e) { check('script error: ' + (e?.message ?? e), false); }
 finally {

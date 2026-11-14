@@ -28,11 +28,15 @@ async function signInByLink(page, email, n) {
   await page.fill('input[type=email]', email);
   await page.getByRole('button', { name: 'Send sign-in link' }).tap();
   await page.getByText('Check your inbox').waitFor();
-  await page.goto(await stack.lastLink(email, n));
-  await page.locator('#signin-confirm').tap();
-  await page.waitForURL((u) => !new URL(u).pathname.startsWith('/api/auth/verify'));
+  // LOGIN-2: the link opened in a new tab of the same browser signs in there; this tab follows by itself
+  const tab = await page.context().newPage();
+  await tab.goto(await stack.lastLink(email, n));
+  linkTab = new URL(tab.url()).pathname;
+  await page.waitForURL((u) => new URL(u).pathname !== '/login', { timeout: 10000 });
   await page.waitForLoadState();
+  await tab.close();
 }
+let linkTab = '';
 
 try {
   const ctx = await browser.newContext(phone);
@@ -40,7 +44,8 @@ try {
 
   console.log('owner with a site: two-step setup is part of the sign-in');
   await signInByLink(page, OWNER, 1);
-  check('after the link: the setup page, not the account', new URL(page.url()).pathname === '/login/mfa');
+  check('after the link (same browser, no button): the link tab goes to the setup page, not signed in', linkTab === '/login/mfa');
+  check('…and the tab that asked follows to the setup page too', new URL(page.url()).pathname === '/login/mfa');
   check('no session yet', !(await ctx.cookies()).some((c) => c.name === 'pg_session'));
   check('QR code is shown', await page.locator('#mfa-qr svg').isVisible());
   const add = page.locator('#mfa-add-app');
@@ -133,7 +138,7 @@ try {
   const ctx2 = await browser.newContext(phone);
   const p2 = await ctx2.newPage();
   await signInByLink(p2, PLAIN, 1);
-  check('no two-step page: straight to /account', new URL(p2.url()).pathname === '/account');
+  check('no two-step page: straight to /account', new URL(p2.url()).pathname === '/account' && linkTab === '/api/auth/verify');
   await hydrated(p2, '#two-step-manage');
   check('the account line offers "Set up" while off', (await p2.locator('#two-step-manage').textContent()) === 'Set up');
   await p2.locator('#two-step-manage').tap();

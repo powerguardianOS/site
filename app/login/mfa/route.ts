@@ -8,10 +8,21 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { page, esc, sameOrigin } from '@/app/lib/page-html';
 import { getPending, savePending, dropPending, stepCookieValue, withSession, STEP_MAX_TRIES, type PendingSignIn } from '@/app/lib/signin-step';
+import { getSession } from '@/app/lib/session';
 import { redeemCode, enableMfa, openSecret, base32, otpauthUri, qrSvg, groupKey, codeAttemptsExceeded } from '@/app/lib/mfa';
 
 const gone = (request: Request, why: 'timeout' | 'codes') =>
   NextResponse.redirect(new URL('/login?error=' + why, request.url), { status: 303, headers: { 'Cache-Control': 'no-store' } });
+// LOGIN-2: the two-step page can be open in two tabs (the mail link's and the one that asked); once one finished, the
+// other goes to the account instead of "took too long". A session only exists after the full sign-in.
+const timedOut = async (request: Request) => {
+  const raw = /(?:^|;\s*)pg_session=([^;]+)/.exec(request.headers.get('cookie') ?? '')?.[1] ?? '';
+  let cookie = ''; try { cookie = decodeURIComponent(raw); } catch { /* not ours */ }
+  if (cookie && await getSession(cookie).catch(() => null)) {
+    return NextResponse.redirect(new URL('/account', request.url), { status: 303, headers: { 'Cache-Control': 'no-store' } });
+  }
+  return gone(request, 'timeout');
+};
 
 const codeInput = (autofocus: boolean) =>
   `<label for="mfa-code" class="small" style="display:block;text-align:left;margin:0 0 6px">6-digit code</label>` +
@@ -47,7 +58,7 @@ async function render(p: PendingSignIn, error = '', status = 200): Promise<Respo
 
 export async function GET(request: Request) {
   const p = await getPending(stepCookieValue(request));
-  if (!p) return gone(request, 'timeout');
+  if (!p) return timedOut(request);
   return render(p);
 }
 
@@ -55,7 +66,7 @@ export async function POST(request: Request) {
   if (!sameOrigin(request)) return page(403, 'This sign-in did not start here', '<p><a href="/login">Back to sign in</a></p>');
   const id = stepCookieValue(request);
   const p = await getPending(id);
-  if (!p) return gone(request, 'timeout');
+  if (!p) return timedOut(request);
   const form = await request.formData().catch(() => null);
   const code = String(form?.get('code') ?? form?.get('recovery') ?? '');
 

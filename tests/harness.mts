@@ -9,7 +9,7 @@ export const kvExp = new Map<string, number>();      // its expirations (unix s)
 export const d1 = createFakeD1();
 export const kv = storeFor(process.env.KV_BACKEND!, kvMap, d1, kvExp) as unknown as Map<string, string>;
 export const calls = { kv: 0, d1: 0 };
-export const mails: { to: string; subject: string; text: string }[] = [];
+export const mails: { to: string; subject: string; text: string; html: string }[] = [];
 export const DAY = 86_400_000;
 
 process.env.CLOUDFLARE_KV_NAMESPACE_ID = 'ns';
@@ -24,7 +24,7 @@ export const PUBKEY = b64(await crypto.subtle.exportKey('raw', kp.publicKey));
 (globalThis as any).fetch = async (url: string, init: any = {}) => {
   const u = String(url);
   if (u.includes('api.brevo.com')) {
-    const b = JSON.parse(init.body); mails.push({ to: b.to[0].email, subject: b.subject, text: b.textContent });
+    const b = JSON.parse(init.body); mails.push({ to: b.to[0].email, subject: b.subject, text: b.textContent, html: b.htmlContent });
     return new Response('{}', { status: 201 });
   }
   const method = init.method ?? 'GET';

@@ -25,7 +25,7 @@ export async function startDev(opts = {}) {
   const fake = http.createServer(async (req, res) => {
     const u = new URL(req.url, 'http://x'); let body = ''; for await (const c of req) body += c;
     if (u.pathname === '/__mails') { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(mails)); return; }
-    if (u.pathname === '/v3/smtp/email') { const b = JSON.parse(body); mails.push({ to: b.to[0].email, subject: b.subject, text: b.textContent }); res.writeHead(201).end('{}'); return; }
+    if (u.pathname === '/v3/smtp/email') { const b = JSON.parse(body); mails.push({ to: b.to[0].email, subject: b.subject, text: b.textContent, html: b.htmlContent }); res.writeHead(201).end('{}'); return; }
     if (!cf(u, req, body, res)) res.writeHead(404).end();
   });
   await new Promise((r) => fake.listen(KV_PORT, H, r));
