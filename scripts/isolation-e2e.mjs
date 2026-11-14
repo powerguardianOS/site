@@ -62,13 +62,16 @@ try {
   const j = async (r) => ({ status: r.status, ...(await r.json().catch(() => ({}))) });
   const sitePost = (p, body, headers = {}, method = 'POST') => fetch(SITE + p, { method, redirect: 'manual', headers: { 'content-type': 'application/json', origin: ORIGIN, ...headers }, body: JSON.stringify(body) }).then(j);
   const mailTo = async (to, n = 1) => until(async () => { const m = dev.mails.filter((x) => x.to === to); return m.length >= n ? m.at(-1) : null; }, 8000, 100);
+  const totpKeys = {};
   const signIn = async (email) => {
     const before = dev.mails.filter((x) => x.to === email).length;
     await sitePost('/api/auth/magic', { email });
     const m = await mailTo(email, before + 1);
     const link = m?.text.match(/https?:\/\/\S+\/api\/auth\/verify\?token=\w+/)?.[0];
     const v = await fetch(SITE + '/api/auth/verify', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: ORIGIN }, body: new URLSearchParams({ token: new URL(link).searchParams.get('token') }).toString() });
-    return (await finishTwoStep(v, ORIGIN)).cookie;
+    const done = await finishTwoStep(v, ORIGIN, SITE, totpKeys[email] ?? ''); // a second sign-in needs the key from the first
+    totpKeys[email] = done.key;
+    return done.cookie;
   };
   const licOf = (id) => { const v = dev.kv.get('license:' + id); return v ? JSON.parse(v) : null; };
 
@@ -460,6 +463,38 @@ try {
     const s5 = await start(L.acer, [relayCk]);
     const a5 = await authorizeGet(s5.url, [mallory, acmeAgain.intent]);
     ok('mallory holding acme\'s intent cookie (bound to acme\'s session) → refused, no statement', a5.status >= 400 && !a5.location, `${a5.status} ${a5.location.slice(0, 80)}`);
+  }
+
+  console.log('\nJ. SESSIONS-1: mallory reaches for acme\'s sessions and activity');
+  {
+    const acme2 = await signIn('acme@acme.test'); // acme on a second device
+    const sec = (cookie, body) => body ? sitePost('/api/account/security', body, { cookie }) : fetch(SITE + '/api/account/security', { headers: { cookie } }).then(j);
+    const mine = await sec(acme);
+    const acmeRefs = (mine.sessions ?? []).map((x) => x.ref);
+    ok('(control) acme lists her own sessions (at least 2, one "This device")', mine.status === 200 && acmeRefs.length >= 2 && mine.sessions.filter((x) => x.current).length === 1, JSON.stringify(mine).slice(0, 200));
+    const mal = await sec(mallory);
+    ok('mallory\'s list has only mallory\'s sessions, no ref of acme', mal.status === 200 && mal.sessions.length >= 1 && !mal.sessions.some((x) => acmeRefs.includes(x.ref)), JSON.stringify(mal).slice(0, 200));
+    ok('mallory\'s activity names nothing of acme (no Acer, no HP)', !/Acer|"HP"|acme/.test(JSON.stringify(mal.activity ?? [])), JSON.stringify(mal.activity).slice(0, 200));
+    const other = mine.sessions.find((x) => !x.current);
+    const rv = await sec(mallory, { action: 'revoke', ref: other.ref });
+    ok('mallory signs out one of acme\'s sessions by its ref → refused', refused(rv.status), JSON.stringify(rv));
+    const rv2 = await sec(mallory, { action: 'revoke', ref: other.ref, email: 'acme@acme.test' });
+    ok('…also when her request names acme\'s e-mail → refused', refused(rv2.status), JSON.stringify(rv2));
+    await sec(mallory, { action: 'revoke_others' });
+    ok('mallory\'s "sign out all other devices" leaves both of acme\'s sessions alive', (await sec(acme)).status === 200 && (await sec(acme2)).status === 200);
+    const nocookie = await sitePost('/api/account/security', { action: 'revoke', ref: other.ref });
+    ok('no session → 401', nocookie.status === 401, JSON.stringify(nocookie));
+    const forged = await sec(acme.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')), { action: 'revoke', ref: other.ref });
+    ok('a forged acme cookie cannot sign anything out → 401', forged.status === 401, JSON.stringify(forged));
+    const cross = await fetch(SITE + '/api/account/security', { method: 'POST', headers: { cookie: acme, 'content-type': 'application/json', origin: 'https://evil.example' }, body: JSON.stringify({ action: 'revoke_others' }) });
+    ok('acme\'s own cookie from another origin → 403', cross.status === 403, String(cross.status));
+    ok('(control) acme\'s activity has "Console opened" for Acer', (mine.activity ?? []).some((a) => a.title === 'Console opened · Acer'), JSON.stringify(mine.activity).slice(0, 300));
+    const acme2Ref = mine.sessions.find((x) => !x.current && x.ref);
+    const own = await sec(acme, { action: 'revoke_others' });
+    ok('(control) acme signs out her other devices', own.status === 200 && own.signed_out >= 1, JSON.stringify(own));
+    ok('the signed-out device is refused at once: no list, no console link', (await sec(acme2)).status === 401 && (await sitePost('/api/account/relay-session', { license_id: L.acer }, { cookie: acme2 })).status === 401);
+    ok('…and cannot sign acme\'s current session out', refused((await sec(acme2, { action: 'revoke', ref: acme2Ref?.ref ?? '0'.repeat(16) })).status));
+    ok('mallory is still signed in', (await sec(mallory)).status === 200);
   }
 } catch (e) { console.log(' FAIL  script error', e); fail++; }
 finally {

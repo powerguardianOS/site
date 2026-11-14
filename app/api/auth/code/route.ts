@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     if (res.error === 'expired' && bind) out.headers.append('Set-Cookie', codeCookie('', 0));
     return out;
   }
-  const step = await afterLinkConfirmed(request, res.email, signInTarget(request));
+  const step = await afterLinkConfirmed(request, res.email, signInTarget(request), 'code');
   const loc = new URL(step.headers.get('location') ?? '/account', request.url);
   const out = NextResponse.json({ ok: true, next: loc.pathname + loc.search }, { headers: { 'Cache-Control': 'no-store' } });
   clearSignInNext(request, out); // first: cookies.set rewrites the Set-Cookie headers appended before it

@@ -10,6 +10,8 @@ export const runtime = 'edge';
 import { ownerGuard } from '@/app/lib/owner';
 import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
 import { markSessionMfa } from '@/app/lib/session';
+import { logAudit } from '@/app/lib/audit';
+import { activityCtx } from '@/app/lib/client-info';
 import {
   getMfa, deleteMfa, enableMfa, redeemCode, regenerateRecovery, mfaRequired, codeAttemptsExceeded,
   newSecret, sealSecret, openSecret, base32, otpauthUri, qrSvg, groupKey,
@@ -47,6 +49,8 @@ export async function POST(request: Request) {
   }
 
   if (action !== 'confirm' && action !== 'remove' && action !== 'recovery') return json({ error: 'unknown_action' }, 400);
+  // SESSIONS-1: these land in the owner's activity list
+  const log = (a: string) => logAudit({ actor: who.email, role: 'owner', action: a, email: who.email, ...activityCtx(request) });
   try {
     if (await codeAttemptsExceeded(who.email)) return json({ error: 'too_many', message: 'Too many tries. Wait 15 minutes and try again.' }, 429);
   } catch {
@@ -58,17 +62,21 @@ export async function POST(request: Request) {
     const secret = sealed ? await openSecret(who.email, sealed) : null;
     if (!secret) return json({ error: 'setup_expired', message: 'This setup took too long. Start again.' }, 410);
     const codes = await enableMfa(who.email, secret, String(body?.code ?? ''));
-    if (!codes) return wrong();
+    if (!codes) { await log('auth.mfa_failed'); return wrong(); }
     await kvDel(setupKey(who.email));
     await markSessionMfa(who.sessionId); // they just proved the app: this session counts as two-step
+    await log('mfa.on');
     return json({ enabled: true, recovery_codes: codes });
   }
 
   const r = await redeemCode(who.email, body?.code);
-  if (!r.ok) return wrong('That code did not work. Use the newest code from your app, or a recovery code.');
+  if (!r.ok) { await log('auth.mfa_failed'); return wrong('That code did not work. Use the newest code from your app, or a recovery code.'); }
   if (action === 'remove') {
     await deleteMfa(who.email);
+    await log('mfa.off');
     return json({ enabled: false });
   }
-  return json({ recovery_codes: await regenerateRecovery(who.email) });
+  const codes = await regenerateRecovery(who.email);
+  await log('mfa.recovery');
+  return json({ recovery_codes: codes });
 }

@@ -1,8 +1,10 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getAccountSummary } from '@/app/lib/license-db';
 import SitesSection, { UnusedLicenses } from './components/SitesSection';
 import TwoStepCard from './components/TwoStepCard';
-import { getSession } from '@/app/lib/session';
+import SecurityCard from './components/SecurityCard';
+import { getSession, countSessions } from '@/app/lib/session';
+import { clientInfo } from '@/app/lib/client-info';
 import { getMfa, mfaRequired } from '@/app/lib/mfa';
 import { sitesWithStatus } from '@/app/lib/site-summary';
 import { accountView } from '@/app/lib/account-view';
@@ -15,14 +17,15 @@ export const dynamic = 'force-dynamic';
 export default async function AccountPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get('pg_session')?.value ?? '';
-  const email = (await getSession(sessionId)) ?? '';
+  const email = (await getSession(sessionId, undefined, clientInfo(await headers()))) ?? '';
   const summary = await getAccountSummary(email);
-  const [mfa, required, withStatus, params] = await Promise.all([
+  const [mfa, required, withStatus, params, sessions] = await Promise.all([
     getMfa(email),
     mfaRequired(email),
     // Connector add-ons belong to a site and only raise its capacity — they are not sites or licenses of their own here.
     sitesWithStatus(summary.licenses),
     searchParams,
+    countSessions(email).catch(() => 1), // SESSIONS-1
   ]);
   const view = accountView(withStatus, summary.licenses);
   const none = view.sites.length === 0 && view.unused.length === 0;
@@ -50,6 +53,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         {/* CLOUD-MFA */}
         <TwoStepCard initial={{ enabled: !!mfa, since: mfa?.created_at ?? null, recovery_left: mfa?.recovery.length ?? 0, required }}
           extra={<a id="add-licenses" href="/pricing" className="inline-flex min-h-[44px] items-center text-sm text-white/50 hover:text-white sm:min-h-0">+ Add licenses</a>} />
+        {/* SESSIONS-1 */}
+        <SecurityCard count={Math.max(1, sessions)} />
       </div>
     </div>
   );

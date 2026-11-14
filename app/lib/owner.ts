@@ -1,5 +1,6 @@
 import { cfApiBase } from '@/app/lib/kv';
-import { getSession } from '@/app/lib/session';
+import { getSessionInfo } from '@/app/lib/session';
+import { clientInfo } from '@/app/lib/client-info';
 import { sendEmail } from '@/app/lib/email';
 
 function requestCookie(request: Request, name: string): string {
@@ -12,10 +13,11 @@ function requestCookie(request: Request, name: string): string {
 
 // Guard for customer API routes: a signed-in session, plus for anything that
 // changes state a JSON content-type and a same-origin Origin (like adminGuard).
-export async function ownerGuard(request: Request): Promise<{ email: string; sessionId: string } | Response> {
+export async function ownerGuard(request: Request): Promise<{ email: string; sessionId: string; sessionH: string } | Response> {
   // From the request itself (what cookies() returns inside a route handler; testable without a Next request scope).
   const sessionId = requestCookie(request, 'pg_session');
-  const email = sessionId ? await getSession(sessionId) : null;
+  const info = sessionId ? await getSessionInfo(sessionId, Date.now(), clientInfo(request)) : null;
+  const email = info?.email ?? null;
   if (!email) return Response.json({ error: 'unauthorized' }, { status: 401 });
   if (request.method !== 'GET') {
     if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) {
@@ -26,7 +28,7 @@ export async function ownerGuard(request: Request): Promise<{ email: string; ses
       return Response.json({ error: 'cross-origin request refused' }, { status: 403 });
     }
   }
-  return { email: email.toLowerCase(), sessionId };
+  return { email: email.toLowerCase(), sessionId, sessionH: info?.h ?? '' };
 }
 
 // ---- re-confirmation: sensitive actions need a fresh e-mail code on top of the session

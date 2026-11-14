@@ -8,6 +8,8 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { page, esc, sameOrigin } from '@/app/lib/page-html';
 import { getPending, savePending, dropPending, stepCookieValue, withSession, STEP_MAX_TRIES, type PendingSignIn } from '@/app/lib/signin-step';
+import { logAudit } from '@/app/lib/audit';
+import { activityCtx } from '@/app/lib/client-info';
 import { redeemCode, enableMfa, openSecret, base32, otpauthUri, qrSvg, groupKey, codeAttemptsExceeded } from '@/app/lib/mfa';
 
 const gone = (request: Request, why: 'timeout' | 'codes') =>
@@ -72,9 +74,9 @@ export async function POST(request: Request) {
           `<p>That recovery code is now used up. You have <b id="mfa-left">${r.left}</b> left.</p>` +
           `<p>${r.left && r.left > 3 ? 'You can make new ones on your account page.' : 'Make new ones on your account page soon, or set up your authenticator app again.'}</p>` +
           `<div class="card"><a class="btn" id="mfa-continue" href="${esc(p.next)}">Continue</a></div>`);
-        return withSession(new NextResponse(res.body, res), p.email, true);
+        return withSession(new NextResponse(res.body, res), p.email, true, request, { method: p.method, via: 'recovery' });
       }
-      return withSession(NextResponse.redirect(new URL(p.next, request.url), 303), p.email, true);
+      return withSession(NextResponse.redirect(new URL(p.next, request.url), 303), p.email, true, request, { method: p.method, via: 'totp' });
     }
   } else {
     const secret = p.setup_secret ? await openSecret(p.email, p.setup_secret) : null;
@@ -86,9 +88,12 @@ export async function POST(request: Request) {
         `<div class="card"><ol id="mfa-codes" style="margin:0;padding-left:28px;font-family:ui-monospace,Menlo,monospace;font-size:16px;line-height:1.9;color:#fafafa;-webkit-user-select:all;user-select:all">` +
         codes.map((c) => `<li>${esc(c)}</li>`).join('') + `</ol></div>` +
         `<div class="card"><a class="btn" id="mfa-continue" href="${esc(p.next)}">I saved my recovery codes</a></div>`);
-      return withSession(new NextResponse(res.body, res), p.email, true);
+      await logAudit({ actor: p.email, role: 'owner', action: 'mfa.on', email: p.email, detail: 'at sign-in', ...activityCtx(request) });
+      return withSession(new NextResponse(res.body, res), p.email, true, request, { method: p.method, via: 'totp' });
     }
   }
+  // SESSIONS-1: a wrong code after a valid first step is worth telling the owner (repeats within an hour count up).
+  await logAudit({ actor: p.email, role: 'owner', action: 'auth.mfa_failed', email: p.email, detail: 'at sign-in', ...activityCtx(request) });
 
   const tries = p.tries + 1;
   if (tries >= STEP_MAX_TRIES) { await dropPending(id); return gone(request, 'codes'); }
