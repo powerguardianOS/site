@@ -8,6 +8,7 @@ import { getAccount, createAccount } from '@/app/lib/accounts';
 import { createMagicToken } from '@/app/lib/magic-link';
 import { sendEmail } from '@/app/lib/email';
 import { rateLimited, clientIp } from '@/app/lib/ratelimit';
+import { siteBase } from '@/app/lib/host';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 
@@ -34,7 +35,7 @@ export async function requestSignIn(request: Request, mode: 'register' | 'magic'
     const existing = await getAccount(email);
     if (!existing) await createAccount(email);
     const token = await createMagicToken(email);
-    const magicUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://powerguardian.cloud') + '/api/auth/verify?token=' + token;
+    const magicUrl = siteBase() + '/api/auth/verify?token=' + token; // always the apex host (LOGIN-1)
     const isNew = mode === 'register' && !existing;
     await sendEmail(
       email,

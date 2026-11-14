@@ -1,0 +1,9 @@
+{
+  "name": "pg-cloud-e2e",
+  "private": true,
+  "description": "Browser checks (WebKit iPhone) against scripts/cloud-dev.mjs. Not part of the site build.",
+  "type": "module",
+  "devDependencies": {
+    "playwright": "1.61.1"
+  }
+}

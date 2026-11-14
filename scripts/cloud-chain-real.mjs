@@ -30,7 +30,8 @@ try {
     await sitePost('/api/auth/magic', { email });
     const m = await mailTo(email, before + 1);
     const link = m?.text.match(/https?:\/\/\S+\/api\/auth\/verify\?token=\w+/)?.[0];
-    const v = await fetch(link, { redirect: 'manual' });
+    // LOGIN-1: the link (GET) shows a confirm page; the button POSTs the token.
+    const v = await fetch(SITE + '/api/auth/verify', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: ORIGIN }, body: new URLSearchParams({ token: new URL(link).searchParams.get('token') }).toString() });
     return (v.headers.get('set-cookie') ?? '').match(/pg_session=[^;]+/)?.[0];
   };
 

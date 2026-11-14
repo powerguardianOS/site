@@ -1,9 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
+// LOGIN-1: /login?error=link is where a used, expired or unknown sign-in link lands (app/api/auth/verify).
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginForm linkError={false} />}>
+      <LoginWithParams />
+    </Suspense>
+  )
+}
+
+function LoginWithParams() {
+  const params = useSearchParams()
+  return <LoginForm linkError={params.get('error') === 'link'} />
+}
+
+function LoginForm({ linkError }: { linkError: boolean }) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -47,6 +62,13 @@ export default function LoginPage() {
           <p className="text-sm text-zinc-500">Enter your email to sign in or create a free account.</p>
         </div>
 
+        {linkError && !sent && (
+          <div id="link-expired" role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+            <p className="font-medium text-amber-200">This sign-in link has expired or was already used.</p>
+            <p className="mt-1 text-amber-100/70">Enter your email and we will send you a new one.</p>
+          </div>
+        )}
+
         {/* Form / Sent state */}
         {sent ? (
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-6 text-center space-y-3">
@@ -70,6 +92,9 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
+              inputMode="email"
+              autoFocus={linkError}
               placeholder="you@example.com"
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
             />
