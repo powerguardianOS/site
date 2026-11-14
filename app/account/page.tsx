@@ -1,117 +1,78 @@
 import { cookies } from 'next/headers';
 import { getAccountSummary } from '@/app/lib/license-db';
-import UnderlicensedBanner from './components/UnderlicensedBanner';
-import SitesSection from './components/SitesSection';
+import SitesSection, { UnusedLicenses } from './components/SitesSection';
 import TwoStepCard from './components/TwoStepCard';
 import { getSession } from '@/app/lib/session';
-import { effectiveLimit } from '@/app/lib/limits';
 import { getMfa, mfaRequired } from '@/app/lib/mfa';
+import { sitesWithStatus } from '@/app/lib/site-summary';
+import { accountView } from '@/app/lib/account-view';
+import { card, ghostBtn } from './components/ui';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
+// ACCOUNT-UI: "My sites". One card per site with its license merged in (plan badge, connectors, term), then the
+// licenses no controller uses yet, then account settings. Never internal ids ('default-site') or hostnames as names.
 export default async function AccountPage() {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get('pg_session')?.value ?? '';
   const email = (await getSession(sessionId)) ?? '';
   const summary = await getAccountSummary(email);
-  const [mfa, required] = await Promise.all([getMfa(email), mfaRequired(email)]);
-  // Connector add-ons belong to a site and only raise its capacity — they are not licenses of their own here.
-  const siteLicenses = summary.licenses.filter((l) => l.plan !== 'addon_connector');
-  const capacity = (l: (typeof siteLicenses)[number]) => effectiveLimit(l, summary.licenses);
-  const totalConnectors = siteLicenses.some((l) => l.connector_limit === 0)
-    ? 'Unlimited'
-    : String(siteLicenses.reduce((n, l) => n + capacity(l), 0));
+  const [mfa, required, withStatus] = await Promise.all([
+    getMfa(email),
+    mfaRequired(email),
+    // Connector add-ons belong to a site and only raise its capacity — they are not sites or licenses of their own here.
+    sitesWithStatus(summary.licenses),
+  ]);
+  const view = accountView(withStatus, summary.licenses);
+  const none = view.sites.length === 0 && view.unused.length === 0;
 
   return (
-    <div className="space-y-6">
-      {/* Summary card */}
-      <div className="rounded-xl border border-white/10 bg-white/5 p-5">
-        <div className="flex gap-4 text-sm">
-          <div>
-            <span className="text-white/40">Total connectors:</span>
-            <p className="text-white font-medium">{totalConnectors}</p>
-          </div>
-          <div>
-            <span className="text-white/40">Total sites:</span>
-            <p className="text-white font-medium">{summary.total_sites}</p>
-          </div>
+    <div className="space-y-8">
+      <header className="space-y-3">
+        <h1 className="text-2xl font-semibold tracking-tight text-white" style={{ fontFamily: 'var(--pg-font-sans)' }}>My sites</h1>
+        {view.chips.length > 0 && (
+          <ul id="account-chips" className="flex flex-wrap gap-2" aria-label="Summary">
+            {view.chips.map((c) => (
+              <li key={c} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/70">{c}</li>
+            ))}
+          </ul>
+        )}
+      </header>
+
+      {none && (
+        <div className={`${card} p-8 text-center space-y-4`}>
+          <h2 className="text-xl font-semibold text-white">No active license</h2>
+          <p className="text-sm text-zinc-400 max-w-sm mx-auto">
+            Your account is created but you do not have an active plan yet. Choose a plan to start monitoring your UPS infrastructure.
+          </p>
+          <a href="/pricing" className="inline-flex px-6 py-3 rounded-full bg-[#00C66F] text-black font-medium text-sm hover:bg-[#00b564] transition">
+            Upgrade now
+          </a>
         </div>
-      </div>
+      )}
 
-      {/* Sites — real status from controller heartbeats */}
-      <SitesSection licenses={summary.licenses.filter(l => l.plan !== 'addon_connector').map(l => ({
-        id: l.id, plan: l.plan, status: l.status,
-        info: {
-          id: l.id, name: l.site_name ?? null, hostname: l.claimed_hostname ?? null,
-          controllerShort: l.claimed_by ? l.claimed_by.slice(0, 8) : null, offlineAllowed: l.offline_allowed === true,
-          copies: (l.copies ?? []).map(c => ({ controller_id: c.controller_id, hostname: c.hostname, first_seen: c.first_seen, decision: c.decision })),
-          movedAway: (l.retired ?? []).filter(r => r.reason === 'moved' && new Date(r.until).getTime() > Date.now()).map(r => ({ until: r.until })),
-        },
-      }))} />
+      {view.sites.length > 0 && <SitesSection view={view} />}
+      {view.sites.length === 0 && view.unused.length > 0 && (
+        <p className="text-sm text-zinc-400">No controller is linked yet. Connect a controller to start monitoring your UPS.</p>
+      )}
 
-      {/* Licenses */}
-      <div className="space-y-4">
-        {siteLicenses.length === 0 && (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-8 text-center space-y-4">
-            <h2 className="text-xl font-semibold text-white">No active license</h2>
-            <p className="text-sm text-zinc-400 max-w-sm mx-auto">
-              Your account is created but you do not have an active plan yet. Choose a plan to start monitoring your UPS infrastructure.
-            </p>
-            <a href="/pricing" className="inline-flex px-6 py-3 rounded-full bg-[#00C66F] text-black font-medium text-sm hover:bg-[#00b564] transition">
-              Upgrade now
-            </a>
+      <UnusedLicenses unused={view.unused} />
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-white">Account</h2>
+        {!none && (
+          <div id="add-connectors" className={`${card} flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between`}>
+            <div>
+              <h3 className="text-base font-semibold text-white">More connectors or sites</h3>
+              <p className="mt-1 text-sm text-white/50">Add connector licenses to a site, or a license for another site.</p>
+            </div>
+            <a href="/pricing" className={`${ghostBtn} shrink-0`}>+ Add connector licenses</a>
           </div>
         )}
-
-        {siteLicenses.map((lic) => (
-          <div key={lic.id} className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="bg-[#00C66F] text-black px-2 py-0.5 rounded text-xs font-semibold uppercase">
-                  {lic.plan}
-                </span>
-                {/* The site this license runs, never the internal site_id ('default-site') or a hostname. */}
-                <span className="text-sm text-white/60">{lic.site_name || (lic.claimed_by ? 'Unnamed site' : 'Not in use yet')}</span>
-              </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                lic.status === 'active' ? 'bg-green-900/50 text-green-400' :
-                lic.status === 'expired' ? 'bg-yellow-900/50 text-yellow-400' :
-                'bg-red-900/50 text-red-400'
-              }`}>
-                {lic.status}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-white/40">Connectors</span>
-                <p className="text-white font-medium">{lic.connector_limit === 0 ? 'Unlimited' : capacity(lic)}</p>
-              </div>
-              <div>
-                <span className="text-white/40">Expires</span>
-                <p className="text-white font-medium">
-                  {lic.expires_at ? new Date(lic.expires_at).toLocaleDateString() : 'Never'}
-                </p>
-              </div>
-            </div>
-
-            <UnderlicensedBanner connectorLimit={capacity(lic)} />
-          </div>
-        ))}
-      </div>
-
-      <div className="pt-2">
-        <a
-          href="/pricing"
-          className="text-sm text-[#00C66F] hover:underline"
-        >
-          + Add connector licenses
-        </a>
-      </div>
-
-      {/* CLOUD-MFA */}
-      <TwoStepCard initial={{ enabled: !!mfa, since: mfa?.created_at ?? null, recovery_left: mfa?.recovery.length ?? 0, required }} />
+        {/* CLOUD-MFA */}
+        <TwoStepCard initial={{ enabled: !!mfa, since: mfa?.created_at ?? null, recovery_left: mfa?.recovery.length ?? 0, required }} />
+      </section>
     </div>
   );
 }

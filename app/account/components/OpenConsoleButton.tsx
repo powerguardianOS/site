@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { primaryBtn } from './ui';
 
 interface Props {
   licenseId: string;
@@ -37,15 +38,12 @@ export default function OpenConsoleButton({ licenseId }: Props) {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        onClick={openConsole}
-        disabled={loading}
-        className="text-[#00C66F] hover:underline disabled:opacity-50 disabled:cursor-wait"
-      >
-        {loading ? 'Opening…' : 'Open Console →'}
+    <span className="inline-flex flex-col gap-1">
+      <button onClick={openConsole} disabled={loading} className={`${primaryBtn} open-console`}>
+        {loading ? 'Opening…' : 'Open Console'}
+        {!loading && <span aria-hidden="true">↗</span>}
       </button>
-      {error && <span className="text-xs text-red-400">{error}</span>}
-    </div>
+      {error && <span className="text-xs text-red-400" role="alert">{error}</span>}
+    </span>
   );
 }

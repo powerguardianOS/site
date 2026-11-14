@@ -75,7 +75,7 @@ export default function TwoStepCard({ initial }: { initial: TwoStepStatus }) {
   const since = status?.since ? new Date(status.since).toLocaleDateString() : '';
 
   return (
-    <section id="two-step" className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-4">
+    <section id="two-step" className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-white">Two-step sign-in</h2>
