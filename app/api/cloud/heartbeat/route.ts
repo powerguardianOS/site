@@ -6,6 +6,7 @@ import { logAudit } from '@/app/lib/audit';
 import { withRoot } from '@/app/lib/founder';
 import { dateLong, notifyOwner } from '@/app/lib/notify';
 import { getSiteStatus, putSiteStatus } from '@/app/lib/site-status';
+import { recordBeat } from '@/app/lib/power-history';
 import type { SiteDevice, SiteStatus } from '@/app/lib/site-status';
 import { privateLan } from '@/app/lib/site-summary';
 
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
     received_at: Date.now(),
     model: str(body.model, 80),
     lan: privateLan(body.lan),
+    power: recordBeat(previous?.power, devices),
   };
 
   if (!(await putSiteStatus(license.id, status))) {

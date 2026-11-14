@@ -1,17 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { primaryBtn } from './ui';
 
 interface Props {
   licenseId: string;
+  name: string;
 }
 
 // Replaces the old direct link to the relay with the controller's raw,
 // permanent license token baked into the URL. Instead this mints a
 // short-lived scoped session server-side (see /api/account/relay-session)
 // and opens that — the long-lived token never reaches the browser.
-export default function OpenConsoleButton({ licenseId }: Props) {
+//
+// ACCOUNT-UI: the whole site tile is the click target (a transparent button over the tile); the small "Open ↗" in the
+// tile's corner is its visible affordance. Place it inside a `relative` tile.
+export default function OpenConsoleButton({ licenseId, name }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,12 +41,13 @@ export default function OpenConsoleButton({ licenseId }: Props) {
   }
 
   return (
-    <span className="inline-flex flex-col gap-1">
-      <button onClick={openConsole} disabled={loading} className={`${primaryBtn} open-console`}>
-        {loading ? 'Opening…' : 'Open Console'}
-        {!loading && <span aria-hidden="true">↗</span>}
-      </button>
-      {error && <span className="text-xs text-red-400" role="alert">{error}</span>}
-    </span>
+    <>
+      <button onClick={openConsole} disabled={loading} aria-label={`Open Console · ${name}`}
+        className="open-console absolute inset-0 z-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#00C66F] disabled:cursor-wait" />
+      <span aria-hidden="true" className={`open-affordance pointer-events-none absolute right-4 top-4 rounded-md px-1.5 py-0.5 text-xs font-medium ${error ? 'text-red-400' : 'text-[#00C66F] bg-[#00C66F]/10'}`}>
+        {loading ? 'Opening…' : error ? 'Try again' : 'Open ↗'}
+      </span>
+      {error && <span role="alert" className="sr-only">Could not open the console: {error}</span>}
+    </>
   );
 }

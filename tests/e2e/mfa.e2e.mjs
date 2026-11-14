@@ -64,6 +64,8 @@ try {
   await page.locator('#mfa-continue').tap();
   await page.waitForURL(/\/account$/);
   check('then on to /account', true);
+  await hydrated(page, '#two-step-manage');
+  await page.locator('#two-step-manage').tap(); // ACCOUNT-UI: one quiet line, details open inline
   await page.locator('#two-step').scrollIntoViewIfNeeded();
   check('the card says On with 10 recovery codes left', (await page.locator('#two-step-state').textContent()) === 'On' && (await page.locator('#two-step').textContent()).includes('10 recovery codes left'));
   check('account page: no sideways scrolling', await noSideScroll(page));
@@ -86,7 +88,8 @@ try {
 
   console.log('\naccount card: new recovery codes');
   await page.goto(BASE + '/account');
-  await hydrated(page, '#two-step-new-codes');
+  await hydrated(page, '#two-step-manage');
+  await page.locator('#two-step-manage').tap();
   await page.locator('#two-step-new-codes').tap();
   await page.locator('#two-step-code').fill(totp(key, 1)); // the next code: each code works once
   await page.locator('#two-step-go').tap();
@@ -116,7 +119,8 @@ try {
   await page.waitForURL(/\/account$/);
 
   console.log('\naccount card: turn off');
-  await hydrated(page, '#two-step-remove');
+  await hydrated(page, '#two-step-manage');
+  await page.locator('#two-step-manage').tap();
   await page.locator('#two-step-remove').tap();
   check('turning off explains it comes back for accounts with sites', (await page.locator('#two-step').textContent()).includes('set it up again at your next sign-in'));
   await page.locator('#two-step-code').fill(fresh[1]);
@@ -130,7 +134,9 @@ try {
   const p2 = await ctx2.newPage();
   await signInByLink(p2, PLAIN, 1);
   check('no two-step page: straight to /account', new URL(p2.url()).pathname === '/account');
-  await hydrated(p2, '#two-step-setup');
+  await hydrated(p2, '#two-step-manage');
+  check('the account line offers "Set up" while off', (await p2.locator('#two-step-manage').textContent()) === 'Set up');
+  await p2.locator('#two-step-manage').tap();
   await p2.locator('#two-step-setup').tap();
   await p2.locator('#two-step-key').waitFor();
   check('setup inline: QR, "Add to authenticator app" (phone) and key', await p2.locator('#two-step svg').isVisible() && await p2.locator('#two-step-add-app').isVisible());

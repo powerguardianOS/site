@@ -20,7 +20,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const isAdmin = !!adminEmail && email.toLowerCase() === adminEmail.toLowerCase();
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 md:px-6 md:py-12 space-y-6">
+    <div className="mx-auto max-w-5xl px-4 py-8 md:px-6 md:py-12 space-y-6">
       {/* Account sub-header */}
       <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
         <div className="flex items-center gap-2 text-sm text-zinc-500">

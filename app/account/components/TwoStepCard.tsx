@@ -2,6 +2,7 @@
 
 // CLOUD-MFA: "Two-step sign-in" card. Everything happens inside the card (no modal, no toast).
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 export type TwoStepStatus = { enabled: boolean; since: string | null; recovery_left: number; required: boolean };
 type Setup = { key: string; otpauth: string; qr_svg: string };
@@ -31,7 +32,8 @@ function CodeField({ value, onChange, id }: { value: string; onChange: (v: strin
   );
 }
 
-export default function TwoStepCard({ initial }: { initial: TwoStepStatus }) {
+export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus; extra?: ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<TwoStepStatus | null>(initial);
   const [mode, setMode] = useState<Mode>('idle');
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -75,22 +77,30 @@ export default function TwoStepCard({ initial }: { initial: TwoStepStatus }) {
   const since = status?.since ? new Date(status.since).toLocaleDateString() : '';
 
   return (
-    <section id="two-step" className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-white">Two-step sign-in</h2>
-          <p className="text-sm text-white/50 mt-1">
-            {status === null ? 'Loading…'
-              : on ? `On since ${since} · authenticator app · ${status.recovery_left} recovery ${status.recovery_left === 1 ? 'code' : 'codes'} left`
-              : 'Off. Signing in only needs the link in your email.'}
-          </p>
-        </div>
-        {status !== null && (
-          <span id="two-step-state" className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${on ? 'bg-green-900/50 text-green-400' : 'bg-zinc-800 text-zinc-400'}`}>
-            {on ? 'On' : 'Off'}
-          </span>
-        )}
+    <section id="two-step" className="text-sm">
+      {/* ACCOUNT-UI: one quiet line; the details open inline. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <p className="text-white/50">
+          Two-step sign-in:{' '}
+          {status !== null && (
+            <span id="two-step-state" className={on ? 'text-green-400' : status.required ? 'text-amber-300' : 'text-white/70'}>{on ? 'On' : 'Off'}</span>
+          )}
+          {' · '}
+          <button id="two-step-manage" aria-expanded={expanded} onClick={() => { setExpanded(!expanded); if (expanded) reset(); }}
+            className="inline-flex min-h-[44px] items-center text-[#00C66F] hover:underline sm:min-h-0">
+            {expanded ? 'Close' : on ? 'Manage' : 'Set up'}
+          </button>
+        </p>
+        {extra}
       </div>
+
+      {expanded && (
+      <div className="mt-2 space-y-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+      <p className="text-sm text-white/50">
+        {status === null ? 'Loading…'
+          : on ? `On since ${since} · authenticator app · ${status.recovery_left} recovery ${status.recovery_left === 1 ? 'code' : 'codes'} left`
+          : 'Off. Signing in only needs the link in your email.'}
+      </p>
 
       {status && !on && status.required && mode === 'idle' && (
         <p className="text-sm text-amber-200/90">Your account manages sites. You will be asked to set this up the next time you sign in, or do it now.</p>
@@ -165,6 +175,8 @@ export default function TwoStepCard({ initial }: { initial: TwoStepStatus }) {
               className="min-h-[44px] px-5 py-2.5 rounded-lg bg-[#00C66F] text-black text-sm font-medium">I saved them</button>
           </div>
         </div>
+      )}
+      </div>
       )}
     </section>
   );

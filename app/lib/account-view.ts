@@ -1,15 +1,16 @@
-// ACCOUNT-UI: what the account page ("My sites") shows, as plain data. One card per site with its license merged in;
-// licenses that no controller uses yet go to their own list. Pure (no KV), so it is unit-tested (tests/account-view.test.mts).
+// ACCOUNT-UI: what the account page ("My sites") shows, as plain data. One tile per site (name, model, one status line,
+// 24 h power bar, plan); licenses that no controller uses yet go to their own quiet line. Pure (no KV), so it is unit-tested (tests/account-view.test.mts).
 import type { LicenseRecord } from '@/app/lib/license-db';
 import type { SiteStatus } from '@/app/lib/site-status';
 import { isOnline } from '@/app/lib/site-status';
 import { effectiveLimit } from '@/app/lib/limits';
-import { siteTone } from '@/app/lib/site-summary';
+import { power } from '@/app/lib/site-summary';
 import type { SiteTone } from '@/app/lib/site-summary';
+import { last24h } from '@/app/lib/power-history';
+import type { Slot } from '@/app/lib/power-history';
 
 export type SitePlan = 'home' | 'pro' | 'founder';
 export const PLAN_LABEL: Record<SitePlan, string> = { founder: 'Founder', pro: 'Pro', home: 'Home' };
-const PLAN_ORDER: SitePlan[] = ['founder', 'pro', 'home'];
 
 // Internal placeholders a controller or an old license may carry. Never shown as a name.
 const INTERNAL_NAMES = new Set(['default-site', 'default_site']);
@@ -66,15 +67,45 @@ export function siteInfo(l: LicenseRecord, name: string | null, now = Date.now()
   };
 }
 
-// Only what the page shows. Full license records (token, e-mail, site_id) and the controller's raw report
-// (its own site_name, LAN addresses) never go into the rendered page or its payload.
-export type CardStatus = Pick<SiteStatus, 'controller_version' | 'received_at' | 'model' | 'devices'>;
-export type CardLicense = { id: string; plan: LicenseRecord['plan']; status: LicenseRecord['status']; capacity: number; connectors: string; term: string };
-export type SiteCard = { license: CardLicense; status: CardStatus | null; name: string; online: boolean; tone: SiteTone; info: SiteInfo };
-export type UnusedLicense = { id: string; plan: LicenseRecord['plan']; connectors: string; term: string; founderRoot: boolean };
-export type AccountView = { sites: SiteCard[]; unused: UnusedLicense[]; chips: string[] };
+export function ago(ms: number, now = Date.now()): string {
+  const s = Math.max(0, Math.round((now - ms) / 1000));
+  if (s < 90) return 'moments ago';
+  if (s < 5400) return `${Math.round(s / 60)} min ago`;
+  if (s < 129600) return `${Math.round(s / 3600)} h ago`;
+  return `${Math.round(s / 86400)} d ago`;
+}
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const ups = (n: number) => `${n} ${n === 1 ? 'UPS' : 'UPSes'}`;
+
+// The status of a tile: a word (Guarded = online, every UPS on mains), a detail, and both as one line.
+// Offline never shows the last UPS reading (it would be stale).
+export type Line = { word: string; detail: string; text: string; tone: SiteTone };
+const mk = (word: string, detail: string, tone: SiteTone, head = word): Line => ({ word, detail, tone, text: `${head} · ${detail}` });
+
+export function statusLine(status: SiteStatus | null, now = Date.now()): Line {
+  if (!status) return { word: 'Waiting', detail: 'for the first contact', tone: 'offline', text: 'Waiting for the first contact' };
+  if (!isOnline(status, now)) return mk('Offline', `last seen ${ago(status.received_at, now)}`, 'offline');
+  const withUps = status.devices.filter((d) => d.ups_status);
+  const count = (label: string) => withUps.filter((d) => power(d.ups_status).label === label).length;
+  const low = count('Low battery'), onBat = count('On battery'), replace = count('Replace battery');
+  if (low) return mk('Low battery', ups(low), 'danger');
+  if (onBat) return mk('On battery', ups(onBat), 'warn');
+  if (replace) return mk('Replace battery', ups(replace), 'warn');
+  const down = status.devices.filter((d) => d.state !== 'online').length;
+  if (down) return mk('Attention', `${down} ${down === 1 ? 'connector' : 'connectors'} offline`, 'warn', 'Online');
+  if (withUps.length) return mk('Guarded', `${ups(withUps.length)} on mains`, 'ok', 'Online');
+  return mk('Online', 'no UPS data yet', 'ok');
+}
+
+// Only what the page shows. Full license records (token, e-mail, site_id) and the controller's raw report
+// (its own site_name, LAN addresses, device readings) never go into the rendered page or its payload.
+export type CardLicense = { id: string; plan: LicenseRecord['plan']; status: LicenseRecord['status']; capacity: number; details: string };
+export type SiteCard = {
+  license: CardLicense; name: string; model: string | null; online: boolean; line: Line;
+  power: { slots: Slot[]; empty: boolean }; info: SiteInfo;
+};
+export type UnusedLicense = { id: string; plan: LicenseRecord['plan']; connectors: string; term: string; founderRoot: boolean };
+export type AccountView = { sites: SiteCard[]; unused: UnusedLicense[] };
 
 // withStatus: the site licenses with their last heartbeat, as sitesWithStatus() returns them; all: every license of the
 // account (for the connector add-ons).
@@ -88,21 +119,15 @@ export function accountView(withStatus: { lic: LicenseRecord; status: SiteStatus
       continue;
     }
     const name = siteName(lic, status);
+    const online = isOnline(status, now);
     sites.push({
-      license: { id: lic.id, plan: lic.plan, status: lic.status, capacity: effectiveLimit(lic, all), connectors: connectorsText(lic, all, status ? status.devices.length : null), term: termText(lic) },
-      status: status ? { controller_version: status.controller_version, received_at: status.received_at, model: status.model, devices: status.devices } : null,
-      name, online: isOnline(status, now), tone: siteTone(status, now), info: siteInfo(lic, name === UNNAMED ? null : name, now),
+      license: {
+        id: lic.id, plan: lic.plan, status: lic.status, capacity: effectiveLimit(lic, all),
+        details: `${connectorsText(lic, all, status && online ? status.devices.length : null)} · ${termText(lic)}`,
+      },
+      name, model: status?.model || null, online, line: statusLine(status, now),
+      power: last24h(status?.power, now), info: siteInfo(lic, name === UNNAMED ? null : name, now),
     });
   }
-  const chips: string[] = [];
-  if (sites.length) {
-    chips.push(plural(sites.length, 'site', 'sites'));
-    const on = sites.filter((s) => s.online).length;
-    chips.push(`${on} online`);
-    if (on < sites.length) chips.push(`${sites.length - on} offline`);
-    const plans = PLAN_ORDER.filter((p) => sites.some((s) => s.license.plan === p));
-    chips.push(...plans.map((p) => PLAN_LABEL[p]));
-  }
-  if (unused.length) chips.push(`${plural(unused.length, 'license', 'licenses')} not in use`);
-  return { sites, unused, chips };
+  return { sites, unused };
 }

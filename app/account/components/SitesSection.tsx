@@ -1,156 +1,178 @@
-import { power as powerOf } from '@/app/lib/site-summary';
-import type { PowerLevel, SiteTone } from '@/app/lib/site-summary';
+import type { SiteTone } from '@/app/lib/site-summary';
 import { PLAN_LABEL } from '@/app/lib/account-view';
-import type { AccountView, CardStatus, SiteCard, SitePlan, UnusedLicense } from '@/app/lib/account-view';
+import type { AccountView, SiteCard, SitePlan, UnusedLicense } from '@/app/lib/account-view';
+import type { Slot } from '@/app/lib/power-history';
 import OpenConsoleButton from './OpenConsoleButton';
 import SiteControls from './SiteControls';
 import UnderlicensedBanner from './UnderlicensedBanner';
-import { card, planBadge } from './ui';
+import { planBadge } from './ui';
 
-function ago(ms: number): string {
-  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
-  if (s < 90) return 'moments ago';
-  if (s < 5400) return `${Math.round(s / 60)} min ago`;
-  if (s < 129600) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} d ago`;
-}
+// ACCOUNT-UI: "My sites" — one calm tile per site, health at a glance, details in the console. PowerGuardian's own
+// look: the shield, Fraunces for names, green = Guarded.
+//
+// Two looks while the owner chooses (server-side switch, not visible to customers: ACCOUNT_LOOK=b, default a):
+//   a  "Shield tiles": grid of tiles, status word (Guarded / On battery / Offline) and a slim 24 h power line.
+//   b  "Power rows":   rows with a shield badge and a 24 h battery-cell strip (one cell per hour).
+export type Look = 'a' | 'b';
+export const accountLook = (): Look => (process.env.ACCOUNT_LOOK === 'b' ? 'b' : 'a');
 
-function runtime(sec: number): string {
-  if (!sec) return '—';
-  const m = Math.round(sec / 60);
-  return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
-}
-
-// The plain-language power state (lib/site-summary.ts, the same reading the controller's site switcher gets) in colour.
-const POWER_TONE: Record<PowerLevel, string> = { none: 'text-zinc-500', danger: 'text-red-400', warn: 'text-amber-400', ok: 'text-green-400', other: 'text-zinc-400' };
-function power(raw: string): { label: string; tone: string } {
-  const p = powerOf(raw);
-  return { label: p.label, tone: POWER_TONE[p.level] };
-}
-
-const DOT: Record<SiteTone, string> = { ok: 'bg-green-400', warn: 'bg-amber-400', danger: 'bg-red-500', offline: 'bg-zinc-500' };
-function Dot({ tone, big }: { tone: SiteTone; big?: boolean }) {
-  const glow = tone === 'ok' && big ? ' shadow-[0_0_0_3px_rgba(74,222,128,0.15)]' : '';
-  return <span aria-hidden="true" className={`inline-block ${big ? 'h-2.5 w-2.5' : 'h-2 w-2'} shrink-0 rounded-full ${DOT[tone]}${glow}`} />;
-}
+const TONE_TEXT: Record<SiteTone, string> = { ok: 'text-[#00C66F]', warn: 'text-amber-300', danger: 'text-red-400', offline: 'text-white/40' };
+const TONE_HEX: Record<SiteTone, string> = { ok: '#00C66F', warn: '#fbbf24', danger: '#f87171', offline: '#52525b' };
+const SLOT_HEX: Record<Slot, string> = { m: '#00C66F', b: '#fbbf24', n: '#71717a', '-': 'transparent' };
+const SLOT_TITLE: Record<Slot, string> = { m: 'on mains', b: 'on battery', n: 'online, no UPS data', '-': 'no data' };
 
 export const planName = (plan: string) => PLAN_LABEL[plan as SitePlan] ?? plan;
 
-function Devices({ status }: { status: CardStatus }) {
-  const cols = 'sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_4.5rem_4.5rem_6rem]';
+function Shield({ tone, size = 18 }: { tone: SiteTone; size?: number }) {
+  const c = TONE_HEX[tone];
   return (
-    <div className="px-4 sm:px-5">
-      <div className={`hidden ${cols} gap-x-3 pb-1.5 text-[11px] uppercase tracking-wider text-zinc-500 sm:grid`}>
-        <span>Device</span><span>Power</span><span>Battery</span><span>Load</span><span>Runtime</span>
-      </div>
-      <ul className="divide-y divide-white/5 rounded-xl border border-white/5 bg-black/20 sm:rounded-none sm:border-0 sm:border-t sm:bg-transparent">
-        {status.devices.map((d, i) => {
-          const p = power(d.ups_status);
-          const up = d.state === 'online';
-          const ups = !!d.ups_status;
-          return (
-            <li key={`${d.name}-${i}`} className={`device grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2.5 text-xs sm:px-0 ${cols}`}>
-              <span className="flex min-w-0 items-center gap-2">
-                <Dot tone={up ? 'ok' : 'offline'} />
-                <span className="truncate text-sm text-white">{d.name || '—'}</span>
-                {!up && <span className="shrink-0 text-zinc-500">Offline</span>}
-              </span>
-              <span className={`text-right sm:text-left ${p.tone}`}>{p.label}</span>
-              <span className="col-span-2 pl-4 text-zinc-500 sm:hidden">
-                {ups ? `Battery ${Math.round(d.battery_pct)}% · Load ${Math.round(d.load_pct)}% · ${runtime(d.runtime_sec)}` : 'No UPS data'}
-              </span>
-              <span className="hidden text-white/80 sm:block">{ups ? `${Math.round(d.battery_pct)}%` : '—'}</span>
-              <span className="hidden text-white/80 sm:block">{ups ? `${Math.round(d.load_pct)}%` : '—'}</span>
-              <span className="hidden text-white/80 sm:block">{ups ? runtime(d.runtime_sec) : '—'}</span>
-            </li>
-          );
-        })}
-      </ul>
+    <svg aria-hidden="true" width={size} height={size * 140 / 128} viewBox="0 0 128 140" className="shrink-0">
+      <path d="M64 8 L112 28 V72 C112 100 94 122 64 132 C34 122 16 100 16 72 V28 L64 8Z" fill={tone === 'offline' ? 'none' : `${c}1f`} stroke={c} strokeWidth="11" strokeLinejoin="round" />
+      {tone !== 'offline' && <path d="M72 32 L48 72 H62 L52 108 L80 68 H66 L72 32Z" fill={c} />}
+    </svg>
+  );
+}
+
+// Look a: a slim power line over 24 h — high = on mains, a dip = on battery, a gap = no heartbeat.
+function PowerLine({ slots, empty }: { slots: Slot[]; empty: boolean }) {
+  const W = 2, Y: Record<Slot, number> = { m: 4, n: 4, b: 14, '-': 0 };
+  const paths: { d: string; c: Slot }[] = [];
+  slots.forEach((s, i) => {
+    if (s === '-') return;
+    const prev = slots[i - 1];
+    const d = prev && prev !== '-' && Y[prev] !== Y[s] ? `M${i * W} ${Y[prev]} V${Y[s]} H${i * W + W}` : `M${i * W} ${Y[s]} H${i * W + W}`;
+    paths.push({ d, c: s });
+  });
+  return (
+    <div className="power-line space-y-1" data-slots={slots.join('')}>
+      <svg role="img" aria-label={empty ? 'Power, last 24 hours: no history yet' : 'Power, last 24 hours'} viewBox="0 0 96 18" preserveAspectRatio="none" className="h-5 w-full overflow-visible">
+        <line x1="0" x2="96" y1="9" y2="9" stroke="rgba(255,255,255,0.08)" strokeDasharray="1 2" vectorEffect="non-scaling-stroke" />
+        {paths.map((p, i) => <path key={i} d={p.d} data-slot={p.c} fill="none" stroke={SLOT_HEX[p.c]} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke"><title>{SLOT_TITLE[p.c]}</title></path>)}
+      </svg>
+      <p className="text-[10px] tracking-wide text-white/30">{empty ? 'Power line starts with the next heartbeat' : 'Power, 24 h'}</p>
     </div>
   );
 }
 
-// One card per site: its name and state, its license (plan badge, connectors, term) and its actions.
-export function Site({ site }: { site: SiteCard }) {
-  const { license: lic, status, name, online, tone } = site;
-  const canConsole = lic.status === 'active' && (lic.plan === 'pro' || lic.plan === 'founder');
-  const line = status
-    ? online ? `Online${status.controller_version ? ` · ${status.controller_version}` : ''}` : `Offline · last seen ${ago(status.received_at)}`
-    : 'Waiting for the controller’s first contact';
+// Look b: 24 battery cells (one per hour, the worse of its two half hours) in a battery outline.
+function PowerCells({ slots, empty }: { slots: Slot[]; empty: boolean }) {
+  const rank: Record<Slot, number> = { '-': 0, n: 1, m: 2, b: 3 };
+  const hours = Array.from({ length: 24 }, (_, h) => { const a = slots[h * 2], b = slots[h * 2 + 1]; return rank[a] >= rank[b] ? a : b; });
+  return (
+    <div className="power-cells flex items-center gap-2" data-slots={slots.join('')} role="img" aria-label={empty ? 'Power, last 24 hours: no history yet' : 'Power, last 24 hours'}>
+      <div className="flex items-center">
+        <div className="flex gap-[2px] rounded-[4px] border border-white/15 p-[2px]">
+          {hours.map((s, i) => <span key={i} data-slot={s} title={SLOT_TITLE[s]} className="h-3 w-[5px] rounded-[1px] sm:w-1.5" style={{ background: s === '-' ? 'rgba(255,255,255,0.06)' : SLOT_HEX[s] }} />)}
+        </div>
+        <span className="h-1.5 w-[3px] rounded-r-sm bg-white/15" />
+      </div>
+      <span className="text-[10px] text-white/30">{empty ? 'no history yet' : '24 h'}</span>
+    </div>
+  );
+}
 
-  const hint = canConsole && !online && status ? 'Console available when the site is online'
-    : canConsole && !status ? 'Finish linking on the controller: Settings → License'
+function hintFor(site: SiteCard) {
+  const lic = site.license;
+  const canConsole = lic.status === 'active' && (lic.plan === 'pro' || lic.plan === 'founder');
+  const hint = canConsole && !site.online ? 'The console opens when the site is online.'
     : !canConsole && lic.status === 'active' && lic.plan === 'home'
       ? <>Remote console is a Pro feature · <a href="/pricing" className="text-[#00C66F] hover:underline">Upgrade</a></> : null;
+  return { clickable: canConsole && site.online, hint };
+}
 
-  const facts = [lic.connectors, lic.term, status?.model].filter(Boolean) as string[];
+export function Site({ site, look }: { site: SiteCard; look: Look }) {
+  const { license: lic, name, model, line } = site;
+  const { clickable, hint } = hintFor(site);
+  const controls = (
+    <SiteControls site={site.info} title={name} details={lic.details} hint={hint}
+      left={<span className={`site-plan ${planBadge(lic.plan)}`}>{planName(lic.plan)}</span>} />
+  );
+  const status = <p className={`site-line text-xs ${line.tone === 'ok' ? 'text-white/50' : TONE_TEXT[line.tone]}`}>{line.text}</p>;
+
+  if (look === 'b') {
+    return (
+      <article className={`site-card pg-feature relative flex flex-col p-4 ${clickable ? '' : 'hover:!transform-none hover:!shadow-none'}`}
+        data-license={lic.id} data-clickable={clickable ? 'yes' : 'no'} aria-label={name}>
+        {clickable && <OpenConsoleButton licenseId={lic.id} name={name} />}
+        <div className="pointer-events-none relative flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]"><Shield tone={line.tone} size={20} /></span>
+          <div className={`min-w-0 flex-1 ${clickable ? 'pr-14' : ''}`}>
+            <h3 className="site-name pg-display truncate text-xl text-white">{name}</h3>
+            {status}
+          </div>
+        </div>
+        <div className="pointer-events-none relative mt-3 flex flex-wrap items-center justify-between gap-2 pl-[52px]">
+          <PowerCells {...site.power} />
+          <span className="site-model truncate text-[11px] text-white/35">{model ?? ''}</span>
+        </div>
+        <div className="relative empty:hidden"><UnderlicensedBanner connectorLimit={lic.capacity} /></div>
+        {controls}
+      </article>
+    );
+  }
 
   return (
-    <article className={`site-card ${card} overflow-hidden`} data-license={lic.id} aria-label={name}>
-      <header className="px-4 pt-4 pb-3 sm:px-5 sm:pt-5">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <Dot tone={tone} big />
-            <h3 className="site-name truncate text-base font-semibold text-white">{name}</h3>
-            <span className={`site-plan ${planBadge(lic.plan)}`}>{planName(lic.plan)}</span>
-          </div>
-          <p className="site-line mt-1 text-xs text-zinc-400">
-            {line}
-            {tone === 'warn' && ' · needs attention'}
-            {tone === 'danger' && ' · low battery'}
-          </p>
-        </div>
-      </header>
-
-      <ul className="site-license flex flex-wrap gap-x-4 gap-y-1 px-4 pb-3 text-xs text-zinc-400 sm:px-5" aria-label="License">
-        {facts.map((f) => <li key={f}>{f}</li>)}
-      </ul>
-
-      {status && status.devices.length > 0 && <div className="pb-3"><Devices status={status} /></div>}
-      {status && status.devices.length === 0 && (
-        <p className="px-4 pb-3 text-xs text-zinc-500 sm:px-5">No devices adopted on this controller yet.</p>
-      )}
-
-      <div className="px-4 empty:hidden sm:px-5"><UnderlicensedBanner connectorLimit={lic.capacity} /></div>
-
-      <SiteControls site={site.info}
-        primary={canConsole && online ? <OpenConsoleButton licenseId={lic.id} /> : undefined}
-        hint={hint} />
+    <article className={`site-card pg-feature relative flex min-h-[200px] flex-col p-5 ${clickable ? '' : 'hover:!transform-none hover:!shadow-none'}`}
+      data-license={lic.id} data-clickable={clickable ? 'yes' : 'no'} aria-label={name}>
+      {clickable && <OpenConsoleButton licenseId={lic.id} name={name} />}
+      <div className="pointer-events-none relative">
+        <h3 className={`site-name pg-display truncate text-2xl text-white ${clickable ? 'pr-16' : ''}`}>{name}</h3>
+        <p className={`mt-2 flex items-center gap-1.5 text-sm font-medium ${TONE_TEXT[line.tone]}`}>
+          <Shield tone={line.tone} size={14} /><span className="site-word">{line.word}</span>
+        </p>
+        <p className="site-line mt-0.5 truncate text-xs text-white/45">{[line.detail, model].filter(Boolean).join(' · ')}</p>
+      </div>
+      <div className="pointer-events-none relative mt-4"><PowerLine {...site.power} /></div>
+      <div className="relative empty:hidden"><UnderlicensedBanner connectorLimit={lic.capacity} /></div>
+      {controls}
     </article>
   );
 }
 
-// Licenses that no controller holds yet, with how to put one to use.
-export function UnusedLicenses({ unused }: { unused: UnusedLicense[] }) {
-  if (unused.length === 0) return null;
-  const founderRoot = unused.some((l) => l.founderRoot);
+function AddSite({ href, look }: { href: string; look: Look }) {
   return (
-    <section id="unused-licenses" className="space-y-3" aria-labelledby="unused-title">
-      <div>
-        <h2 id="unused-title" className="text-sm font-semibold text-white">Licenses not in use</h2>
-        <p className="mt-1 text-xs text-zinc-400">
-          Not linked to a controller yet. To use one: on the controller, open <b className="font-medium text-white/80">Settings → License</b> and
-          link it with this account’s e-mail address. It picks a free license by itself and shows up above as a site.
-          {founderRoot && ' Your Founder license covers as many controllers as you like: each one becomes its own site.'}
-        </p>
-      </div>
-      <ul className={`${card} divide-y divide-white/5`}>
-        {unused.map((l) => (
-          <li key={l.id} className="unused-license flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-xs sm:px-5">
-            <span className={planBadge(l.plan)}>{planName(l.plan)}</span>
-            <span className="text-white/80">{l.connectors}</span>
-            <span className="text-zinc-500">{l.term}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <a id="add-site" href={href}
+      className={`flex ${look === 'a' ? 'min-h-[96px] flex-col sm:min-h-[200px]' : 'min-h-[88px]'} items-center justify-center gap-2 rounded-[14px] border border-dashed border-white/15 p-4 text-center transition-colors hover:border-[#00C66F]/50 hover:bg-[#00C66F]/[0.03]`}>
+      <span className="text-sm font-medium text-white/80">+ Add site</span>
+      <span className="text-xs text-white/40">Link a controller, or get a license</span>
+    </a>
   );
 }
 
-export default function SitesSection({ view }: { view: AccountView }) {
+// Licenses that no controller holds yet: one quiet line, how to use them opens inline.
+export function UnusedLicenses({ unused, open }: { unused: UnusedLicense[]; open?: boolean }) {
+  if (unused.length === 0) return null;
+  const founderRoot = unused.some((l) => l.founderRoot);
   return (
-    <div className="space-y-3">
-      {view.sites.map((s) => <Site key={s.license.id} site={s} />)}
+    <details id="unused-licenses" className="text-sm" open={open}>
+      <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center text-white/50 hover:text-white/80 sm:min-h-0 [&::-webkit-details-marker]:hidden">
+        <span>{unused.length} {unused.length === 1 ? 'license' : 'licenses'} not in use · <span className="text-[#00C66F]">How to use</span></span>
+      </summary>
+      <div className="mt-2 space-y-3 rounded-[14px] border border-white/10 bg-zinc-900/60 p-4 text-xs text-white/50">
+        <p>
+          On the controller, open <b className="font-medium text-white/80">Settings → License</b> and link it with this account’s e-mail
+          address. It picks a free license by itself and shows up as a site.
+          {founderRoot && ' Your Founder license covers as many controllers as you like: each one becomes its own site.'}
+        </p>
+        <ul className="space-y-2">
+          {unused.map((l) => (
+            <li key={l.id} className="unused-license flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className={planBadge(l.plan)}>{planName(l.plan)}</span>
+              <span className="text-white/70">{l.connectors}</span>
+              <span>{l.term}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
+  );
+}
+
+export default function SitesSection({ view, look }: { view: AccountView; look: Look }) {
+  return (
+    <div id="site-grid" data-look={look} className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${look === 'a' ? 'lg:grid-cols-3' : ''}`}>
+      {view.sites.map((s) => <Site key={s.license.id} site={s} look={look} />)}
+      <AddSite href={view.unused.length ? '?add=1#unused-licenses' : '/pricing'} look={look} />
     </div>
   );
 }

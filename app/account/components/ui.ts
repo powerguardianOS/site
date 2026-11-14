@@ -1,7 +1,4 @@
 // ACCOUNT-UI: shared look of the account page. Dark, calm, brand green #00C66F for the one primary action.
-export const card = 'rounded-2xl border border-white/10 bg-zinc-900/60';
-export const primaryBtn =
-  'inline-flex min-h-[44px] sm:min-h-[36px] items-center justify-center gap-1.5 rounded-lg bg-[#00C66F] px-4 text-sm font-medium text-black transition-colors hover:bg-[#00b564] disabled:cursor-wait disabled:opacity-50';
 export const ghostBtn =
   'inline-flex min-h-[44px] sm:min-h-[36px] items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm text-white/80 transition-colors hover:border-white/20 hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-50';
 export const smallBtn =
