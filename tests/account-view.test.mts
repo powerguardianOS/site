@@ -68,6 +68,31 @@ check('junk history is ignored', recordBeat({ at: 1, s: 'xx' } as any, mains, T0
 check('online without UPS data: grey “n”, not green', recordBeat(null, [], T0).s.endsWith('n'));
 check('a site without history in its record: the tile says so', v.sites[0].power.empty === true);
 
+console.log('\nconnection drops (CONN-24H)');
+{
+  const H = 3_600_000, D0 = Math.floor(now / (24 * H)) * 24 * H;
+  const fmt = (t: number) => `${String(new Date(t).getUTCHours()).padStart(2, '0')}:00`, utcHour = (t: number) => Math.floor(t / H) * H;
+  let c = recordBeat(null, [], D0 + 10 * H), last = D0 + 10 * H;
+  const beat = (min: number) => { const t = D0 + 10 * H + min * 60_000; c = recordBeat(c, [], t, last); last = t; };
+  for (let t = 1; t <= 5; t++) beat(t);
+  check('beats every minute: no drop', /^0+$/.test(c.g!));
+  beat(7);
+  check('two minutes late is not a drop yet (three missed beats is)', /^0+$/.test(c.g!));
+  beat(14);
+  check('seven minutes without a beat: ~6 min lost in that slot', parseInt(c.g!.slice(-1), 32) === 6, c.g!.slice(-3));
+  beat(41);
+  const lost = c.g!.slice(-2).split('').map((x) => parseInt(x, 32));
+  check('a drop over a slot boundary is split over both slots', lost[0] === 6 + 15 && lost[1] === 11, String(lost));
+  const r = last24h(c, D0 + 10 * H + 42 * 60_000);
+  const cells = hourCells(r, D0 + 10 * H + 42 * 60_000, utcHour, fmt, 'connection');
+  check('connection strip: the hour reads "Connection lost ~32 min"', cells[23].label === '10:00–now · Connection lost ~32 min' && cells[23].lost === 32, cells[23].label);
+  check('connection strip: an hour without any beat reads offline, not a drop', cells[22].label === '09:00–10:00 · Offline / no data' && cells[22].lost === 0);
+  const ok = hourCells(last24h(recordBeat(null, [], D0 + 10 * H), D0 + 10 * H + 60_000), D0 + 10 * H + 60_000, utcHour, fmt, 'connection');
+  check('connection strip: a clean hour reads "Online"', ok[23].label === '10:00–now · Online');
+  check('a power strip (site with a UPS) keeps its own words', hourCells(r, D0 + 10 * H + 42 * 60_000, utcHour, fmt)[23].label === '10:00–now · Online, no UPS data');
+  check('records from before drops existed read as no drops', last24h({ at: Math.floor((D0 + 10 * H) / SLOT_MS), s: '-'.repeat(47) + 'n' }, D0 + 10 * H).lost.every((x) => x === 0));
+}
+
 console.log('\nbattery minutes and hour cells');
 const H = 3_600_000, D0 = Math.floor(now / (24 * H)) * 24 * H; // a UTC midnight
 const utcHour = (t: number) => Math.floor(t / H) * H;
