@@ -4,15 +4,19 @@ export const runtime = 'edge';
 // moment ago is not lost when a KV read right after the write does not see it yet (KV is eventually consistent; the
 // account page reads it within a second of the sign-in).
 //
-// Cookie value:  s1.<id>.<issued-at ms>.<base64url email>.<HMAC-SHA256 over everything before it>
-// Rules:  a bad signature is refused outright. KV has the record → KV decides (expiry, email must match).
+// Cookie value:  s2.<id>.<issued-at ms>.<base64url email>.<flags>.<HMAC-SHA256 over everything before it>
+//   flags: "m" = this session passed two-step sign-in (CLOUD-MFA), "-" = it did not.
+//   (s1 = the same without flags, from LOGIN-1; still read, as "no two-step".)
+// Rules:  a bad signature is refused outright. KV has the record → KV decides (expiry, email must match, mfa).
 //         KV has nothing → trusted only while the cookie is younger than FRESH_MS (it was just issued by us).
-// The HMAC key is SESSION_SECRET, or else derived (HKDF, own label) from LEASE_PRIVATE_KEY, so no new secret is needed.
-// Without either, cookies are the bare id (as before) and only KV counts. Old bare-id cookies keep working.
+// The HMAC key comes from app/lib/keys (SESSION_SECRET, or HKDF of LEASE_PRIVATE_KEY). Without either, cookies are the
+// bare id (as before) and only KV counts. Old bare-id cookies keep working.
 import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
+import { hmacKey, b64u, unb64u } from '@/app/lib/keys';
 
 const DAY_MS = 86_400_000;
 export const FRESH_MS = 120_000;
+const KEY_INFO = 'pg_session cookie v1';
 
 function randomHex(bytes: number): string {
   const arr = new Uint8Array(bytes);
@@ -21,72 +25,68 @@ function randomHex(bytes: number): string {
 }
 
 const enc = new TextEncoder();
-const b64u = (b: ArrayBuffer | Uint8Array) => {
-  const u = b instanceof Uint8Array ? b : new Uint8Array(b);
-  let s = ''; for (const x of u) s += String.fromCharCode(x);
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-};
-const unb64u = (s: string) => {
-  const t = s.replace(/-/g, '+').replace(/_/g, '/');
-  return Uint8Array.from(atob(t + '='.repeat((4 - (t.length % 4)) % 4)), (c) => c.charCodeAt(0));
-};
-
-let keyCache: { src: string; key: CryptoKey } | null = null;
-async function hmacKey(): Promise<CryptoKey | null> {
-  const src = process.env.SESSION_SECRET || process.env.LEASE_PRIVATE_KEY || '';
-  if (!src) return null;
-  if (keyCache?.src === src) return keyCache.key;
-  const ikm = await crypto.subtle.importKey('raw', enc.encode(src.trim()), 'HKDF', false, ['deriveKey']);
-  const key = await crypto.subtle.deriveKey(
-    { name: 'HKDF', hash: 'SHA-256', salt: enc.encode('powerguardian'), info: enc.encode('pg_session cookie v1') },
-    ikm, { name: 'HMAC', hash: 'SHA-256', length: 256 }, false, ['sign', 'verify'],
-  );
-  keyCache = { src, key };
-  return key;
-}
-
-type Parsed = { id: string; iat: number; email: string } | { id: string; iat: null; email: null };
+type Parsed = { id: string; iat: number | null; email: string | null; mfa: boolean };
 
 async function parseCookie(value: string): Promise<Parsed | null> {
   if (!value) return null;
-  if (/^[0-9a-f]{64}$/.test(value)) return { id: value, iat: null, email: null }; // bare id (old cookies / no key)
+  if (/^[0-9a-f]{64}$/.test(value)) return { id: value, iat: null, email: null, mfa: false }; // bare id
   const parts = value.split('.');
-  if (parts.length !== 5 || parts[0] !== 's1' || !/^[0-9a-f]{64}$/.test(parts[1]) || !/^\d{1,15}$/.test(parts[2])) return null;
-  const key = await hmacKey();
+  const v2 = parts[0] === 's2' && parts.length === 6 && (parts[4] === 'm' || parts[4] === '-');
+  const v1 = parts[0] === 's1' && parts.length === 5;
+  if ((!v1 && !v2) || !/^[0-9a-f]{64}$/.test(parts[1]) || !/^\d{1,15}$/.test(parts[2])) return null;
+  const key = await hmacKey(KEY_INFO);
   if (!key) return null;
   let sig: Uint8Array, email: string;
-  try { sig = unb64u(parts[4]); email = new TextDecoder().decode(unb64u(parts[3])); } catch { return null; }
-  const ok = await crypto.subtle.verify('HMAC', key, sig as BufferSource, enc.encode(parts.slice(0, 4).join('.')));
-  return ok ? { id: parts[1], iat: Number(parts[2]), email } : null;
+  try { sig = unb64u(parts[parts.length - 1]); email = new TextDecoder().decode(unb64u(parts[3])); } catch { return null; }
+  const ok = await crypto.subtle.verify('HMAC', key, sig as BufferSource, enc.encode(parts.slice(0, -1).join('.')));
+  return ok ? { id: parts[1], iat: Number(parts[2]), email, mfa: v2 && parts[4] === 'm' } : null;
 }
 
-// Returns the cookie value to set.
-export async function createSession(email: string, now = Date.now()): Promise<string> {
+// Returns the cookie value to set. mfa: this sign-in passed the two-step check.
+export async function createSession(email: string, opts: { mfa?: boolean; now?: number } = {}): Promise<string> {
+  const now = opts.now ?? Date.now();
   const id = randomHex(32);
-  await kvPut(`session:${id}`, JSON.stringify({ email, expires: now + DAY_MS }));
-  const key = await hmacKey();
+  await kvPut(`session:${id}`, JSON.stringify({ email, expires: now + DAY_MS, ...(opts.mfa ? { mfa: true } : {}) }));
+  const key = await hmacKey(KEY_INFO);
   if (!key) return id;
-  const head = `s1.${id}.${now}.${b64u(enc.encode(email))}`;
+  const head = `s2.${id}.${now}.${b64u(enc.encode(email))}.${opts.mfa ? 'm' : '-'}`;
   return `${head}.${b64u(await crypto.subtle.sign('HMAC', key, enc.encode(head)))}`;
 }
 
-export async function getSession(cookie: string, now = Date.now()): Promise<string | null> {
+export type SessionInfo = { email: string; mfa: boolean };
+
+export async function getSessionInfo(cookie: string, now = Date.now()): Promise<SessionInfo | null> {
   const p = await parseCookie(cookie);
   if (!p) return null;
   const raw = await kvGet(`session:${p.id}`);
   if (!raw) {
     // KV lag right after the sign-in: trust our own fresh signature, nothing older.
-    if (p.iat !== null && now >= p.iat && now - p.iat < FRESH_MS) return p.email;
+    if (p.iat !== null && p.email !== null && now >= p.iat && now - p.iat < FRESH_MS) return { email: p.email, mfa: p.mfa };
     return null;
   }
   try {
-    const { email, expires } = JSON.parse(raw);
-    if (expires < now) return null;
-    if (p.email !== null && String(email).toLowerCase() !== p.email.toLowerCase()) return null;
-    return email;
+    const rec = JSON.parse(raw) as { email: string; expires: number; mfa?: boolean };
+    if (rec.expires < now) return null;
+    if (p.email !== null && String(rec.email).toLowerCase() !== p.email.toLowerCase()) return null;
+    return { email: rec.email, mfa: rec.mfa === true };
   } catch {
     return null;
   }
+}
+
+export async function getSession(cookie: string, now = Date.now()): Promise<string | null> {
+  return (await getSessionInfo(cookie, now))?.email ?? null;
+}
+
+// The signed-in owner just proved the authenticator (set it up from the account page): this session counts as
+// two-step from now on.
+export async function markSessionMfa(cookie: string): Promise<void> {
+  const p = await parseCookie(cookie);
+  if (!p) return;
+  const raw = await kvGet(`session:${p.id}`);
+  if (!raw) return;
+  const rec = JSON.parse(raw);
+  await kvPut(`session:${p.id}`, JSON.stringify({ ...rec, mfa: true }));
 }
 
 export async function deleteSession(cookie: string): Promise<void> {

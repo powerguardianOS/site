@@ -18,6 +18,9 @@ export type SSOAssertion = {
   role: 'admin';
   nonce: string; aud: string;
   iat: number; exp: number;
+  // CLOUD-MFA: present (true) only when the cloud session behind this statement passed two-step sign-in. The controller
+  // then skips its own authenticator step for this sign-in; without it the controller asks it as before.
+  mfa?: true;
 };
 
 const CTRL_RE = /^[0-9a-f]{64}$/;
@@ -68,12 +71,13 @@ export async function signSSO(a: SSOAssertion): Promise<string | null> {
   return sig ? `${msg}.${sig}` : null;
 }
 
-export function buildAssertion(email: string, site: LicenseRecord, req: SSORequest, now = Math.floor(Date.now() / 1000)): SSOAssertion {
+export function buildAssertion(email: string, site: LicenseRecord, req: SSORequest, now = Math.floor(Date.now() / 1000), mfa = false): SSOAssertion {
   // TODO(team roles): members of a site get their own role here; today only the licence owner signs in, as admin.
   return {
     v: 1, typ: 'sso', sub: 'email:' + email.toLowerCase(), email: email.toLowerCase(),
     controller_id: req.controller, site_id: site.id, site_name: site.site_name ?? '', role: 'admin',
     nonce: req.nonce, aud: req.origin, iat: now, exp: now + SSO_TTL_S,
+    ...(mfa ? { mfa: true as const } : {}),
   };
 }
 
@@ -85,6 +89,8 @@ export function ssoHtml(status: number, title: string, body: string): Response {
     `<title>${esc(title)} · PowerGuardian</title>` +
     `<body style="margin:0;background:#0b0f17;color:#e6edf3;font-family:system-ui,-apple-system,sans-serif">` +
     `<main style="max-width:440px;margin:0 auto;padding:48px 20px"><h1 style="font-size:22px;margin:0 0 16px">${esc(title)}</h1>${body}</main></body></html>`,
-    { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'" } },
+    // Referrer-Policy same-origin, NOT no-referrer: with no-referrer browsers send "Origin: null" on the Continue form
+    // POST, and the POST needs the real Origin to prove it came from this page.
+    { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'same-origin', 'X-Frame-Options': 'DENY', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'" } },
   );
 }

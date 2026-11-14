@@ -2,8 +2,10 @@ import { cookies } from 'next/headers';
 import { getAccountSummary } from '@/app/lib/license-db';
 import UnderlicensedBanner from './components/UnderlicensedBanner';
 import SitesSection from './components/SitesSection';
+import TwoStepCard from './components/TwoStepCard';
 import { getSession } from '@/app/lib/session';
 import { effectiveLimit } from '@/app/lib/limits';
+import { getMfa, mfaRequired } from '@/app/lib/mfa';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
@@ -13,6 +15,7 @@ export default async function AccountPage() {
   const sessionId = cookieStore.get('pg_session')?.value ?? '';
   const email = (await getSession(sessionId)) ?? '';
   const summary = await getAccountSummary(email);
+  const [mfa, required] = await Promise.all([getMfa(email), mfaRequired(email)]);
   // Connector add-ons belong to a site and only raise its capacity — they are not licenses of their own here.
   const siteLicenses = summary.licenses.filter((l) => l.plan !== 'addon_connector');
   const capacity = (l: (typeof siteLicenses)[number]) => effectiveLimit(l, summary.licenses);
@@ -105,6 +108,9 @@ export default async function AccountPage() {
           + Add connector licenses
         </a>
       </div>
+
+      {/* CLOUD-MFA */}
+      <TwoStepCard initial={{ enabled: !!mfa, since: mfa?.created_at ?? null, recovery_left: mfa?.recovery.length ?? 0, required }} />
     </div>
   );
 }

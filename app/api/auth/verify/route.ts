@@ -4,10 +4,11 @@ export const runtime = 'edge';
 //   GET  ?token=…  shows "Sign in as r***@gmail.com" with one button. It does NOT use the link up: mail scanners,
 //                  link previews (Gmail, Outlook, Brevo click tracking) and browser prefetch all GET links first.
 //   POST token     the button. Same-origin only. Uses the link up, creates the session, sets pg_session, → /account.
+//                  (CLOUD-MFA: or first to /login/mfa for the authenticator code, see app/lib/signin-step.ts.)
 // A used, expired or unknown link goes to /login?error=link, which says so and offers a new link.
 import { NextRequest, NextResponse } from 'next/server';
 import { peekMagicToken, consumeMagicToken, maskEmail } from '@/app/lib/magic-link';
-import { createSession } from '@/app/lib/session';
+import { afterLinkConfirmed } from '@/app/lib/signin-step';
 import { page, esc, sameOrigin } from '@/app/lib/page-html';
 
 const linkProblem = (request: Request) =>
@@ -36,19 +37,12 @@ export async function POST(request: NextRequest) {
   const email = token ? await consumeMagicToken(token) : null;
   if (!email) return linkProblem(request);
 
-  const cookie = await createSession(email);
   // CLOUD-SSO: a controller sent this browser to sign in first (app/sso/authorize). Go back there; the request is checked
   // again in full, so the cookie can only ever point at the authorize page.
   const ssoNext = request.cookies.get('pg_sso_next')?.value ?? '';
   const target = ssoNext ? '/sso/authorize?' + new URLSearchParams(ssoNext).toString() : '/account';
-  const response = NextResponse.redirect(new URL(target, request.url), { status: 303, headers: { 'Cache-Control': 'no-store' } });
+  // CLOUD-MFA: with two-step sign-in (or when it must be set up) the session is only made after the code.
+  const response = await afterLinkConfirmed(request, email, target);
   if (ssoNext) response.cookies.set('pg_sso_next', '', { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 0, path: '/' });
-  response.cookies.set('pg_session', cookie, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    maxAge: 86400,
-    path: '/',
-  });
   return response;
 }

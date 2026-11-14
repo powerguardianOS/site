@@ -5,9 +5,16 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
 // LOGIN-1: /login?error=link is where a used, expired or unknown sign-in link lands (app/api/auth/verify).
+// CLOUD-MFA: error=timeout (the two-step page waited too long) and error=codes (too many wrong codes).
+const NOTICES: Record<string, string> = {
+  link: 'This sign-in link has expired or was already used.',
+  timeout: 'Your sign-in took too long.',
+  codes: 'Too many wrong codes.',
+}
+
 export default function LoginPage() {
   return (
-    <Suspense fallback={<LoginForm linkError={false} />}>
+    <Suspense fallback={<LoginForm notice="" />}>
       <LoginWithParams />
     </Suspense>
   )
@@ -15,10 +22,12 @@ export default function LoginPage() {
 
 function LoginWithParams() {
   const params = useSearchParams()
-  return <LoginForm linkError={params.get('error') === 'link'} />
+  const e = params.get('error') ?? ''
+  return <LoginForm notice={Object.prototype.hasOwnProperty.call(NOTICES, e) ? NOTICES[e] : ''} />
 }
 
-function LoginForm({ linkError }: { linkError: boolean }) {
+function LoginForm({ notice }: { notice: string }) {
+  const linkError = notice !== ''
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -64,7 +73,7 @@ function LoginForm({ linkError }: { linkError: boolean }) {
 
         {linkError && !sent && (
           <div id="link-expired" role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
-            <p className="font-medium text-amber-200">This sign-in link has expired or was already used.</p>
+            <p className="font-medium text-amber-200">{notice}</p>
             <p className="mt-1 text-amber-100/70">Enter your email and we will send you a new one.</p>
           </div>
         )}

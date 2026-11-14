@@ -1,11 +1,11 @@
 // CLOUD-SSO: "Sign in with PowerGuardian Cloud" (app/sso/authorize, app/lib/sso.ts).
 // Run: npx tsx tests/sso.test.mts
-import { seed, lic, check, done, PUBKEY } from './harness.mts';
+import { kv, seed, lic, check, done, PUBKEY } from './harness.mts';
 import { createSession } from '../app/lib/session.ts';
 import { ssoReturnOrigin, SSO_PREFIX } from '../app/lib/sso.ts';
 import { verifyLease } from '../app/lib/lease.ts';
 import { GET, POST } from '../app/sso/authorize/route.ts';
-import { GET as verify } from '../app/api/auth/verify/route.ts';
+import { POST as verify } from '../app/api/auth/verify/route.ts';
 import { createMagicToken } from '../app/lib/magic-link.ts';
 import { NextRequest } from 'next/server';
 
@@ -91,6 +91,10 @@ r = await post({}, roy, 'https://evil.example');
 check('cross-site form post refused', r.status === 403 && !r.headers.get('location'));
 r = await post({}, roy, '');
 check('form post without Origin refused', r.status === 403);
+r = await get(q({}), roy);
+check('the Continue page does not use Referrer-Policy no-referrer (browsers then send "Origin: null" on the form POST)', r.headers.get('referrer-policy') !== 'no-referrer');
+r = await post({}, roy, 'null');
+check('a form post with "Origin: null" is refused cleanly (403, not a crash)', r.status === 403);
 r = await post({}, undefined);
 check('no session: no statement', r.status === 401);
 r = await post({ return: 'https://evil.example/api/auth/sso/callback' }, roy);
@@ -99,12 +103,21 @@ r = await post({ controller: CTRL_B }, roy);
 check('statement for site B from owner of site A refused', r.status === 403);
 
 console.log('\nsign in first, then back to the controller');
-const magic = await createMagicToken('roy@x.nl');
-const vr = await verify(new NextRequest('https://powerguardian.cloud/api/auth/verify?token=' + magic, { headers: { cookie: 'pg_sso_next=' + encodeURIComponent(q({})) } }));
-const back = vr.headers.get('location') ?? '';
-check('after the magic link the browser goes back to the authorize page', back.startsWith('https://powerguardian.cloud/sso/authorize?') && back.includes(CTRL_A));
-const magic2 = await createMagicToken('roy@x.nl');
-const vr2 = await verify(new NextRequest('https://powerguardian.cloud/api/auth/verify?token=' + magic2));
-check('without a pending sign-in it still goes to the account page', (vr2.headers.get('location') ?? '').endsWith('/account'));
+// LOGIN-1: the link's GET only shows a confirm page; the button POSTs. CLOUD-MFA: roy manages a site, so two-step
+// sign-in comes first (tests/mfa.test.mts walks it to the end); the pending sign-in remembers where to go next.
+const confirmLink = async (cookie?: string) => verify(new NextRequest('https://powerguardian.cloud/api/auth/verify', {
+  method: 'POST', body: new URLSearchParams({ token: await createMagicToken('roy@x.nl') }).toString(),
+  headers: { 'content-type': 'application/x-www-form-urlencoded', origin: 'https://powerguardian.cloud', ...(cookie ? { cookie } : {}) },
+}));
+const pendingNext = (res: Response) => {
+  const id = (res.headers.get('set-cookie') ?? '').match(/pg_signin=([0-9a-f]+)/)?.[1] ?? '';
+  return id && kv.has('signin:step:' + id) ? JSON.parse(kv.get('signin:step:' + id)!).next as string : '';
+};
+const vr = await confirmLink('pg_sso_next=' + encodeURIComponent(q({})));
+const back = pendingNext(vr);
+check('after the magic link (and two-step sign-in) the browser goes back to the authorize page', back.startsWith('/sso/authorize?') && back.includes(CTRL_A));
+check('the remembered controller request is cleared', /pg_sso_next=;/.test(vr.headers.get('set-cookie') ?? ''));
+const vr2 = await confirmLink();
+check('without a pending sign-in it still goes to the account page', pendingNext(vr2) === '/account');
 
 done();

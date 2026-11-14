@@ -6,7 +6,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, cpSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
-import { startDev, SITE, ORIGIN, ADMIN, MINT, H, RELAY_PORT } from './cloud-dev.mjs';
+import { startDev, finishTwoStep, SITE, ORIGIN, ADMIN, MINT, H, RELAY_PORT } from './cloud-dev.mjs';
 
 const CTL_DIR = process.env.CTL_DIR ?? path.join(homedir(), '.pg-work/ctl-relayurl');
 const RELAY_DIR = process.env.RELAY_DIR ?? path.join(homedir(), '.pg-work/relay-cloud');
@@ -32,7 +32,8 @@ try {
     const link = m?.text.match(/https?:\/\/\S+\/api\/auth\/verify\?token=\w+/)?.[0];
     // LOGIN-1: the link (GET) shows a confirm page; the button POSTs the token.
     const v = await fetch(SITE + '/api/auth/verify', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: ORIGIN }, body: new URLSearchParams({ token: new URL(link).searchParams.get('token') }).toString() });
-    return (v.headers.get('set-cookie') ?? '').match(/pg_session=[^;]+/)?.[0];
+    // CLOUD-MFA: an account with a site sets up two-step sign-in first (the helper does it with a computed code).
+    return (await finishTwoStep(v, ORIGIN)).cookie;
   };
 
   console.log('prep: relay (wrangler dev, REVALIDATE_MS=5000 in a temp copy) and controller binary');

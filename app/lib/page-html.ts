@@ -12,7 +12,8 @@ button,.btn{display:block;width:100%;min-height:48px;padding:14px;border:0;borde
 button.secondary{background:transparent;color:#a1a1aa;border:1px solid #3f3f46;margin-top:12px}
 input{display:block;width:100%;min-height:48px;padding:12px 14px;margin:0 0 12px;background:#09090b;border:1px solid #27272a;border-radius:10px;color:#fafafa;font-size:16px;font-family:inherit}
 input:focus{outline:none;border-color:#00C66F}.code{font-size:24px;letter-spacing:.3em;text-align:center;font-variant-numeric:tabular-nums}
-.err{color:#f87171;font-size:14px;text-align:left;margin:0 0 12px}.small{font-size:13px;color:#71717a}a{color:#00C66F}`;
+.err{color:#f87171;font-size:14px;text-align:left;margin:0 0 12px}summary::-webkit-details-marker{display:none}
+@media (hover:hover) and (pointer:fine){.phone-only{display:none}}.small{font-size:13px;color:#71717a}a{color:#00C66F}`;
 
 export function page(status: number, title: string, body: string, extraHeaders: Record<string, string> = {}): Response {
   return new Response(

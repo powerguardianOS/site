@@ -3,7 +3,8 @@ export const runtime = 'edge';
 // CLOUD-SSO step 2 (see app/lib/sso.ts): GET shows "Sign in to <site>?" for a signed-in owner of that controller's
 // site (or sends the browser to the login first); POST (the Continue button, same origin only) signs the statement and
 // sends the browser back to the controller. No statement ever goes to a controller of another account.
-import { getSession } from '@/app/lib/session';
+import { getSessionInfo, type SessionInfo } from '@/app/lib/session';
+import { sameOrigin } from '@/app/lib/page-html';
 import { parseSSORequest, ssoSiteFor, buildAssertion, signSSO, ssoHtml, esc } from '@/app/lib/sso';
 
 const NEXT_COOKIE = 'pg_sso_next';
@@ -20,11 +21,12 @@ function cookie(request: Request, name: string): string {
 const bad = () => ssoHtml(400, 'This sign-in link is not valid',
   '<p style="color:#9aa4b2">Start again from the sign-in page of your controller.</p>');
 
-async function signedInEmail(request: Request): Promise<string | null> {
+async function signedIn(request: Request): Promise<SessionInfo | null> {
   const sid = cookie(request, 'pg_session');
-  const email = sid ? await getSession(sid) : null;
-  return email ? email.toLowerCase() : null;
+  const s = sid ? await getSessionInfo(sid) : null;
+  return s ? { email: s.email.toLowerCase(), mfa: s.mfa } : null;
 }
+const signedInEmail = async (request: Request) => (await signedIn(request))?.email ?? null;
 
 function noAccess(email: string) {
   return ssoHtml(403, 'No access to this controller',
@@ -65,8 +67,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   // Same-origin form only: another site cannot make a signed-in browser hand out a statement.
-  const origin = request.headers.get('origin');
-  if (!origin || new URL(origin).host !== new URL(request.url).host) {
+  if (!sameOrigin(request)) {
     return ssoHtml(403, 'This sign-in was not started here', '<p style="color:#9aa4b2">Start again from the sign-in page of your controller.</p>');
   }
   const form = await request.formData().catch(() => null);
@@ -75,11 +76,12 @@ export async function POST(request: Request) {
   for (const k of ['controller', 'nonce', 'return']) p.set(k, String(form.get(k) ?? ''));
   const req = parseSSORequest(p);
   if (!req) return bad();
-  const email = await signedInEmail(request);
-  if (!email) return ssoHtml(401, 'Sign in first', '<p style="color:#9aa4b2">Your PowerGuardian Cloud session ended. Start again from your controller.</p>');
+  const who = await signedIn(request);
+  const email = who?.email;
+  if (!who || !email) return ssoHtml(401, 'Sign in first', '<p style="color:#9aa4b2">Your PowerGuardian Cloud session ended. Start again from your controller.</p>');
   const site = await ssoSiteFor(email, req.controller);
   if (!site) return noAccess(email);
-  const token = await signSSO(buildAssertion(email, site, req));
+  const token = await signSSO(buildAssertion(email, site, req, undefined, who.mfa));
   if (!token) return ssoHtml(503, 'Sign-in is not available right now', '<p style="color:#9aa4b2">Sign in on the controller with its own username and password.</p>');
   return new Response(null, {
     status: 303,

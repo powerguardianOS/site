@@ -1,12 +1,20 @@
 import { cfApiBase } from '@/app/lib/kv';
-import { cookies } from 'next/headers';
 import { getSession } from '@/app/lib/session';
 import { sendEmail } from '@/app/lib/email';
+
+function requestCookie(request: Request, name: string): string {
+  for (const part of (request.headers.get('cookie') ?? '').split(';')) {
+    const [k, ...v] = part.trim().split('=');
+    if (k === name) { try { return decodeURIComponent(v.join('=')); } catch { return ''; } }
+  }
+  return '';
+}
 
 // Guard for customer API routes: a signed-in session, plus for anything that
 // changes state a JSON content-type and a same-origin Origin (like adminGuard).
 export async function ownerGuard(request: Request): Promise<{ email: string; sessionId: string } | Response> {
-  const sessionId = (await cookies()).get('pg_session')?.value ?? '';
+  // From the request itself (what cookies() returns inside a route handler; testable without a Next request scope).
+  const sessionId = requestCookie(request, 'pg_session');
   const email = sessionId ? await getSession(sessionId) : null;
   if (!email) return Response.json({ error: 'unauthorized' }, { status: 401 });
   if (request.method !== 'GET') {
