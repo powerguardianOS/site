@@ -176,11 +176,24 @@ try {
   const st = await fetch(`${RELAY}/status/${L.acer}`);
   ok('relay status with acme\'s licence id instead of a token → 401', st.status === 401, String(st.status));
 
-  console.log('\nD. mallory\'s controller UI (she is its admin): the site switcher');
+  console.log('\nD. the site switcher on the controllers');
   const ms = await j(await fetch(CT.mal.C + '/api/sites', { headers: { cookie: CT.mal.ck, 'x-requested-with': 'XMLHttpRequest' } }));
   ok('her switcher never lists acme\'s or beurs\' sites', ms.status === 200 && !/Acer|"HP"|Beurs/.test(JSON.stringify(ms)), JSON.stringify(ms).slice(0, 200));
   const mc = await j(await CT.mal.cpost('/api/sites/console', { id: L.acer }, CT.mal.ck));
   ok('her switcher cannot open Acer through the relay', !mc.console_url, JSON.stringify(mc));
+
+  // a local viewer account on acme's Acer (e.g. an IT contractor) must not reach the owner's other site HP
+  const nu = await CT.acer.cpost('/api/users', { username: 'contractor', email: 'contractor@example.test', password: 'Correct-horse-2', role: 'viewer' }, CT.acer.ck);
+  const vl = await CT.acer.cpost('/api/auth/login', { username: 'contractor', password: 'Correct-horse-2' });
+  const vck = (vl.headers.get('set-cookie') ?? '').split(';')[0];
+  if (ok('a viewer account on acme\'s Acer signs in', nu.status < 300 && vl.status === 200 && !!vck, `${nu.status} ${vl.status}`)) {
+    const vs = await j(await fetch(CT.acer.C + '/api/sites', { headers: { cookie: vck, 'x-requested-with': 'XMLHttpRequest' } }));
+    ok('the viewer of Acer does not see the owner\'s other site HP', vs.status === 200 && !/"HP"/.test(JSON.stringify(vs)) && (vs.sites ?? []).length === 1, JSON.stringify(vs).slice(0, 200));
+    const vc = await j(await CT.acer.cpost('/api/sites/console', { id: L.hp }, vck));
+    ok('the viewer of Acer cannot open HP through the relay', !vc.console_url, JSON.stringify(vc));
+    const as = await j(await fetch(CT.acer.C + '/api/sites', { headers: { cookie: CT.acer.ck, 'x-requested-with': 'XMLHttpRequest' } }));
+    ok('(control) acme\'s admin on Acer sees Acer and HP', /"HP"/.test(JSON.stringify(as)), JSON.stringify(as).slice(0, 200));
+  }
 
   console.log('\nE. licence claim from mallory\'s controller');
   const m0 = dev.mails.filter((x) => x.to === 'mallory@mallory.test').length;
@@ -265,7 +278,7 @@ try {
     ok('a statement acme got for HP is refused by Acer (other site / other nonce)', !d3.session, `${d3.status} ${d3.body.slice(0, 160)}`);
     const d4 = await deliver(CT.acer, a2.location, s2.bind);
     ok('a used statement replayed on Acer → refused', !d4.session, String(d4.status));
-    const s5 = await startOn(CT.acer);
+    const s5 = s3; // any started flow will do: the cloud refuses the return address before it looks at the nonce
     const evil = `https://${label(L.mal)}-console.powerguardian.cloud/api/auth/sso/callback`;
     const q = new URL(s5.url).searchParams;
     const a5 = await fetch(SITE + '/sso/authorize', { method: 'POST', redirect: 'manual', headers: { cookie: acme, origin: ORIGIN, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ controller: q.get('controller'), nonce: q.get('nonce'), return: evil }).toString() });
