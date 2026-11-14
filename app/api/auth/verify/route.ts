@@ -10,9 +10,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { peekMagicToken, consumeMagicToken, maskEmail } from '@/app/lib/magic-link';
 import { afterLinkConfirmed } from '@/app/lib/signin-step';
 import { page, esc, sameOrigin } from '@/app/lib/page-html';
+import { getSession } from '@/app/lib/session';
 
-const linkProblem = (request: Request) =>
-  NextResponse.redirect(new URL('/login?error=link', request.url), { status: 303, headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+// Already signed in (a double tap on Sign in, where the second POST wins in the browser, or an old mail link opened
+// later): go to the account instead of "expired". Sessions only exist after the full sign-in, MFA included.
+const linkProblem = async (request: NextRequest) => {
+  const cookie = request.cookies.get('pg_session')?.value;
+  const signedIn = cookie ? await getSession(cookie).catch(() => null) : null;
+  return NextResponse.redirect(new URL(signedIn ? '/account' : '/login?error=link', request.url), { status: 303, headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+};
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token') ?? '';
