@@ -7,6 +7,7 @@ import { withRoot } from '@/app/lib/founder';
 import { dateLong, notifyOwner } from '@/app/lib/notify';
 import { getSiteStatus, putSiteStatus } from '@/app/lib/site-status';
 import type { SiteDevice, SiteStatus } from '@/app/lib/site-status';
+import { privateLan } from '@/app/lib/site-summary';
 
 const MAX_BODY = 64 * 1024;
 const MAX_DEVICES = 200;
@@ -106,6 +107,8 @@ export async function POST(request: Request) {
     controller_version: str(body.controller_version, 40),
     devices,
     received_at: Date.now(),
+    model: str(body.model, 80),
+    lan: privateLan(body.lan),
   };
 
   if (!(await putSiteStatus(license.id, status))) {

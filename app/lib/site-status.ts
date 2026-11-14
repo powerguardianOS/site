@@ -15,6 +15,8 @@ export type SiteStatus = {
   controller_version: string;
   devices: SiteDevice[];
   received_at: number; // ms, set by the cloud — never trusted from the controller
+  model?: string;      // the controller's hardware ("HP ProDesk 400 G3 DM"); absent in beats from before SITE-2
+  lan?: string[];      // its private LAN addresses, for the site switcher of the account's other controllers
 };
 
 // A controller heartbeats every 60 s; three missed beats = offline.
