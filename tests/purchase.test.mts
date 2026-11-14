@@ -1,4 +1,4 @@
-import { put, get, seed, lic, check, done, kv } from './harness.mts';
+import { get, seed, lic, check, done, DAY } from './harness.mts';
 
 process.env.PAYPAL_CLIENT_ID = 'id'; process.env.PAYPAL_CLIENT_SECRET = 's';
 // A tiny fake PayPal on top of the harness' KV/Brevo fetch.
@@ -19,35 +19,92 @@ const order = (id: string, custom_id: string, value: string, status = 'APPROVED'
   orders.set(id, { status, payer: { email_address: 'cust@x.nl' }, purchase_units: [{ custom_id, amount: { currency_code: 'EUR', value } }] });
 
 const { fulfilPurchase, parseCustomId } = await import('../app/lib/purchase.ts');
-seed(lic('site1', 'cust@x.nl', { plan: 'home', connector_limit: 1 }));
+const { PRICING, priceOf, periodEnd, monthsFree } = await import('../app/lib/pricing.ts');
+const { POST: createOrder } = await import('../app/api/paypal/create-order/route.ts');
+
+// An existing customer on the OLD price (bought before monthly/yearly): nothing below may touch this licence.
+const OLD = lic('site1', 'cust@x.nl', { plan: 'home', connector_limit: 1, expires_at: new Date(Date.now() + 100 * DAY).toISOString(), notes: 'paypal:OLD-ORDER' });
+seed(OLD, lic('sub9', 'old@x.nl', { plan: 'pro', notes: 'paypal-sub:I-OLD' }));
+const before9 = JSON.stringify(get('license:sub9'));
+const months = (iso: string) => { const a = new Date(), b = new Date(iso); return (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth(); };
+
+console.log('price table');
+check('new prices: Home €4.99/month or €49/year, Pro €14.99/month or €149/year',
+  priceOf('home', 'month') === 4.99 && priceOf('home', 'year') === 49 && priceOf('pro', 'month') === 14.99 && priceOf('pro', 'year') === 149);
+check('yearly is 2 months free for Home and Pro', monthsFree('home') === 2 && monthsFree('pro') === 2);
+check('connectors per plan unchanged: Home 1, Pro 5', PRICING.home.connectors === 1 && PRICING.pro.connectors === 5);
+check('a month after 31 January is the end of February (never skips a month)', periodEnd('month', Date.UTC(2027, 0, 31, 12)).startsWith('2027-02-28'));
+check('12 months after 29 February 2028 is 28 February 2029', periodEnd('year', Date.UTC(2028, 1, 29, 12)).startsWith('2029-02-28'));
+
+console.log('order');
+check('custom_id is parsed: plan, period, and a site only for add-ons',
+  parseCustomId('home/year')?.period === 'year' && parseCustomId('pro/month')?.plan === 'pro' &&
+  parseCustomId('addon_connector/month:site1')?.parent === 'site1' &&
+  parseCustomId('addon_connector/year') === null && parseCustomId('pro/year:site1') === null && parseCustomId('lifetime/year') === null &&
+  parseCustomId('home/week') === null && parseCustomId('home/year/x') === null && parseCustomId('toString/year') === null);
+check('an order from before monthly/yearly (no period, old price) is not understood', parseCustomId('home') === null);
+
+const sent: any[] = [];
+const base2 = globalThis.fetch;
+(globalThis as any).fetch = async (url: string, init: any = {}) => {
+  if (String(url).endsWith('/v2/checkout/orders')) { sent.push(JSON.parse(init.body)); return Response.json({ id: 'NEW' }); }
+  return base2(url, init);
+};
+const mk = (b: unknown) => createOrder(new Request('http://x/api/paypal/create-order', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }) as any);
+await mk({ plan: 'home', period: 'year', amount: '0.01' });
+await mk({ plan: 'pro', period: 'month', value: '1.00' });
+await mk({ plan: 'home' });
+check('create-order charges OUR price, whatever amount the browser sends',
+  sent[0]?.purchase_units[0].amount.value === '49.00' && sent[1]?.purchase_units[0].amount.value === '14.99');
+check('create-order writes plan and period into the order', sent[0]?.purchase_units[0].custom_id === 'home/year' && sent[1]?.purchase_units[0].custom_id === 'pro/month');
+check('no period given: yearly (the default on the page)', sent[2]?.purchase_units[0].custom_id === 'home/year' && sent[2]?.purchase_units[0].amount.value === '49.00');
+check('an unknown period or plan is refused', (await mk({ plan: 'home', period: 'week' })).status === 400 && (await mk({ plan: 'founder', period: 'year' })).status === 400 && sent.length === 3);
 
 console.log('purchase');
-check('custom_id is parsed; add-on needs a site, others must not have one',
-  parseCustomId('home')?.plan === 'home' && parseCustomId('addon_connector:site1')?.parent === 'site1' &&
-  parseCustomId('addon_connector') === null && parseCustomId('pro:site1') === null && parseCustomId('lifetime') === null);
+order('y1', 'home/year', '49.00');
+const r1 = await fulfilPurchase('y1') as any;
+const l1 = get('license:' + r1.license_id);
+check('Home yearly at €49: a Home licence (1 connector) that runs 12 months', r1.ok && l1.plan === 'home' && l1.connector_limit === 1 && months(l1.expires_at) === 12, l1?.expires_at);
 
-order('o1', 'home', '25.00');
-const r1 = await fulfilPurchase('o1') as any;
-check('a Home order creates a Home license (1 connector)', r1.ok && get('license:' + r1.license_id).plan === 'home' && get('license:' + r1.license_id).connector_limit === 1);
+order('m1', 'pro/month', '14.99');
+const r2 = await fulfilPurchase('m1') as any;
+const l2 = get('license:' + r2.license_id);
+check('Pro monthly at €14.99: a Pro licence (5 connectors) that runs 1 month', r2.ok && l2.plan === 'pro' && l2.connector_limit === 5 && months(l2.expires_at) === 1, l2?.expires_at);
 
-order('o2', 'home', '99.00');
-check('paying the Home price for Pro is impossible: price must match what the order says', (await fulfilPurchase('o2') as any).error === 'amount_mismatch');
-order('o3', 'pro', '25.00');
-check('an order for Pro paid at the Home price is refused', (await fulfilPurchase('o3') as any).error === 'amount_mismatch');
-check('an unapproved order is refused', (await fulfilPurchase('o1x') as any).error === 'order_not_approved');
-order('o4', 'whatever', '25.00');
-check('an unknown plan in the order is refused', (await fulfilPurchase('o4') as any).error === 'unknown_order');
-const before = captures;
-order('o1', 'home', '25.00');
-check('…even if PayPal still reports it as approved', (await fulfilPurchase('o1') as any).error === 'already_fulfilled' && captures === before);
+order('y2', 'pro/year', '149.00');
+check('Pro yearly at €149 works too', (await fulfilPurchase('y2') as any).ok);
 
-order('o5', 'addon_connector:site1', '25.00');
-const r5 = await fulfilPurchase('o5') as any;
+order('t1', 'pro/year', '14.99');
+check('tampered: Pro yearly paid at the monthly price is refused', (await fulfilPurchase('t1') as any).error === 'amount_mismatch');
+order('t2', 'home/year', '25.00');
+check('tampered: Home yearly at the OLD price (€25) is refused', (await fulfilPurchase('t2') as any).error === 'amount_mismatch');
+order('t3', 'home/month', '2.99');
+check('tampered: Home monthly at the OLD price (€2.99) is refused', (await fulfilPurchase('t3') as any).error === 'amount_mismatch');
+order('t4', 'home/year', '149.00');
+check('paying the Pro price on a Home order is refused (exact match only)', (await fulfilPurchase('t4') as any).error === 'amount_mismatch');
+order('t5', 'home', '25.00');
+check('a legacy order without a period is refused', (await fulfilPurchase('t5') as any).error === 'unknown_order');
+const captured = captures;
+check('a refused price is never captured (no money taken)', ['t1', 't2', 't3', 't4', 't5'].every((id) => orders.get(id).status === 'APPROVED') && captured === 3);
+check('an unapproved order is refused', (await fulfilPurchase('nope') as any).error === 'order_not_approved');
+order('u1', 'whatever/year', '49.00');
+check('an unknown plan in the order is refused', (await fulfilPurchase('u1') as any).error === 'unknown_order');
+order('y1', 'home/year', '49.00');
+check('…an order is fulfilled once, even if PayPal still reports it as approved', (await fulfilPurchase('y1') as any).error === 'already_fulfilled' && captures === captured);
+
+order('a1', 'addon_connector/year:site1', '25.00');
+const r5 = await fulfilPurchase('a1') as any;
 const add = get('license:' + r5.license_id);
-check('an add-on order creates a license that points at the site (parent_id)', r5.ok && add.plan === 'addon_connector' && add.parent_id === 'site1');
-check('the site license lists the add-on', get('license:site1').addon_ids.includes(r5.license_id));
-order('o6', 'addon_connector:ghost', '25.00');
-check('an add-on for a site that does not exist is refused', (await fulfilPurchase('o6') as any).error === 'parent_not_found');
-order('o7', 'addon_connector:site1', '5.00');
-check('an add-on at the wrong price is refused', (await fulfilPurchase('o7') as any).error === 'amount_mismatch');
+check('an add-on order creates a licence that points at the site (parent_id) and runs 12 months', r5.ok && add.plan === 'addon_connector' && add.parent_id === 'site1' && months(add.expires_at) === 12);
+check('the site licence lists the add-on', get('license:site1').addon_ids.includes(r5.license_id));
+order('a2', 'addon_connector/month:ghost', '2.99');
+check('an add-on for a site that does not exist is refused', (await fulfilPurchase('a2') as any).error === 'parent_not_found');
+order('a3', 'addon_connector/month:site1', '5.00');
+check('an add-on at the wrong price is refused', (await fulfilPurchase('a3') as any).error === 'amount_mismatch');
+
+console.log('existing customers keep their deal');
+const now1 = get('license:site1');
+check('the existing licence keeps plan, connectors, end date and order (only the add-on link was added)',
+  now1.plan === OLD.plan && now1.connector_limit === OLD.connector_limit && now1.expires_at === OLD.expires_at && now1.notes === OLD.notes && now1.status === 'active' && now1.token === OLD.token);
+check('another customer\'s old-price subscription licence is untouched by new purchases', JSON.stringify(get('license:sub9')) === before9);
 done();

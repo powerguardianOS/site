@@ -3,8 +3,8 @@ export const runtime = 'edge';
 
 const PAYPAL_BASE = process.env.PAYPAL_SANDBOX === '1' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
 import { kvGet, kvPut } from '@/app/lib/kv';
-import { PLAN_PRICES } from '@/app/lib/pricing';
-export { PLAN_PRICES };
+import { PRICING, priceOf } from '@/app/lib/pricing';
+import type { Period, PricedPlan } from '@/app/lib/pricing';
 
 export async function getPayPalToken(): Promise<string> {
   const response = await fetch(PAYPAL_BASE + '/v1/oauth2/token', {
@@ -21,7 +21,8 @@ export async function getPayPalToken(): Promise<string> {
 
 // What was bought is fixed HERE, on the server, when the order is made (custom_id) and re-read at capture time:
 // the browser never gets to say which plan a payment was for.
-export async function createPayPalOrder(plan: string, parentId?: string): Promise<string> {
+// custom_id: "plan/period" or "plan/period:parentLicenseId" (see parseCustomId in purchase.ts).
+export async function createPayPalOrder(plan: PricedPlan, period: Period, parentId?: string): Promise<string> {
   const token = await getPayPalToken();
   const response = await fetch(PAYPAL_BASE + '/v2/checkout/orders', {
     method: 'POST',
@@ -35,10 +36,10 @@ export async function createPayPalOrder(plan: string, parentId?: string): Promis
         {
           amount: {
             currency_code: 'EUR',
-            value: PLAN_PRICES[plan].toFixed(2),
+            value: priceOf(plan, period).toFixed(2),
           },
-          custom_id: parentId ? plan + ':' + parentId : plan,
-          description: 'PowerGuardian ' + plan + ' license (annual)',
+          custom_id: plan + '/' + period + (parentId ? ':' + parentId : ''),
+          description: 'PowerGuardian ' + PRICING[plan].name + ' licence (' + (period === 'year' ? '12 months' : '1 month') + ')',
         },
       ],
     }),

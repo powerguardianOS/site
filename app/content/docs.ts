@@ -1,3 +1,5 @@
+import { PRICING, VAT_NOTE, monthsFree, priceLine } from "@/app/lib/pricing";
+
 export type DocSection = { title: string; body: string };
 export type DocPage = { slug: string; title: string; intro: string; sections: DocSection[] };
 
@@ -55,7 +57,7 @@ export const DOCS: DocPage[] = [
       },
       {
         title: "Plans",
-        body: "Home — €2.99/month or €25/year\n• 1 Connector included\n• Single site\n• All core features\n\nPro — €9.99/month or €99/year\n• 5 Connectors included\n• Multi-site support\n• All core features\n\nAdd-on Connector — €2.99/month or €25 one-time\n• Add one extra connector to any existing plan",
+        body: `${priceLine('home')}\n• ${PRICING.home.connectors} connector, one site\n• All core features\n\n${priceLine('pro')}\n• ${PRICING.pro.connectors} connectors, one site\n• Remote console from anywhere\n• All core features\n\n${priceLine('addon_connector')}\n• One extra connector for a Home or Pro site\n\nBusiness — coming soon: more sites, share a site by e-mail, SSO with Microsoft. Contact us.\n\nYearly = ${monthsFree('home')} months free. ${VAT_NOTE}`,
       },
     ],
   },

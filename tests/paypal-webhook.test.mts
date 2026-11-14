@@ -40,6 +40,20 @@ r = await call(goodHeaders);
 check('PayPal says SUCCESS: processed, licence expired', r.status === 200 && get('license:sub1').status === 'expired');
 check('verification used our webhook id and the event as sent', verifyBody.webhook_id === 'WH-1' && verifyBody.transmission_id === 'tid' && verifyBody.webhook_event.resource.id === 'I-ABC');
 
+// Existing paying subscribers keep their old deal: a renewal or payment event of an old subscription changes nothing,
+// and ending one subscription never touches another licence.
+const old = lic('old1', 'old@x.nl', { plan: 'home', connector_limit: 1, expires_at: '2027-03-01T00:00:00.000Z', notes: 'paypal-sub:I-OLD' });
+seed(old);
+const snap = JSON.stringify(get('license:old1'));
+const tick = (id: string) => ({ ...goodHeaders, 'paypal-transmission-id': id, 'paypal-transmission-time': new Date().toISOString() });
+for (const [i, t] of ['BILLING.SUBSCRIPTION.RENEWED', 'PAYMENT.SALE.COMPLETED', 'BILLING.SUBSCRIPTION.UPDATED'].entries()) {
+  r = await call(tick('renew' + i), { event_type: t, resource: { id: 'I-OLD', amount: { total: '49.00', currency: 'EUR' } } });
+  check(`${t} of an old-price subscription: accepted, licence unchanged`, r.status === 200 && JSON.stringify(get('license:old1')) === snap);
+}
+seed(lic('other', 'o@x.nl', { notes: 'paypal-sub:I-OTHER' }));
+r = await call(tick('cancel-other'), { event_type: 'BILLING.SUBSCRIPTION.CANCELLED', resource: { id: 'I-OTHER' } });
+check('cancelling another subscription leaves the old-price licence alone', get('license:other').status === 'expired' && JSON.stringify(get('license:old1')) === snap);
+
 delete process.env.PAYPAL_WEBHOOK_ID;
 seed(lic('sub2', 'c2@x.nl', { notes: 'paypal-sub:I-DEF' }));
 r = await call(goodHeaders, { event_type: 'BILLING.SUBSCRIPTION.CANCELLED', resource: { id: 'I-DEF' } });
