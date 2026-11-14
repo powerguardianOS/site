@@ -13,6 +13,7 @@ button.secondary{background:transparent;color:#a1a1aa;border:1px solid #3f3f46;m
 input{display:block;width:100%;min-height:48px;padding:12px 14px;margin:0 0 12px;background:#09090b;border:1px solid #27272a;border-radius:10px;color:#fafafa;font-size:16px;font-family:inherit}
 input:focus{outline:none;border-color:#00C66F}.code{font-size:24px;letter-spacing:.3em;text-align:center;font-variant-numeric:tabular-nums}
 .err{color:#f87171;font-size:14px;text-align:left;margin:0 0 12px}summary::-webkit-details-marker{display:none}
+[hidden]{display:none!important}.or{display:flex;align-items:center;gap:12px;margin:20px 0 0;color:#71717a;font-size:13px}.or:before,.or:after{content:"";flex:1;border-top:1px solid #27272a}
 @media (hover:hover) and (pointer:fine){.phone-only{display:none}}.small{font-size:13px;color:#71717a}a{color:#00C66F}`;
 
 export function page(status: number, title: string, body: string, extraHeaders: Record<string, string> = {}): Response {
@@ -36,6 +37,10 @@ export function page(status: number, title: string, body: string, extraHeaders: 
     },
   );
 }
+
+// PASSKEYS-1: the sign-in step pages that offer a passkey load one small static script from this origin
+// (public/mfa-passkey.js) and call back to it; nothing else is allowed.
+export const CSP_PASSKEY = "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 // Same-origin check for form POSTs from these pages: the browser's Origin must be this host.
 export function sameOrigin(request: Request): boolean {

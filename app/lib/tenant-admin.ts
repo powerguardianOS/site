@@ -2,6 +2,7 @@ import { deleteAccount, getAccount } from '@/app/lib/accounts';
 import { deleteLicense } from '@/app/lib/license-db';
 import { deleteSiteStatus } from '@/app/lib/site-status';
 import { deleteBlocker, loadTenants } from '@/app/lib/tenants';
+import { deleteAllPasskeys } from '@/app/lib/passkeys';
 
 export type DeleteResult =
   | { ok: true; licenses: number }
@@ -32,6 +33,7 @@ export async function deleteTenant(email: string, confirm: unknown, adminEmail: 
       await deleteLicense(l.id);
     }
   }
+  await deleteAllPasskeys(target); // PASSKEYS-1: a new account under this address never inherits them
   await deleteAccount(target);
   return { ok: true, licenses: tenant?.licenses.length ?? 0 };
 }

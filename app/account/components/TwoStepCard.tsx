@@ -1,10 +1,13 @@
 'use client';
 
 // CLOUD-MFA: "Two-step sign-in" card. Everything happens inside the card (no modal, no toast).
-import { useState } from 'react';
+// PASSKEYS-1: two-step is on with the authenticator app or a passkey (PasskeysCard); "enabled" here is the app.
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { confirmWithPasskey } from './PasskeysCard';
+import { cancelled, passkeySupported } from '@/app/lib/webauthn-client';
 
-export type TwoStepStatus = { enabled: boolean; since: string | null; recovery_left: number; required: boolean };
+export type TwoStepStatus = { enabled: boolean; since: string | null; recovery_left: number; required: boolean; passkeys?: number };
 type Setup = { key: string; otpauth: string; qr_svg: string };
 type Mode = 'idle' | 'setup' | 'codes' | 'remove' | 'recovery';
 
@@ -47,6 +50,11 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
     const r = await fetch('/api/account/mfa').catch(() => null);
     if (r?.ok) setStatus(await r.json());
   };
+  useEffect(() => {
+    const on = () => { load(); };
+    window.addEventListener('pg:twostep', on);
+    return () => window.removeEventListener('pg:twostep', on);
+  }, []);
 
   const reset = () => { setMode('idle'); setCode(''); setError(''); setSetup(null); setCopied(false); };
 
@@ -58,22 +66,35 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
     setSetup(r.data as unknown as Setup); setMode('setup');
   };
 
-  const submit = async (action: 'confirm' | 'remove' | 'recovery') => {
+  const submit = async (action: 'confirm' | 'remove' | 'recovery', viaPasskey = false) => {
     setBusy(true); setError('');
-    const r = await call({ action, code });
+    let body: Record<string, unknown> = { action, code };
+    if (viaPasskey) {
+      try {
+        const credential = await confirmWithPasskey();
+        if (!credential) { setBusy(false); setError('Could not start the confirmation. Try again.'); return; }
+        body = { action, credential };
+      } catch (e) {
+        setBusy(false); if (!cancelled(e)) setError('That passkey did not work. Try again.'); return;
+      }
+    }
+    const r = await call(body);
     setBusy(false);
     if (!r.ok) { setError(String(r.data.message ?? 'Something went wrong. Try again.')); return; }
     setCode('');
-    if (action === 'remove') { reset(); await load(); return; }
+    if (action === 'remove') { reset(); await load(); window.dispatchEvent(new Event('pg:twostep')); return; }
     setCodes((r.data.recovery_codes as string[]) ?? []); setMode('codes'); setSetup(null);
     await load();
+    if (action === 'confirm') window.dispatchEvent(new Event('pg:twostep'));
   };
 
   const copy = async () => {
     try { await navigator.clipboard.writeText(codes.join('\n')); setCopied(true); } catch { setCopied(false); }
   };
 
-  const on = status?.enabled === true;
+  const app = status?.enabled === true;
+  const pks = status?.passkeys ?? 0;
+  const on = app || pks > 0;
   const since = status?.since ? new Date(status.since).toLocaleDateString() : '';
 
   return (
@@ -98,8 +119,8 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
       <div className="mt-2 space-y-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
       <p className="text-sm text-white/50">
         {status === null ? 'Loading…'
-          : on ? `On since ${since} · authenticator app · ${status.recovery_left} recovery ${status.recovery_left === 1 ? 'code' : 'codes'} left`
-          : 'Off. Signing in only needs the link in your email.'}
+          : on ? `On${app ? ` since ${since}` : ''} · ${[app ? 'authenticator app' : '', pks ? `${pks} ${pks === 1 ? 'passkey' : 'passkeys'}` : ''].filter(Boolean).join(' + ')} · ${status.recovery_left} recovery ${status.recovery_left === 1 ? 'code' : 'codes'} left`
+          : 'Off. Signing in only needs the link in your email. Add a passkey or an authenticator app to turn it on.'}
       </p>
 
       {status && !on && status.required && mode === 'idle' && (
@@ -109,10 +130,11 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
         <p className="text-sm text-amber-200/90">Only {status.recovery_left} recovery {status.recovery_left === 1 ? 'code' : 'codes'} left. Make new ones.</p>
       )}
 
-      {mode === 'idle' && status && !on && (
+      {mode === 'idle' && status && !app && (
         <button id="two-step-setup" onClick={start} disabled={busy}
-          className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-lg bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] disabled:opacity-50">
-          {busy ? 'One moment…' : 'Set up'}
+          className={on ? 'w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-lg border border-zinc-700 text-sm text-zinc-200 hover:border-zinc-500 disabled:opacity-50'
+            : 'w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-lg bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] disabled:opacity-50'}>
+          {busy ? 'One moment…' : on ? 'Also add an authenticator app' : 'Set up authenticator app'}
         </button>
       )}
 
@@ -120,8 +142,10 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
         <div className="flex flex-col sm:flex-row gap-2">
           <button id="two-step-new-codes" onClick={() => { setMode('recovery'); setError(''); }}
             className="min-h-[44px] px-4 py-2.5 rounded-lg border border-zinc-700 text-sm text-zinc-200 hover:border-zinc-500">New recovery codes</button>
-          <button id="two-step-remove" onClick={() => { setMode('remove'); setError(''); }}
-            className="min-h-[44px] px-4 py-2.5 rounded-lg border border-zinc-700 text-sm text-zinc-400 hover:border-red-500/60 hover:text-red-300">Turn off</button>
+          {app && (
+            <button id="two-step-remove" onClick={() => { setMode('remove'); setError(''); }}
+              className="min-h-[44px] px-4 py-2.5 rounded-lg border border-zinc-700 text-sm text-zinc-400 hover:border-red-500/60 hover:text-red-300">{pks ? 'Remove authenticator app' : 'Turn off'}</button>
+          )}
         </div>
       )}
 
@@ -148,9 +172,17 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
         <div className="space-y-3">
           <p className="text-sm text-white/70">
             {mode === 'remove'
-              ? (status?.required ? 'Enter a code from your app (or a recovery code) to turn it off. Because your account manages sites, you will be asked to set it up again at your next sign-in.' : 'Enter a code from your app (or a recovery code) to turn it off.')
-              : 'Enter a code from your app to make 10 new recovery codes. The old ones stop working.'}
+              ? (pks ? 'Enter a code from your app (or a recovery code) to remove the app. Your passkeys keep two-step sign-in on.'
+                : status?.required ? 'Enter a code from your app (or a recovery code) to turn it off. Because your account manages sites, you will be asked to set it up again at your next sign-in.' : 'Enter a code from your app (or a recovery code) to turn it off.')
+              : app ? 'Enter a code from your app to make 10 new recovery codes. The old ones stop working.'
+                : 'Confirm with your passkey (or a recovery code) to make 10 new recovery codes. The old ones stop working.'}
           </p>
+          {pks > 0 && passkeySupported() && (
+            <button id="two-step-passkey" onClick={() => submit(mode, true)} disabled={busy}
+              className={`w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 ${mode === 'remove' ? 'bg-red-500/90 text-white' : 'bg-[#00C66F] text-black'}`}>
+              {busy ? 'Checking…' : 'Confirm with a passkey'}
+            </button>
+          )}
           <CodeField id="two-step-code" value={code} onChange={setCode} />
           {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
           <div className="flex flex-col sm:flex-row gap-2">

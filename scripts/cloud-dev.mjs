@@ -10,7 +10,8 @@ import { spawn } from 'node:child_process';
 import { generateKeyPairSync, createHmac, createPublicKey } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-export const H = '127.0.0.1', KV_PORT = 8788, SITE_PORT = 3100, RELAY_PORT = 8787;
+// PG_KV_PORT / PG_SITE_PORT / PG_RELAY_PORT move the stack when another worktree's stack already runs (defaults as before).
+export const H = '127.0.0.1', KV_PORT = Number(process.env.PG_KV_PORT || 8788), SITE_PORT = Number(process.env.PG_SITE_PORT || 3100), RELAY_PORT = Number(process.env.PG_RELAY_PORT || 8787);
 export const SITE = `http://${H}:${SITE_PORT}`;
 export const ORIGIN = `http://localhost:${SITE_PORT}`; // next dev reports its own URL as localhost
 export const ADMIN = 'admin@powerguardian.cloud', MINT = 'local-mint-secret';

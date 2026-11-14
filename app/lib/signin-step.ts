@@ -4,7 +4,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
 import { createSession } from '@/app/lib/session';
-import { getMfa, mfaRequired, newSecret, sealSecret } from '@/app/lib/mfa';
+import { mfaRequired, newSecret, sealSecret } from '@/app/lib/mfa';
+import { twoStep } from '@/app/lib/passkeys';
 
 export const STEP_COOKIE = 'pg_signin';
 export const STEP_PATH = '/login/mfa';
@@ -72,8 +73,9 @@ export async function withSession(res: NextResponse, email: string, mfa: boolean
 
 // After the sign-in link is confirmed: straight in, or on to the two-step page.
 export async function afterLinkConfirmed(request: Request, email: string, next: string): Promise<NextResponse> {
-  const rec = await getMfa(email);
-  const mode: PendingSignIn['mode'] | null = rec ? 'verify' : (await mfaRequired(email)) ? 'setup' : null;
+  // PASSKEYS-1: the authenticator app or a passkey (either one is the second step).
+  const ts = await twoStep(email);
+  const mode: PendingSignIn['mode'] | null = ts.on ? 'verify' : (await mfaRequired(email)) ? 'setup' : null;
   if (!mode) return withSession(NextResponse.redirect(new URL(next, request.url), 303), email, false);
   const id = randomHex(32);
   await savePending(id, {

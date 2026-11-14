@@ -1,5 +1,6 @@
 // CLOUD-MFA: two-step sign-in for PowerGuardian Cloud accounts (authenticator app, RFC 6238 TOTP) with 10 one-time
-// recovery codes. Passkeys are a separate follow-up (MFA-PASSKEYS-PLAN.md).
+// recovery codes. PASSKEYS-1: passkeys (app/lib/passkeys.ts) are the other second step; an account with passkeys but no
+// authenticator app keeps its recovery codes here with totp ''.
 //
 // Storage: KV mfa:<email> = { v, totp: AES-GCM(secret) bound to the email, created_at, last_step,
 //          recovery: HMAC of each unused code, recovery_created_at }.
@@ -128,7 +129,7 @@ export async function hashRecoveryCodes(email: string, codes: string[]): Promise
 // ---- the record
 export type MfaRecord = {
   v: 1;
-  totp: string;               // sealed secret
+  totp: string;               // sealed secret; '' = no authenticator app (passkeys only, PASSKEYS-1)
   created_at: string;
   last_step: number;          // last accepted time step (a code works once)
   recovery: string[];         // hashes of unused recovery codes
@@ -139,7 +140,7 @@ const keyOf = (email: string) => `mfa:${email.toLowerCase()}`;
 export async function getMfa(email: string): Promise<MfaRecord | null> {
   const raw = await kvGet(keyOf(email));
   if (!raw) return null;
-  try { const r = JSON.parse(raw) as MfaRecord; return r && r.totp ? r : null; } catch { return null; }
+  try { const r = JSON.parse(raw) as MfaRecord; return r && typeof r.totp === 'string' && Array.isArray(r.recovery) ? r : null; } catch { return null; }
 }
 export const saveMfa = (email: string, rec: MfaRecord) => kvPut(keyOf(email), JSON.stringify(rec));
 export const deleteMfa = (email: string) => kvDel(keyOf(email));
@@ -168,7 +169,7 @@ export async function redeemCode(email: string, input: unknown, opts: { recovery
   if (!rec) return { ok: false };
   const code = cleanCode(input);
   if (/^\d{6}$/.test(code)) {
-    const secret = await openSecret(email, rec.totp);
+    const secret = rec.totp ? await openSecret(email, rec.totp) : null;
     if (!secret) return { ok: false };
     const step = await matchTotp(secret, code, opts.nowMs ?? Date.now(), rec.last_step);
     if (step === null) return { ok: false };

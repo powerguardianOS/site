@@ -10,12 +10,24 @@ import { sendEmail } from '@/app/lib/email';
 import { rateLimited, clientIp } from '@/app/lib/ratelimit';
 import { siteBase } from '@/app/lib/host';
 import { createSignInCode, codeCookie, CODE_TTL_S } from '@/app/lib/signin-code';
+import { emailForHandle, HANDLE_RE } from '@/app/lib/remember';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 
 export async function requestSignIn(request: Request, mode: 'register' | 'magic'): Promise<NextResponse> {
   const body = await request.json().catch(() => null);
-  const raw = body?.email;
+  // PASSKEYS-1: a remembered browser sends its handle instead of the address (app/lib/remember.ts).
+  let raw = body?.email;
+  const byHandle = raw === undefined && typeof body?.handle === 'string' && HANDLE_RE.test(body.handle);
+  if (byHandle) {
+    try {
+      if (await rateLimited(`signin:ip:${clientIp(request)}`, 10, 3600, true)) return NextResponse.json({ ok: false, error: 'Too many requests — try again later.' }, { status: 429 });
+      raw = await emailForHandle(body.handle);
+    } catch {
+      return NextResponse.json({ ok: false, error: 'Service unavailable — please try again.' }, { status: 503 });
+    }
+    if (!raw) return NextResponse.json({ ok: false, error: 'forgotten' }, { status: 404 });
+  }
   if (typeof raw !== 'string' || !EMAIL_RE.test(raw.trim()) || raw.length > 320) {
     return NextResponse.json({ ok: false, error: 'valid email required' }, { status: 400 });
   }
@@ -24,7 +36,7 @@ export async function requestSignIn(request: Request, mode: 'register' | 'magic'
 
   try {
     if (
-      (await rateLimited(`signin:ip:${clientIp(request)}`, 10, 3600, true)) ||
+      (!byHandle && await rateLimited(`signin:ip:${clientIp(request)}`, 10, 3600, true)) ||
       (await rateLimited(`signin:email:${email}`, 3, 3600, true))
     ) {
       return NextResponse.json({ ok: false, error: 'Too many requests — try again later.' }, { status: 429 });
