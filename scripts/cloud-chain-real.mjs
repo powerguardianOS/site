@@ -119,9 +119,6 @@ try {
     const page = await fetch(rs.console_url, { redirect: 'follow' });
     const html = await page.text();
     ok('/console/ serves the controller UI through the tunnel (200, html)', page.status === 200 && /<html|<!doctype/i.test(html), `${page.status} ${html.length} bytes`);
-    const sub = rs.console_url.split('/console/')[1].replace(/\/$/, '');
-    const api = await fetch(`http://${H}:${RELAY_PORT}/proxy/${sub}/api/auth/me`);
-    ok('/proxy/ reaches the controller API (answers 401: not logged in)', api.status === 401, String(api.status));
   }
 
   console.log('C5. revoke -> heartbeat 403 and tunnel closes with 4001');

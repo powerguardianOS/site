@@ -281,7 +281,9 @@ try {
   ok('(control) acme reaches the Acer controller through the relay (401 = its own login asks)', ui.status === 401 || ui.status === 200, `${ui.status} ${ui.body.slice(0, 120)}`);
   for (const [what, p, hdr] of [['/console/', '/console/' + tm, {}], ['/proxy/', '/proxy/' + tm + '/api/auth/me', {}], ['cookie', '/api/auth/me', { cookie: 'pg_relay=' + tm }]]) {
     const r = await relayReq(hostA, p, { headers: hdr });
-    ok(`mallory's own token on acme's host via ${what} → 403`, r.status === 403, `${r.status} ${r.body.slice(0, 120)}`);
+    // /proxy/ is gone since CLEAN-1: any refusal counts, it must never reach acme's controller
+    const refused = what === '/proxy/' ? [401, 403, 404].includes(r.status) : r.status === 403;
+    ok(`mallory's own token on acme's host via ${what} → refused`, refused, `${r.status} ${r.body.slice(0, 120)}`);
   }
   const stolen = await relayReq(hostM, '/api/auth/me', { headers: { cookie: 'pg_relay=' + ta } });
   ok('acme\'s token replayed on mallory\'s host (her controller would see it) → 403', stolen.status === 403, String(stolen.status));
@@ -292,7 +294,7 @@ try {
     ok(`her token edited to name Acer (on ${h === hostA ? 'acme\'s host' : 'the shared host'}) → 401`, r.status === 401, String(r.status));
   }
   const px = await relayReq(`${H}:${RELAY_PORT}`, '/proxy/' + tm + '/');
-  ok('no controller page on the shared relay host (/proxy/ there → 404)', px.status === 404, String(px.status));
+  ok('no controller page on the shared relay host (/proxy/ there → refused)', [401, 404].includes(px.status), String(px.status));
   const mint = await fetch(`${RELAY}/mint/${L.acer}`, { method: 'POST', headers: { 'content-type': 'application/json', 'X-Mint-Secret': 'guess' }, body: '{"scope":"customer","actor":"m"}' });
   ok('minting a token for Acer without the relay secret → 401', mint.status === 401, String(mint.status));
 
