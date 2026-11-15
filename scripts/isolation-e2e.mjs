@@ -17,7 +17,7 @@ import { tmpdir, homedir, hostname } from 'node:os';
 import http from 'node:http';
 import path from 'node:path';
 import { createHash, createPrivateKey } from 'node:crypto';
-import { startDev, finishTwoStep, SITE, ORIGIN, ADMIN, MINT, H, RELAY_PORT } from './cloud-dev.mjs';
+import { startDev, finishTwoStep, totp, SITE, ORIGIN, ADMIN, MINT, H, RELAY_PORT } from './cloud-dev.mjs';
 import { SoftAuthenticator } from './soft-authenticator.mjs';
 
 const CTL_DIR = process.env.CTL_DIR ?? path.join(homedir(), '.pg-work/ctl-iso');
@@ -64,6 +64,7 @@ try {
   const sitePost = (p, body, headers = {}, method = 'POST') => fetch(SITE + p, { method, redirect: 'manual', headers: { 'content-type': 'application/json', origin: ORIGIN, ...headers }, body: JSON.stringify(body) }).then(j);
   const mailTo = async (to, n = 1) => until(async () => { const m = dev.mails.filter((x) => x.to === to); return m.length >= n ? m.at(-1) : null; }, 8000, 100);
   const totpKeys = {};
+  let totpFreeAt = 0; // B2: a step-up used the next 30 s code; a sign-in before that would reuse a spent step
   const signIn = async (email) => {
     const before = dev.mails.filter((x) => x.to === email).length;
     await sitePost('/api/auth/magic', { email });
@@ -144,6 +145,14 @@ try {
   {
     const acmeKey = new SoftAuthenticator({ origin: SITE }), malKey = new SoftAuthenticator({ origin: SITE });
     const pk = (cookie, body) => sitePost('/api/account/passkeys', body, { cookie });
+    // B2: a fresh confirmation before adding a second step; both have the authenticator app (the next step's code)
+    const up = (cookie, body) => sitePost('/api/account/step-up', body, { cookie });
+    const noUp = await pk(mallory, { action: 'options' });
+    ok('mallory\'s session alone (no fresh confirmation) cannot add a passkey → 403 step_up', noUp.status === 403 && noUp.error === 'step_up', JSON.stringify(noUp));
+    ok('mallory cannot confirm with acme\'s authenticator code', (await up(mallory, { action: 'verify', code: totp(totpKeys['acme@acme.test'], 1) })).status === 401);
+    ok('(control) acme confirms with her own app', (await up(acme, { action: 'verify', code: totp(totpKeys['acme@acme.test'], 1) })).status === 200);
+    totpFreeAt = Date.now() + 61_000;
+    ok('(control) mallory confirms with her own app', (await up(mallory, { action: 'verify', code: totp(totpKeys['mallory@mallory.test'], 1) })).status === 200);
     const ao = await pk(acme, { action: 'options' });
     const ar = await pk(acme, { action: 'register', credential: await acmeKey.create(ao.publicKey), device: 'iPhone · Safari' });
     ok('(control) acme adds a passkey to acme', ar.status === 200 && !!ar.passkey?.id, JSON.stringify(ar).slice(0, 160));
@@ -153,6 +162,8 @@ try {
     ok('mallory\'s creation options name mallory only (never acme)', mo.status === 200 && mo.publicKey.user.name === 'mallory@mallory.test' && !JSON.stringify(mo).includes('acme'));
     const steal = await pk(mallory, { action: 'register', credential: await malKey.create(mo.publicKey, { credId: Buffer.from(acmeId, 'base64url') }) });
     ok('mallory registers acme\'s credential id on her account → refused', steal.status === 400 && passkeysOf('mallory@mallory.test').length === 0, JSON.stringify(steal));
+    const aco = await pk(acme, { action: 'confirm-options' });
+    await up(acme, { action: 'verify', credential: await acmeKey.get(aco.publicKey) }); // the add used up the first one
     const ao2 = await pk(acme, { action: 'options' });
     const onAcme = await pk(mallory, { action: 'register', credential: await malKey.create(ao2.publicKey) });
     ok('mallory answers acme\'s registration challenge with her session → refused, nothing added to acme', onAcme.status === 400 && passkeysOf('acme@acme.test').length === 1, JSON.stringify(onAcme));
@@ -535,6 +546,7 @@ try {
 
   console.log('\nJ. SESSIONS-1: mallory reaches for acme\'s sessions and activity');
   {
+    while (Date.now() < totpFreeAt) await new Promise((res) => setTimeout(res, 1000));
     const acme2 = await signIn('acme@acme.test'); // acme on a second device
     const sec = (cookie, body) => body ? sitePost('/api/account/security', body, { cookie }) : fetch(SITE + '/api/account/security', { headers: { cookie } }).then(j);
     const mine = await sec(acme);
@@ -552,7 +564,7 @@ try {
     ok('mallory\'s "sign out all other devices" leaves both of acme\'s sessions alive', (await sec(acme)).status === 200 && (await sec(acme2)).status === 200);
     const nocookie = await sitePost('/api/account/security', { action: 'revoke', ref: other.ref });
     ok('no session → 401', nocookie.status === 401, JSON.stringify(nocookie));
-    const forged = await sec(acme.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')), { action: 'revoke', ref: other.ref });
+    const forged = await sec(acme.replace(/(.)(.)$/, (_, c, last) => (c === 'A' ? 'B' : 'A') + last), { action: 'revoke', ref: other.ref });
     ok('a forged acme cookie cannot sign anything out → 401', forged.status === 401, JSON.stringify(forged));
     const cross = await fetch(SITE + '/api/account/security', { method: 'POST', headers: { cookie: acme, 'content-type': 'application/json', origin: 'https://evil.example' }, body: JSON.stringify({ action: 'revoke_others' }) });
     ok('acme\'s own cookie from another origin → 403', cross.status === 403, String(cross.status));

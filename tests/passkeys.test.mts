@@ -9,13 +9,14 @@ import { verifyRegistration, verifyAssertion, cborDecode, derToRaw, parseAuthDat
 import { getPasskeys, relyingParty, defaultName, passkeyHint } from '../app/lib/passkeys.ts';
 import { getMfa } from '../app/lib/mfa.ts';
 import { createSession, getSessionInfo } from '../app/lib/session.ts';
-import { createMagicToken } from '../app/lib/magic-link.ts';
+import { createMagicToken, maskEmail } from '../app/lib/magic-link.ts';
 import { POST as confirmLink } from '../app/api/auth/verify/route.ts';
 import { GET as stepGet, POST as stepPost } from '../app/login/mfa/route.ts';
 import { POST as pkOptions } from '../app/api/auth/passkey/options/route.ts';
 import { POST as pkVerify } from '../app/api/auth/passkey/verify/route.ts';
 import { GET as acctGet, POST as acctPost } from '../app/api/account/passkeys/route.ts';
 import { POST as mfaPost } from '../app/api/account/mfa/route.ts';
+import { POST as stepPost2 } from '../app/api/account/step-up/route.ts';
 import { deleteTenant } from '../app/lib/tenant-admin.ts';
 import { listActivity } from '../app/lib/audit.ts';
 import { activityRow } from '../app/lib/security-view.ts';
@@ -91,12 +92,29 @@ async function signinOptions(origin = SITE) {
 }
 const signinVerify = (bind: string, credential: unknown, extraCookie = '') => pkVerify(new NextRequest(SITE + '/api/auth/passkey/verify', {
   method: 'POST', body: JSON.stringify({ credential }), headers: { 'content-type': 'application/json', origin: SITE, cookie: `pg_pk=${bind}${extraCookie ? '; ' + extraCookie : ''}` } }));
+// B2 (review): the fresh confirmation before adding a second step
+const stepApi = (session: string, body: unknown, origin = SITE) => stepPost2(new Request(SITE + '/api/account/step-up', { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json', origin, cookie: 'pg_session=' + session } }));
+const lastCode = (to: string) => [...mails].reverse().find((m) => m.to === to)!.text.match(/\b(\d{6})\b/)![1];
+async function stepUpMail(session: string, email: string) { await stepApi(session, { action: 'start' }); return (await j(await stepApi(session, { action: 'verify', code: lastCode(email) }))).status; }
+async function stepUpPk(session: string, auth: SoftAuthenticator) { const co = await j(await acct(session, { action: 'confirm-options' })); return (await j(await stepApi(session, { action: 'verify', credential: await auth.get(co.publicKey) }))).status; }
 const audits = () => [...kv.entries()].filter(([k]) => k.startsWith('audit:')).map(([, v]) => JSON.parse(v));
 const clearLimits = () => { for (const k of [...kv.keys()].filter((k) => k.startsWith('rl:'))) kv.delete(k); };
 
 console.log('\naccount page: add a passkey (account without sites, two-step off)');
 const plainS = await createSession('plain@x.test');
 const phone = new SoftAuthenticator({ origin: SITE, aaguid: Uint8Array.from(Buffer.from('fbfc3007154e4ecc8c0b6e020557d7bd', 'hex')) });
+console.log('B2 step-up: a stolen session alone cannot add a second step (two-step off → e-mail code)');
+let su = await j(await acct(plainS, { action: 'options' }));
+check('no fresh confirmation → passkey options refused (403 step_up)', su.status === 403 && su.error === 'step_up');
+check('…and register too', (await j(await acct(plainS, { action: 'register', credential: {} }))).status === 403);
+const mailsAt = mails.length;
+let st = await j(await stepApi(plainS, { action: 'start' }));
+check('two-step off: a 6-digit code goes to the account\'s own address; the page sees it masked', st.status === 200 && st.need === 'email' && st.to === maskEmail('plain@x.test') && st.to !== 'plain@x.test' && mails.length === mailsAt + 1 && mails.at(-1)!.to === 'plain@x.test');
+check('a step-up from another site → refused', (await stepApi(plainS, { action: 'start' }, 'https://evil.example')).status === 403);
+check('a wrong code → refused, options still refused', (await j(await stepApi(plainS, { action: 'verify', code: '000000' }))).status === 401 && (await j(await acct(plainS, { action: 'options' }))).status === 403);
+const plainOther = await createSession('plain@x.test');
+check('the code confirms only the session that types it', (await j(await stepApi(plainOther, { action: 'verify', code: lastCode('plain@x.test') }))).status === 200 && (await j(await acct(plainS, { action: 'options' }))).status === 403);
+check('the right code on this session → options allowed', (await stepUpMail(plainS, 'plain@x.test')) === 200);
 let o = await j(await acct(plainS, { action: 'options' }));
 check('creation options: rp powerguardian.cloud, ES256 + EdDSA, UV + resident key required, attestation none, user.id is not the e-mail',
   o.status === 200 && o.publicKey.rp.id === 'powerguardian.cloud' && o.publicKey.pubKeyCredParams.map((p: any) => p.alg).join() === '-7,-8'
@@ -112,6 +130,10 @@ check('stored: COSE key as JWK, no private material, counter, index by hash of t
   (await getPasskeys('plain@x.test'))!.creds.length === 1 && !JSON.stringify((await getPasskeys('plain@x.test'))!).includes('"d"') && [...kv.keys()].some((k) => /^passkey:cred:[0-9a-f]{64}$/.test(k)));
 check('the MFA record keeps recovery codes without an authenticator app', (await getMfa('plain@x.test'))?.totp === '' && (await getMfa('plain@x.test'))?.recovery.length === 10);
 check('audit: passkey.add for this account', audits().some((e) => e.action === 'passkey.add' && e.email === 'plain@x.test'));
+check('a mail tells the owner a passkey was added', mails.at(-1)!.to === 'plain@x.test' && mails.at(-1)!.subject === 'A passkey was added to your PowerGuardian account' && mails.at(-1)!.text.includes('iCloud Keychain · iPhone'));
+check('the confirmation is used up by the add', (await j(await acct(plainS, { action: 'options' }))).status === 403);
+check('two-step is on now: an e-mail code is no longer enough', (await j(await stepApi(plainS, { action: 'start' }))).need === 'second' && (await j(await stepApi(plainS, { action: 'verify', code: '123456' }))).status === 401);
+check('with two-step on, the step-up takes one of the account\'s passkeys', (await stepUpPk(plainS, phone)) === 200);
 a = await j(await acct(plainS, { action: 'register', credential: reg }));
 check('the same answer again (replayed challenge) → refused', a.status === 400);
 o = await j(await acct(plainS, { action: 'options' }));
@@ -119,6 +141,8 @@ check('excludeCredentials lists the existing passkey', o.publicKey.excludeCreden
 const laptop = new SoftAuthenticator({ origin: SITE, alg: -8 });
 a = await j(await acct(plainS, { action: 'register', credential: await laptop.create(o.publicKey), device: 'Mac · Chrome', name: '' }));
 check('a second passkey (EdDSA) gets the device name, no new recovery codes', a.status === 200 && a.passkey.name === 'Mac · Chrome' && a.recovery_codes === null);
+clearLimits();
+check('(setup for the refusals) a fresh step-up with a recovery code', (await j(await stepApi(plainS, { action: 'verify', code: plainCodes[9] }))).status === 200);
 check('GET lists both: name, created, last used (none yet), synced', (await j(await acct(plainS))).passkeys.length === 2);
 check('default name falls back to "Passkey"', defaultName('', '') === 'Passkey');
 
@@ -137,6 +161,7 @@ check('cross-origin iframe → refused', (await badReg({ crossOrigin: true })) =
 clearLimits(); // the tries above count against the account's code limit
 check('a challenge from another session (same account) → refused', await (async () => {
   const other = await createSession('plain@x.test', { mfa: true });
+  await stepUpPk(other, phone);
   const op = await j(await acct(other, { action: 'options' }));
   return (await j(await acct(plainS, { action: 'register', credential: await new SoftAuthenticator({ origin: SITE }).create(op.publicKey) }))).status === 400;
 })());
@@ -165,7 +190,12 @@ const sx = async (opts: Record<string, unknown>, auth = phone) => { const s = aw
 check('wrong origin → refused', (await sx({ origin: 'https://evil.example' })).status === 401);
 check('wrong rpId → refused', (await sx({ rpId: 'evil.example' })).status === 401);
 check('UV missing → refused', (await sx({ uv: false })).status === 401);
+const mailsBeforeCopy = mails.length;
 check('counter regression (cloned authenticator) → refused', (await sx({ counter: 1 })).status === 401);
+check('B2: a possible copy lands in the owner\'s activity and mails the owner once', (await listActivity('plain@x.test')).some((e) => e.action === 'passkey.cloned' && activityRow(e).warn)
+  && mails.length === mailsBeforeCopy + 1 && mails.at(-1)!.to === 'plain@x.test' && mails.at(-1)!.subject === 'A passkey for your PowerGuardian account was refused');
+await sx({ counter: 1 });
+check('…at most one mail per passkey per hour', mails.length === mailsBeforeCopy + 1);
 check('a create-type clientData → refused', (await sx({ type: 'webauthn.create' })).status === 401);
 check('a userHandle of another account → refused', (await sx({ userHandle: nb64u(new Uint8Array(32).fill(9)) })).status === 401);
 const stranger = new SoftAuthenticator({ origin: SITE }); await stranger.create({ challenge: 'x', user: { id: nb64u(new Uint8Array(32)) } });
@@ -195,6 +225,7 @@ const malS = await createSession('mallory@mallory.test');
 const mallory = new SoftAuthenticator({ origin: SITE });
 // mallory gets a passkey of her own (her account has a site: two-step required, so a session that passed it)
 const malMfa = await createSession('mallory@mallory.test', { mfa: true });
+await stepUpMail(malMfa, 'mallory@mallory.test');
 const mo = await j(await acct(malMfa, { action: 'options' }));
 const malReg = await j(await acct(malMfa, { action: 'register', credential: await mallory.create(mo.publicKey), device: 'Windows · Edge' }));
 check('(setup) mallory adds her own passkey on her own account', malReg.status === 200);
@@ -234,6 +265,7 @@ check('register options for acme (user.name = acme)', o.status === 200 && o.publ
 r = await stepJson(sidA, 'register', { credential: await acmeKey.create(o.publicKey), device: 'iPhone · Safari' });
 a = await j(r.clone());
 check('acme adds a passkey during sign-in: 10 recovery codes, signed in with two-step', a.status === 200 && a.recovery_codes.length === 10 && a.next === '/account' && (await getSessionInfo(decodeURIComponent(cookieOf(r, 'pg_session'))))?.mfa === true);
+check('B2: a passkey added during sign-in mails the owner too', mails.at(-1)!.to === 'acme@acme.test' && mails.at(-1)!.subject === 'A passkey was added to your PowerGuardian account');
 const acmeS = decodeURIComponent(cookieOf(r, 'pg_session'));
 r = await confirm('acme@acme.test');
 check('next sign-in by link: verify mode with the passkey (no setup again)', (await (await stepGet(new Request(SITE + '/login/mfa', { headers: { cookie: 'pg_signin=' + cookieOf(r, 'pg_signin') } }))).text()).includes('id="mfa-passkey"'));
@@ -245,6 +277,9 @@ check('a confirm challenge issued to acme\'s session, used by mallory → refuse
 const acmeId = (await getPasskeys('acme@acme.test'))!.creds[0].id;
 a = await j(await acct(malMfa, { action: 'remove', id: acmeId, code: '123456' }));
 check('mallory removes acme\'s passkey id → not found (her account only), acme keeps it', a.status === 404 && (await getPasskeys('acme@acme.test'))!.creds.length === 1);
+check('mallory\'s step-up cannot use acme\'s passkey', (await stepUpPk(malMfa, acmeKey)) === 401);
+clearLimits();
+await stepUpPk(malMfa, mallory);
 o = await j(await acct(malMfa, { action: 'options' }));
 a = await j(await acct(malMfa, { action: 'register', credential: await new SoftAuthenticator({ origin: SITE }).create(o.publicKey, { credId: Buffer.from(acmeId, 'base64url') }) }));
 check('mallory registers acme\'s credential id on her account → refused', a.status === 400 && (await getPasskeys('mallory@mallory.test'))!.creds.length === 1);
@@ -288,6 +323,8 @@ clearLimits();
 let hs = await signinOptions();
 let hr = await j(await pkVerify(new NextRequest(SITE + '/api/auth/passkey/verify', { method: 'POST', body: JSON.stringify({ credential: await acmeKey.get(hs.publicKey), expect: await passkeyHint('someone@else.test') }), headers: { 'content-type': 'application/json', origin: SITE, cookie: 'pg_pk=' + hs.bind } })));
 check('a passkey of another account than the typed address → refused, no session', hr.status === 401 && !hr.next);
+check('B2: …and nothing about it in the passkey account\'s activity or audit (the person picked it themselves)', !(await listActivity('acme@acme.test')).some((e) => e.action === 'signin.passkey_refused' && e.detail === 'other_account')
+  && !audits().some((e) => e.action === 'signin.passkey_refused' && e.detail === 'other_account'));
 hs = await signinOptions();
 const hres = await pkVerify(new NextRequest(SITE + '/api/auth/passkey/verify', { method: 'POST', body: JSON.stringify({ credential: await acmeKey.get(hs.publicKey), expect: hintAcme }), headers: { 'content-type': 'application/json', origin: SITE, cookie: 'pg_pk=' + hs.bind } }));
 hr = await j(hres);
@@ -299,12 +336,15 @@ clearLimits();
 
 console.log('\ntenant deleted → passkeys gone');
 kv.set('account:plain@x.test', JSON.stringify({ email: 'plain@x.test', created_at: new Date().toISOString(), verified: true }));
+clearLimits();
+check('(setup) plain confirms again: by mail when two-step is off by now, else with the phone', (await j(await stepApi(plainS, { action: 'start' }))).need === 'email' ? (await stepUpMail(plainS, 'plain@x.test')) === 200 : (await stepUpPk(plainS, phone)) === 200);
 o = await j(await acct(plainS, { action: 'options' }));
 await acct(plainS, { action: 'register', credential: await new SoftAuthenticator({ origin: SITE }).create(o.publicKey) });
 const idxBefore = [...kv.keys()].filter((k) => k.startsWith('passkey:cred:')).length;
 const plainLive = await createSession('plain@x.test');
 const t = await deleteTenant('plain@x.test', 'plain@x.test', 'admin@powerguardian.cloud');
 check('B2: deleting an account ends its sessions and drops its session index and activity', (await getSessionInfo(plainLive)) === null && !kv.has('sessions:plain@x.test') && !kv.has('activity:plain@x.test'));
+check('B2: …and its two-step record (authenticator secret, recovery codes)', !kv.has('mfa:plain@x.test'));
 check('deleting an account removes its passkeys and their index', t.ok === true && (await getPasskeys('plain@x.test')) === null && [...kv.keys()].filter((k) => k.startsWith('passkey:cred:')).length === idxBefore - 1);
 
 console.log('\nnothing secret in the logs');

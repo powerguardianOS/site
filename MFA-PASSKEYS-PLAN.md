@@ -56,6 +56,11 @@ passkey). Code: app/lib/webauthn.ts (verifier), app/lib/passkeys.ts (records, ch
   an address has a passkey. The button then says Continue; closing the passkey dialog sends the sign-in link as always.
 - Account page (B2): the quiet "Passkeys · Add" line is the only place to add one; the one-time "add a passkey"
   banner was removed (never two places for the same thing).
+- Step-up (B2 review): adding a passkey or the authenticator app on the account page needs a fresh proof first
+  (app/lib/step-up.ts, /api/account/step-up): two-step on → a passkey / app code / recovery code; off → the mailed
+  confirmation code. One inline step in the card; the grant is per session, 10 minutes, used up by the add. Every passkey
+  added and the app turned on (also during sign-in) mails the owner; a passkey whose counter went backwards is refused,
+  lands in the activity and mails the owner (once per passkey per hour).
 - Deleting a tenant deletes its passkeys and their index.
 Tests: tests/passkeys.test.mts (fixed vectors in tests/fixtures/webauthn-vectors.json + flows),
 tests/e2e/passkeys.e2e.mjs (Chromium virtual authenticator + WebKit iPhone layout), scripts/isolation-e2e.mjs A2.

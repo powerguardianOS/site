@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
     return clearCookie(res);
   } catch (e) {
     const code = e instanceof WebAuthnError ? e.code : 'error';
-    if (owner) await logAudit({ actor: owner, role: 'owner', action: 'signin.passkey_refused', email: owner, detail: code, ...activityCtx(request) });
+    // B2 (review): a passkey of another account than the typed address is that person's own choice in the browser
+    // dialog, not an attack on the passkey's account: nothing goes into that account's activity.
+    if (owner && code !== 'other_account') await logAudit({ actor: owner, role: 'owner', action: 'signin.passkey_refused', email: owner, detail: code, ...activityCtx(request) });
     const error = code === 'unknown_credential' ? 'unknown' : code === 'challenge' ? 'expired' : 'failed';
     return clearCookie(json({ ok: false, error }, 401));
   }

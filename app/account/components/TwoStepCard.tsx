@@ -4,12 +4,12 @@
 // PASSKEYS-1: two-step is on with the authenticator app or a passkey (PasskeysCard); "enabled" here is the app.
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { confirmWithPasskey } from './PasskeysCard';
-import { cancelled, passkeySupported } from '@/app/lib/webauthn-client';
+import { cancelled, passkeySupported, confirmWithPasskey } from '@/app/lib/webauthn-client';
+import StepUp from './StepUp';
 
 export type TwoStepStatus = { enabled: boolean; since: string | null; recovery_left: number; required: boolean; passkeys?: number };
 type Setup = { key: string; otpauth: string; qr_svg: string };
-type Mode = 'idle' | 'setup' | 'codes' | 'remove' | 'recovery';
+type Mode = 'idle' | 'stepup' | 'setup' | 'codes' | 'remove' | 'recovery';
 
 async function call(body: unknown): Promise<{ ok: boolean; data: Record<string, unknown> }> {
   try {
@@ -62,6 +62,7 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
     setBusy(true); setError('');
     const r = await call({ action: 'start' });
     setBusy(false);
+    if (!r.ok && r.data.error === 'step_up') { setMode('stepup'); return; } // B2: a fresh confirmation first
     if (!r.ok) { setError(String(r.data.message ?? 'Something went wrong. Try again.')); return; }
     setSetup(r.data as unknown as Setup); setMode('setup');
   };
@@ -80,6 +81,7 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
     }
     const r = await call(body);
     setBusy(false);
+    if (!r.ok && r.data.error === 'step_up') { setCode(''); setSetup(null); setMode('stepup'); return; } // the 10 minutes ran out
     if (!r.ok) { setError(String(r.data.message ?? 'Something went wrong. Try again.')); return; }
     setCode('');
     if (action === 'remove') { reset(); await load(); window.dispatchEvent(new Event('pg:twostep')); return; }
@@ -147,6 +149,10 @@ export default function TwoStepCard({ initial, extra }: { initial: TwoStepStatus
               className="min-h-[44px] px-4 py-2.5 rounded-lg border border-zinc-700 text-sm text-zinc-400 hover:border-red-500/60 hover:text-red-300">{pks ? 'Remove authenticator app' : 'Turn off'}</button>
           )}
         </div>
+      )}
+
+      {mode === 'stepup' && (
+        <StepUp what="to add an authenticator app" onCancel={reset} onDone={() => { setMode('idle'); start(); }} />
       )}
 
       {mode === 'setup' && setup && (

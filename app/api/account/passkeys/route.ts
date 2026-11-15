@@ -18,6 +18,8 @@ import {
 import { WebAuthnError } from '@/app/lib/webauthn';
 import { logAudit } from '@/app/lib/audit';
 import { activityCtx } from '@/app/lib/client-info';
+import { hasStepUp, spendStepUp, STEP_UP_REQUIRED } from '@/app/lib/step-up';
+import { securityMail } from '@/app/lib/security-mail';
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
@@ -39,6 +41,8 @@ export async function POST(request: Request) {
     // With two-step on, only a session that passed it may add a second step (sign-in always enforces this; belt and braces).
     const [ts, info] = await Promise.all([twoStep(who.email), getSessionInfo(who.sessionId)]);
     if (ts.on && !info?.mfa) return json({ error: 'needs_two_step', message: 'Sign in again with your second step first.' }, 403);
+    // B2 (review): a fresh proof first (app/lib/step-up.ts) — a stolen session alone can never add a second step.
+    if (!(await hasStepUp(who.sessionId))) return json(STEP_UP_REQUIRED, 403);
     if (ts.passkeys >= MAX_PASSKEYS) return json({ error: 'too_many_passkeys', message: `You can add up to ${MAX_PASSKEYS} passkeys.` }, 409);
     if (action === 'options') return json({ publicKey: await creationOptions('register', bind, who.email) });
     try {
@@ -48,8 +52,11 @@ export async function POST(request: Request) {
     }
     try {
       const r = await finishRegistration('register', bind, who.email, (body?.credential ?? {}) as never, body?.name, body?.device);
+      await spendStepUp(who.sessionId);
       await markSessionMfa(who.sessionId); // a verified passkey was just used on this session
-      await logAudit({ actor: who.email, role: 'owner', action: 'passkey.add', email: who.email, detail: r.passkey.name, ...activityCtx(request) });
+      const ctx = activityCtx(request);
+      await logAudit({ actor: who.email, role: 'owner', action: 'passkey.add', email: who.email, detail: r.passkey.name, ...ctx });
+      await securityMail(who.email, 'passkey.add', { name: r.passkey.name, ...ctx });
       return json({ ...r, hint: await passkeyHint(who.email) }); // B2: this device's /login offers it for this address
     } catch (e) {
       const code = e instanceof WebAuthnError ? e.code : 'error';

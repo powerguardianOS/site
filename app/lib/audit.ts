@@ -53,7 +53,7 @@ export const ACTIVITY_DAYS = 90;
 export const OWNER_ACTIONS = new Set([
   'auth.signin', 'auth.request', 'auth.mfa_failed', 'auth.signout',
   'mfa.on', 'mfa.off', 'mfa.app_off', 'mfa.recovery',
-  'passkey.add', 'passkey.remove', 'signin.passkey_refused', // B2: PASSKEYS-1 events in the owner's own list
+  'passkey.add', 'passkey.remove', 'signin.passkey_refused', 'passkey.cloned', // B2: PASSKEYS-1 events in the owner's own list
   'session.revoke', 'session.revoke_others',
   'site.rename', 'site.claim', 'site.transfer', 'console.open',
 ]);

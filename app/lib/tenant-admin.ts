@@ -5,6 +5,7 @@ import { deleteBlocker, loadTenants } from '@/app/lib/tenants';
 import { deleteAllPasskeys } from '@/app/lib/passkeys';
 import { revokeAllSessions } from '@/app/lib/session';
 import { deleteActivity } from '@/app/lib/audit';
+import { deleteMfa } from '@/app/lib/mfa';
 
 export type DeleteResult =
   | { ok: true; licenses: number }
@@ -38,6 +39,7 @@ export async function deleteTenant(email: string, confirm: unknown, adminEmail: 
   await deleteAllPasskeys(target); // PASSKEYS-1: a new account under this address never inherits them
   await revokeAllSessions(target);  // B2 (SESSIONS-1): its signed-in browsers end at once
   await deleteActivity(target);     // …and its activity list goes
+  await deleteMfa(target);          // …and its authenticator secret and recovery codes
   await deleteAccount(target);
   return { ok: true, licenses: tenant?.licenses.length ?? 0 };
 }

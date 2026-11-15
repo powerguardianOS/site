@@ -143,6 +143,13 @@ try {
   check('the account line offers "Set up" while off', (await p2.locator('#two-step-manage').textContent()) === 'Set up');
   await p2.locator('#two-step-manage').tap();
   await p2.locator('#two-step-setup').tap();
+  // B2: one inline step first: the code mailed to the account's own address
+  await p2.locator('#step-up-code').waitFor();
+  check('before setup: "We sent a code to … — enter it to add an authenticator app", inline', (await p2.locator('#step-up-text').innerText()).includes('Enter it to add an authenticator app'));
+  await p2.locator('#two-step').screenshot({ path: SHOTS + 'mfa-card-step-up.png' });
+  const stepMail = stack.mails.filter((m) => m.to === PLAIN).at(-1);
+  await p2.locator('#step-up-code').fill(stepMail.text.match(/\b(\d{6})\b/)[1]);
+  await p2.locator('#step-up-go').tap();
   await p2.locator('#two-step-key').waitFor();
   check('setup inline: QR, "Add to authenticator app" (phone) and key', await p2.locator('#two-step svg').isVisible() && await p2.locator('#two-step-add-app').isVisible());
   check('card setup: no sideways scrolling', await noSideScroll(p2));
@@ -153,6 +160,7 @@ try {
   check('turned on from the card: 10 recovery codes shown', (await p2.locator('#two-step-codes li').count()) === 10);
   await p2.locator('#two-step-done').tap();
   check('the card says On', (await p2.locator('#two-step-state').textContent()) === 'On');
+  check('a mail says two-step was turned on', stack.mails.filter((m) => m.to === PLAIN).at(-1).subject === 'Two-step sign-in was turned on for your PowerGuardian account');
 } catch (e) {
   check('no exception', false, String(e?.message ?? e).split('\n')[0]);
   for (const [i, pg] of browser.contexts().flatMap((c) => c.pages()).entries()) {

@@ -49,6 +49,7 @@ export function activityRow(e: ActivityEvent): ActivityRow {
     case 'mfa.app_off': title = 'Authenticator app removed'; detail = 'Your passkeys keep two-step sign-in on'; break;
     case 'passkey.add': title = 'Passkey added'; detail = e.detail ?? ''; break;
     case 'passkey.remove': title = 'Passkey removed'; detail = (e.detail ?? '').split(' · confirmed')[0]; warn = true; break;
+    case 'passkey.cloned': title = 'A passkey looked copied and was refused'; detail = e.detail ?? ''; warn = true; break;
     case 'signin.passkey_refused': title = `A passkey was refused${times}`; warn = true; break;
     case 'mfa.recovery': title = 'New recovery codes made'; detail = 'The old ones stopped working'; break;
     case 'session.revoke': title = 'Signed out a device'; detail = e.detail ?? ''; break;

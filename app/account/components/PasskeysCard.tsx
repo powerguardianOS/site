@@ -7,9 +7,10 @@
 // Everything happens inline (no modal, no toast). Changes tell the Two-step card through the 'pg:twostep' event.
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import {
-  passkeySupported, creationFromJson, requestFromJson, credentialJson, deviceLabel, cancelled, postJson,
-  saveHint,
+  passkeySupported, creationFromJson, credentialJson, deviceLabel, cancelled, postJson,
+  saveHint, confirmWithPasskey,
 } from '@/app/lib/webauthn-client';
+import StepUp from './StepUp';
 
 export type PasskeyItem = { id: string; name: string; created_at: string; last_used_at: string | null; synced: boolean };
 
@@ -26,9 +27,10 @@ const noop = () => () => {};
 const changed = () => window.dispatchEvent(new Event('pg:twostep'));
 
 // navigator.credentials.create → the server. Returns the recovery codes when this passkey turned two-step on.
-async function addPasskey(): Promise<{ ok: true; codes: string[] } | { ok: false; message: string }> {
+// B2: { stepUp: true } when the server wants a fresh confirmation first (StepUp).
+async function addPasskey(): Promise<{ ok: true; codes: string[] } | { ok: false; message: string; stepUp?: boolean }> {
   const o = await postJson('/api/account/passkeys', { action: 'options' });
-  if (!o.ok) return { ok: false, message: String(o.data.message ?? 'Something went wrong. Try again.') };
+  if (!o.ok) return { ok: false, message: String(o.data.message ?? 'Something went wrong. Try again.'), stepUp: o.data.error === 'step_up' };
   let c: Credential | null;
   try {
     c = await navigator.credentials.create(creationFromJson(o.data.publicKey as Record<string, unknown>));
@@ -37,19 +39,12 @@ async function addPasskey(): Promise<{ ok: true; codes: string[] } | { ok: false
     return { ok: false, message: cancelled(e) ? '' : 'The passkey could not be made. Try again.' };
   }
   const r = await postJson('/api/account/passkeys', { action: 'register', credential: credentialJson(c), device: deviceLabel() });
-  if (!r.ok) return { ok: false, message: String(r.data.message ?? 'The passkey could not be added. Try again.') };
+  if (!r.ok) return { ok: false, message: String(r.data.message ?? 'The passkey could not be added. Try again.'), stepUp: r.data.error === 'step_up' };
   changed();
   saveHint(r.data.hint);
   return { ok: true, codes: (r.data.recovery_codes as string[] | null) ?? [] };
 }
 
-// A fresh confirmation with one of this account's passkeys (the browser offers only those).
-export async function confirmWithPasskey(): Promise<Record<string, unknown> | null> {
-  const o = await postJson('/api/account/passkeys', { action: 'confirm-options' });
-  if (!o.ok) return null;
-  const c = await navigator.credentials.get(requestFromJson(o.data.publicKey as Record<string, unknown>));
-  return credentialJson(c);
-}
 
 export function RecoveryCodes({ codes, onDone, intro }: { codes: string[]; onDone: () => void; intro?: string }) {
   const [copied, setCopied] = useState(false);
@@ -93,10 +88,12 @@ export default function PasskeysCard({ initial, totp, required }: { initial: Pas
     return () => window.removeEventListener('pg:twostep', on);
   }, [load]);
 
+  const [stepUp, setStepUp] = useState(false);
   const add = async () => {
     setBusy(true); setError('');
     const r = await addPasskey();
     setBusy(false);
+    if (!r.ok && r.stepUp) { setStepUp(true); return; }
     if (!r.ok) { setError(r.message); return; }
     if (r.codes.length) setCodes(r.codes);
   };
@@ -192,7 +189,9 @@ export default function PasskeysCard({ initial, totp, required }: { initial: Pas
               )}
 
               {error && <p className="text-sm text-red-400" role="alert" id="passkeys-error">{error}</p>}
-              {supported ? (
+              {stepUp ? (
+                <StepUp what="to add a passkey" onCancel={() => setStepUp(false)} onDone={() => { setStepUp(false); add(); }} />
+              ) : supported ? (
                 <button id="passkey-add" onClick={add} disabled={busy}
                   className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] disabled:opacity-50">
                   <KeyIcon />{busy && !removing ? 'Waiting for your passkey…' : n ? 'Add another passkey' : 'Add a passkey'}

@@ -112,7 +112,8 @@ r = await api(mallory, { action: 'revoke', ref: phone.ref, email: 'acme@acme.tes
 check('naming acme\'s email in the request changes nothing → 404', r.status === 404);
 
 console.log('\nforged, old and cross-site requests');
-const forged = acmeMac.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A'));
+// the second-to-last character: the last one of a base64url HMAC carries padding bits, so A↔B there can leave it valid
+const forged = acmeMac.replace(/(.)(.)$/, (_, c, last) => (c === 'A' ? 'B' : 'A') + last);
 check('a forged cookie cannot list → 401', (await api(forged)).status === 401);
 check('a forged cookie cannot sign out → 401', (await api(forged, { action: 'revoke', ref: phone.ref })).status === 401);
 const old = await S.createSession('acme@acme.test', { now: Date.now() - 2 * 86_400_000 });
@@ -205,5 +206,28 @@ await logAudit({ actor: 'admin', role: 'admin', action: 'token.rotate', email: '
 check('internal admin actions (token rotate) are not in the owner\'s activity', (await listActivity('cap@x.test'))[0].action === 'site.rename');
 await logAudit({ actor: 'admin', role: 'admin', action: 'site.rename', email: 'cap@x.test', detail: 'x → y' });
 check('a rename by support says so', activityRow((await listActivity('cap@x.test'))[0]).title === 'Site renamed by PowerGuardian support');
+
+console.log('\nB2 (review): a sign-out that lands mid-request stays a sign-out');
+{
+  const id = await S.createSession('race@x.test', { now: Date.now() - S.TOUCH_MS - 1000 });
+  const h = await S.hashId(id.split('.')[1] ?? id);
+  const key = 'session:h:' + h;
+  const tomb = JSON.stringify({ email: 'race@x.test', expires: Date.now() + 3_600_000, revoked: true });
+  // the sign-out lands right after the request read the live record (and before its "last seen" write)
+  let reads = 0;
+  const inner = (globalThis as any).fetch;
+  (globalThis as any).fetch = async (url: string, init: any = {}) => {
+    const res = await inner(url, init);
+    const isRead = ((init.method ?? 'GET') === 'GET' && decodeURIComponent(String(url)).includes(key))
+      || (typeof init.body === 'string' && init.body.includes('SELECT value') && init.body.includes(key));
+    if (isRead && ++reads === 1) kv.set(key, tomb);
+    return res;
+  };
+  await S.getSession(id, Date.now() + 1000);
+  (globalThis as any).fetch = inner;
+  check('"last seen" never writes a live record over the tombstone', JSON.parse(kv.get(key)!).revoked === true && (await S.getSession(id)) === null);
+  await S.markSessionMfa(id);
+  check('"passed two-step" never revives a signed-out session either', JSON.parse(kv.get(key)!).revoked === true && (await S.getSession(id)) === null);
+}
 
 done();

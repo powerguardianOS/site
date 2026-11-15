@@ -85,6 +85,14 @@ export async function postJson(url: string, body: unknown): Promise<{ ok: boolea
   }
 }
 
+// A fresh confirmation with one of this account's passkeys (the browser offers only those; account page).
+export async function confirmWithPasskey(): Promise<Record<string, unknown> | null> {
+  const o = await postJson('/api/account/passkeys', { action: 'confirm-options' });
+  if (!o.ok) return null;
+  const c = await navigator.credentials.get(requestFromJson(o.data.publicKey as Record<string, unknown>));
+  return credentialJson(c);
+}
+
 // ---- "this device has a passkey for that address" (the login page skips the e-mail for it)
 // localStorage pg_pk = [hint, …]: hint = sha256 of the lower-case address with a fixed prefix (app/lib/passkeys.ts
 // passkeyHint makes the same on the server). Only this device ever compares it: the server never says whether an address

@@ -75,8 +75,15 @@ try {
     && (await page.locator('#passkeys').innerText()).replace(/\s+/g, ' ').trim() === 'Passkeys: None · Add');
   await page.locator('#passkeys-manage').click();
   await page.locator('#passkey-add').click();
+  // B2: one inline step first (two-step off): the code mailed to the account's own address
+  await page.locator('#step-up-code').waitFor();
+  check('"We sent a code to p***@example.test. Enter it to add a passkey." inline, no dialog', (await page.locator('#step-up-text').innerText()) === 'We sent a code to p***@example.test. Enter it to add a passkey.');
+  await shot(page, 'passkeys-step-up-desktop.png');
+  await page.locator('#step-up-code').fill(stack.mails.filter((m) => m.to === PLAIN).at(-1).text.match(/\b(\d{6})\b/)[1]);
+  await page.locator('#step-up-go').click();
   await page.locator('#passkey-codes').waitFor();
   const codes = (await page.locator('#passkey-codes li').allTextContents()).map((s) => s.trim());
+  check('the owner gets "A passkey was added" by mail', stack.mails.filter((m) => m.to === PLAIN).at(-1)?.subject === 'A passkey was added to your PowerGuardian account');
   check('adding the first passkey shows 10 recovery codes (two-step is now on)', codes.length === 10 && codes.every((c) => /^[a-z2-7]{5}-[a-z2-7]{5}$/.test(c)));
   const creds = (await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials;
   check('the authenticator holds one resident passkey for rp "localhost"', creds.length === 1 && creds[0].isResidentCredential && creds[0].rpId === 'localhost');

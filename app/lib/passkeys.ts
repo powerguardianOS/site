@@ -10,6 +10,9 @@
 // The binding makes a challenge useless anywhere else: the passwordless sign-in is bound to an HttpOnly cookie of the
 // browser that asked, the two-step page to its pending sign-in, the account page to the session (and its e-mail).
 import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
+import { logAudit } from '@/app/lib/audit';
+import { securityMail } from '@/app/lib/security-mail';
+import { rateLimited } from '@/app/lib/ratelimit';
 import { b64u } from '@/app/lib/keys';
 import { APEX_HOST, siteBase } from '@/app/lib/host';
 import { getMfa, saveMfa, deleteMfa, newRecoveryCodes, hashRecoveryCodes, redeemCode, codeAttemptsExceeded } from '@/app/lib/mfa';
@@ -203,10 +206,25 @@ export async function finishAssertion(purpose: 'signin' | 'step' | 'confirm', bi
   if (!acc || !c) throw new WebAuthnError('unknown_credential'); // removed passkey (index left behind) → refused
   const handle = assertionUserHandle(cred);
   if (handle !== null && handle !== acc.handle) throw new WebAuthnError('user_handle');
-  const r = await verifyAssertion(cred, challenge, relyingParty(), c);
+  let r: Awaited<ReturnType<typeof verifyAssertion>>;
+  try {
+    r = await verifyAssertion(cred, challenge, relyingParty(), c);
+  } catch (e) {
+    if (e instanceof WebAuthnError && e.code === 'counter') await possibleCopy(owner, c);
+    throw e;
+  }
   const fresh = await getPasskeys(owner); // re-read: keep a parallel change (another passkey added) intact
   await savePasskeys(owner, { ...(fresh ?? acc), creds: (fresh ?? acc).creds.map((x) => x.id === credId ? { ...x, counter: r.counter, synced: r.backedUp, last_used_at: new Date(now).toISOString() } : x) });
   return { email: owner, credId, name: c.name };
+}
+
+// B2 (review): a signature counter that did not grow can mean a copied passkey. The owner sees it in the activity list
+// and gets a mail (at most one per passkey per hour); the sign-in itself is refused by the caller.
+async function possibleCopy(email: string, c: PasskeyCred): Promise<void> {
+  try {
+    await logAudit({ actor: email, role: 'owner', action: 'passkey.cloned', email, detail: c.name });
+    if (!(await rateLimited(`mail:pkcopy:${hex(await sha256(c.id))}`, 1, 3600))) await securityMail(email, 'passkey.cloned', { name: c.name });
+  } catch { /* never changes the refusal */ }
 }
 
 // Which account a sign-in assertion names (before verifying), for the per-account rate limit. Never throws.

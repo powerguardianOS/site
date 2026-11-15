@@ -3,6 +3,7 @@ export const runtime = 'edge';
 // CLOUD-MFA: the "Two-step sign-in" card on the account page.
 //   GET                                   → { enabled, since, recovery_left, required }
 //   POST { action: 'start' }              → { key, otpauth, qr_svg }  (new secret, kept 10 minutes for this account)
+//                                           B2: start and confirm need a fresh step-up first (app/lib/step-up.ts)
 //   POST { action: 'confirm', code }      → { enabled: true, recovery_codes }  (shown once)
 //   POST { action: 'remove', code }       → { enabled: false }       (needs a current code or a recovery code)
 //   POST { action: 'recovery', code }     → { recovery_codes }       (new set; the old ones stop working)
@@ -15,6 +16,8 @@ import { markSessionMfa } from '@/app/lib/session';
 import { twoStep, confirmFresh } from '@/app/lib/passkeys';
 import { logAudit } from '@/app/lib/audit';
 import { activityCtx } from '@/app/lib/client-info';
+import { hasStepUp, spendStepUp, STEP_UP_REQUIRED } from '@/app/lib/step-up';
+import { securityMail } from '@/app/lib/security-mail';
 import {
   getMfa, saveMfa, deleteMfa, enableMfa, regenerateRecovery, mfaRequired, codeAttemptsExceeded,
   newSecret, sealSecret, openSecret, base32, otpauthUri, qrSvg, groupKey,
@@ -45,6 +48,7 @@ export async function POST(request: Request) {
 
   if (action === 'start') {
     if ((await getMfa(who.email))?.totp) return json({ error: 'already_on', message: 'Two-step sign-in is already on.' }, 409);
+    if (!(await hasStepUp(who.sessionId))) return json(STEP_UP_REQUIRED, 403);
     const secret = newSecret();
     await kvPut(setupKey(who.email), await sealSecret(who.email, secret), 600);
     const key = base32(secret);
@@ -57,6 +61,7 @@ export async function POST(request: Request) {
   const log = (a: string) => logAudit({ actor: who.email, role: 'owner', action: a, email: who.email, ...activityCtx(request) });
 
   if (action === 'confirm') {
+    if (!(await hasStepUp(who.sessionId))) return json(STEP_UP_REQUIRED, 403);
     try {
       if (await codeAttemptsExceeded(who.email)) return json({ error: 'too_many', message: 'Too many tries. Wait 15 minutes and try again.' }, 429);
     } catch {
@@ -69,7 +74,9 @@ export async function POST(request: Request) {
     if (!codes) { await log('auth.mfa_failed'); return wrong(); }
     await kvDel(setupKey(who.email));
     await markSessionMfa(who.sessionId); // they just proved the app: this session counts as two-step
+    await spendStepUp(who.sessionId);
     await log('mfa.on');
+    await securityMail(who.email, 'totp.on', activityCtx(request));
     return json({ enabled: true, recovery_codes: codes });
   }
 

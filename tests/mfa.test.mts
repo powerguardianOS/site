@@ -1,11 +1,12 @@
 // CLOUD-MFA: two-step sign-in for PowerGuardian Cloud accounts (TOTP + recovery codes), enforced for accounts with
 // sites, and the SSO statement's mfa claim. Run: npx tsx tests/mfa.test.mts
-import { kv, seed, lic, check, done, PUBKEY } from './harness.mts';
+import { kv, seed, lic, check, done, PUBKEY, mails } from './harness.mts';
 import { NextRequest } from 'next/server';
 import { createMagicToken } from '../app/lib/magic-link.ts';
 import { POST as confirmLink } from '../app/api/auth/verify/route.ts';
 import { GET as stepGet, POST as stepPost } from '../app/login/mfa/route.ts';
 import { GET as mfaGet, POST as mfaPost } from '../app/api/account/mfa/route.ts';
+import { POST as stepUpPost } from '../app/api/account/step-up/route.ts';
 import { POST as ssoPost } from '../app/sso/authorize/route.ts';
 import { getSessionInfo, createSession } from '../app/lib/session.ts';
 import { totpAt, stepOf, matchTotp, base32, unbase32, sealSecret, openSecret, newRecoveryCodes, getMfa, enableMfa, newSecret, SSO } from './mfa-helpers.mts';
@@ -91,6 +92,7 @@ r = await postStep(sid1, { code: setupCode.replace(/(\d{3})/, '$1 ') }); // past
 html = await r.text();
 const codes = [...html.matchAll(/<li>([a-z2-7]{5}-[a-z2-7]{5})<\/li>/g)].map((m) => m[1]);
 check('the right code (pasted with a space) turns it on and shows 10 recovery codes once', r.status === 200 && codes.length === 10 && html.includes('Save your recovery codes'));
+check('B2: turned on during sign-in → the owner gets the "two-step turned on" mail', mails.some((m) => m.subject === 'Two-step sign-in was turned on for your PowerGuardian account'));
 const ownerCookie = decodeURIComponent(cookieOf(r, 'pg_session'));
 check('…and signs in with a session that passed two-step', (await getSessionInfo(ownerCookie))?.mfa === true);
 check('"I saved my recovery codes" continues to /account', html.includes('href="/account"'));
@@ -162,6 +164,15 @@ const nosite = await createSession('nosite@x.nl');
 let a = await j(await api(nosite));
 check('status: off, not required for an account without sites', a.enabled === false && a.required === false);
 check('status: required for an account with a site', (await j(await api(ownerCookie))).required === true && (await j(await api(ownerCookie))).enabled === true);
+// B2 (review): a stolen session alone cannot turn on two-step and take the recovery codes
+a = await j(await api(nosite, { action: 'start' }));
+check('set up without a fresh confirmation → refused (403 step_up)', a.status === 403 && a.error === 'step_up');
+check('…and confirm too', (await j(await api(nosite, { action: 'confirm', code: '123456' }))).status === 403);
+const up = (body: unknown) => stepUpPost(new Request(SITE + '/api/account/step-up', { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json', origin: SITE, cookie: 'pg_session=' + nosite } }));
+a = await j(await up({ action: 'start' }));
+check('two-step off: the confirmation code goes by mail', a.status === 200 && a.need === 'email' && mails.at(-1)!.to === 'nosite@x.nl');
+a = await j(await up({ action: 'verify', code: mails.at(-1)!.text.match(/\b(\d{6})\b/)![1] }));
+check('the mailed code confirms this session', a.status === 200);
 a = await j(await api(nosite, { action: 'start' }));
 check('set up: returns a QR (svg), otpauth link and the key', a.status === 200 && a.qr_svg.startsWith('<svg') && a.otpauth.startsWith('otpauth://totp/') && /^[A-Z2-7 ]+$/.test(a.key));
 const nsSecret = unbase32(a.key);
@@ -170,6 +181,7 @@ check('confirm with a wrong code: refused, still off', a.status === 401 && (awai
 a = await j(await api(nosite, { action: 'confirm', code: await codeNow(nsSecret) }));
 check('confirm with the right code: on, 10 recovery codes', a.status === 200 && a.enabled === true && a.recovery_codes.length === 10);
 check('…and the current session now counts as two-step', (await getSessionInfo(nosite))?.mfa === true);
+check('B2: a mail says two-step was turned on', mails.at(-1)!.to === 'nosite@x.nl' && mails.at(-1)!.subject === 'Two-step sign-in was turned on for your PowerGuardian account');
 const nsCodes: string[] = a.recovery_codes;
 a = await j(await api(nosite, { action: 'recovery', code: '123456' }));
 check('new recovery codes need a right code', a.status === 401);

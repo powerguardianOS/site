@@ -96,6 +96,17 @@ async function addToIndex(email: string, entry: IndexEntry, now: number): Promis
   await writeIndex(email, list, now);
 }
 
+// B2 (review): every write of a live record goes through here. It re-reads right before writing and never puts a record
+// without the revoked marker over one that has it: a sign-out that lands between a read and a "last seen" or "passed
+// two-step" write stays a sign-out. (KV has no compare-and-set; the window left is the read-to-write gap of one call.)
+async function putLive(h: string, rec: SessionRecord, ttl: number): Promise<boolean> {
+  const cur = await kvGet(recKey(h));
+  if (cur && parseRec(cur)?.revoked) return false;
+  if (rec.revoked) return false;
+  await kvPut(recKey(h), JSON.stringify(rec), ttl);
+  return true;
+}
+
 async function tombstone(h: string, email: string, now: number, exp = now + DAY_MS): Promise<void> {
   await kvPut(recKey(h), JSON.stringify({ email: email.toLowerCase(), expires: exp, revoked: true }), ttlS(exp, now));
 }
@@ -148,8 +159,9 @@ export async function getSessionInfo(cookie: string, now = Date.now(), client?: 
     if (p.email !== null && String(rec.email).toLowerCase() !== p.email.toLowerCase()) return null;
     // copy into the new form + index (once; the old record stays until its Sign out, so a lagging read still finds it)
     try {
-      await kvPut(recKey(h), JSON.stringify({ ...rec, seen: now, ...(client ? { ua: client.ua, ip: client.ip, country: client.country, city: client.city } : {}) }), ttlS(rec.expires, now));
-      await addToIndex(rec.email, { h, exp: rec.expires }, now);
+      if (await putLive(h, { ...rec, seen: now, ...(client ? { ua: client.ua, ip: client.ip, country: client.country, city: client.city } : {}) }, ttlS(rec.expires, now))) {
+        await addToIndex(rec.email, { h, exp: rec.expires }, now);
+      }
     } catch { /* still a valid session */ }
     return { email: rec.email, mfa: rec.mfa === true, h };
   }
@@ -163,7 +175,7 @@ export async function getSessionInfo(cookie: string, now = Date.now(), client?: 
 async function touch(h: string, rec: SessionRecord, now: number, client?: ClientInfo): Promise<void> {
   try {
     const next: SessionRecord = { ...rec, seen: now, ...(client?.ip ? { ip: client.ip, country: client.country, city: client.city } : {}) };
-    await kvPut(recKey(h), JSON.stringify(next), ttlS(rec.expires, now));
+    if (!(await putLive(h, next, ttlS(rec.expires, now)))) return; // signed out meanwhile
     const list = await readIndex(rec.email, now);
     if (!list.some((e) => e.h === h)) await addToIndex(rec.email, { h, exp: rec.expires }, now);
   } catch { /* "last seen" never fails a request */ }
@@ -179,11 +191,14 @@ export async function markSessionMfa(cookie: string): Promise<void> {
   const p = await parseCookie(cookie);
   if (!p) return;
   const h = await hashId(p.id);
-  for (const k of [recKey(h), legacyKey(p.id)]) {
-    const raw = await kvGet(k);
-    const rec = raw ? parseRec(raw) : null;
-    if (!rec || rec.revoked) continue;
-    await kvPut(k, JSON.stringify({ ...rec, mfa: true }), k === recKey(h) ? ttlS(rec.expires, Date.now()) : undefined);
+  const raw = await kvGet(recKey(h));
+  const rec = raw ? parseRec(raw) : null;
+  if (rec?.revoked) return; // signed out: stays signed out (the old-form record below is dead too)
+  if (rec) await putLive(h, { ...rec, mfa: true }, ttlS(rec.expires, Date.now()));
+  const oldRaw = await kvGet(legacyKey(p.id));
+  const old = oldRaw ? parseRec(oldRaw) : null;
+  if (old && !old.revoked && !(await kvGet(recKey(h)).then((x) => (x ? parseRec(x)?.revoked : false)))) {
+    await kvPut(legacyKey(p.id), JSON.stringify({ ...old, mfa: true }));
   }
 }
 
