@@ -5,8 +5,14 @@ export const runtime = 'edge';
 //   setup:  accounts that manage sites must turn it on first: QR code, "Add to authenticator app" on phones, the key to
 //           type by hand, then the code. Afterwards the 10 recovery codes are shown once.
 // Same-origin POST only; 5 tries per pending sign-in and 10 per account per 15 minutes, then a new link is needed.
+// PASSKEYS-1: a passkey is the other second step. verify: "Use a passkey" (when the account has one) next to the code;
+// setup: "Use a passkey" as the first choice, the authenticator app below. The page loads public/mfa-passkey.js, which
+// talks JSON to POST /login/mfa?passkey=options|verify|register-options|register (same cookie, same limits).
 import { NextResponse } from 'next/server';
-import { page, esc, sameOrigin } from '@/app/lib/page-html';
+import { page, esc, sameOrigin, CSP_PASSKEY } from '@/app/lib/page-html';
+import { twoStep, passkeyHint, requestOptions, creationOptions, finishAssertion, finishRegistration } from '@/app/lib/passkeys';
+import { WebAuthnError } from '@/app/lib/webauthn';
+import { logAudit } from '@/app/lib/audit';
 import { getPending, savePending, dropPending, stepCookieValue, withSession, STEP_MAX_TRIES, type PendingSignIn } from '@/app/lib/signin-step';
 import { getSession } from '@/app/lib/session';
 import { redeemCode, enableMfa, openSecret, base32, otpauthUri, qrSvg, groupKey, codeAttemptsExceeded } from '@/app/lib/mfa';
@@ -29,31 +35,91 @@ const codeInput = (autofocus: boolean) =>
   `<input id="mfa-code" name="code" class="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" ` +
   `maxlength="7" placeholder="123456" required${autofocus ? ' autofocus' : ''}>`;
 
+const PK_HEAD = { 'Content-Security-Policy': CSP_PASSKEY };
+const PK_SCRIPT = '<script src="/mfa-passkey.js" defer></script>';
+const pkError = '<p class="err" id="pk-error" role="alert" hidden></p>';
+
 async function render(p: PendingSignIn, error = '', status = 200): Promise<Response> {
   const err = error ? `<p class="err" id="mfa-error" role="alert">${esc(error)}</p>` : '';
   if (p.mode === 'verify') {
+    const ts = await twoStep(p.email);
+    const pk = ts.passkeys > 0
+      ? `<div class="card" id="pk-box" data-pk="verify" hidden>${pkError}<button type="button" id="mfa-passkey">Use a passkey</button>` +
+        `<p class="small" style="margin-top:12px">Face ID, Touch ID, Windows Hello or your phone.</p></div>` +
+        (ts.totp ? '' : `<p class="small" id="pk-unsupported" hidden style="margin-top:16px">This browser cannot use passkeys. Open the sign-in link on the device with your passkey, or use a recovery code.</p>`)
+      : '';
+    const app = ts.totp
+      ? (pk ? `<p class="or" id="pk-or" hidden>or</p>` : '') +
+        `<form method="post" action="/login/mfa" class="card">${err}${codeInput(!pk)}<button type="submit" id="mfa-submit"${pk ? ' class="secondary" style="margin-top:0"' : ''}>Sign in</button></form>`
+      : (err ? `<div class="card">${err}</div>` : '');
     return page(status, 'Two-step sign-in',
-      `<p>Enter the 6-digit code from your authenticator app.</p>` +
-      `<form method="post" action="/login/mfa" class="card">${err}${codeInput(true)}<button type="submit" id="mfa-submit">Sign in</button></form>` +
-      `<details style="margin-top:16px"><summary class="small" style="cursor:pointer;text-align:center;list-style:none">Lost your phone? Use a recovery code</summary>` +
+      `<p>${ts.totp && pk ? 'Use a passkey, or enter the 6-digit code from your authenticator app.' : ts.totp ? 'Enter the 6-digit code from your authenticator app.' : 'Confirm it is you with your passkey.'}</p>` +
+      pk + app +
+      `<details style="margin-top:16px"><summary class="small" style="cursor:pointer;text-align:center;list-style:none">${ts.totp ? 'Lost your phone?' : 'Lost your passkey?'} Use a recovery code</summary>` +
       `<form method="post" action="/login/mfa" class="card"><label for="mfa-recovery" class="small" style="display:block;text-align:left;margin:0 0 6px">Recovery code</label>` +
       `<input id="mfa-recovery" name="recovery" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="abcde-fghij" required>` +
-      `<button type="submit" id="mfa-recovery-submit">Sign in with recovery code</button><p class="small" style="margin-top:12px">Each recovery code works once.</p></form></details>`);
+      `<button type="submit" id="mfa-recovery-submit">Sign in with recovery code</button><p class="small" style="margin-top:12px">Each recovery code works once.</p></form></details>` +
+      (pk ? PK_SCRIPT : ''), pk ? PK_HEAD : {});
   }
   const secret = p.setup_secret ? await openSecret(p.email, p.setup_secret) : null;
   if (!secret) return page(503, 'Two-step sign-in is not available right now', '<p>Please try again in a few minutes.</p>');
   const key = base32(secret);
   const uri = otpauthUri(p.email, key);
   return page(status, 'Set up two-step sign-in',
-    `<p>Your account manages sites, so signing in needs a second step: a code from an authenticator app on your phone (for example Google Authenticator, Microsoft Authenticator or 1Password).</p>` +
+    `<p>Your account manages sites, so signing in needs a second step: a passkey on this device, or a code from an authenticator app on your phone.</p>` +
+    `<div class="card" id="pk-box" data-pk="setup" hidden><p style="margin-bottom:12px"><b>Recommended:</b> a passkey (Face ID, Touch ID, Windows Hello or your phone)</p>${pkError}` +
+    `<button type="button" id="mfa-passkey-setup">Add a passkey</button></div><p class="or" id="pk-or" hidden>or use an authenticator app</p>` +
     `<div class="card">` +
-    `<p style="margin-bottom:12px"><b>1.</b> Add PowerGuardian to your authenticator app</p>` +
+    `<p style="margin-bottom:12px"><b>1.</b> Add PowerGuardian to your authenticator app (for example Google Authenticator, Microsoft Authenticator or 1Password)</p>` +
     `<a class="btn phone-only" id="mfa-add-app" href="${esc(uri)}">Add to authenticator app</a>` +
     `<div class="qr" id="mfa-qr" style="display:flex;justify-content:center;margin:12px 0">${qrSvg(uri)}</div>` +
     `<p class="small">Or scan the code, or type this key:</p><p id="mfa-key" style="font-family:ui-monospace,Menlo,monospace;color:#fafafa;overflow-wrap:anywhere;font-size:15px;-webkit-user-select:all;user-select:all">${esc(groupKey(key))}</p>` +
     `</div>` +
     `<form method="post" action="/login/mfa" class="card"><p style="margin-bottom:12px"><b>2.</b> Type the code the app shows</p>${err}${codeInput(false)}` +
-    `<button type="submit" id="mfa-submit">Turn on and sign in</button></form>`);
+    `<button type="submit" id="mfa-submit">Turn on and sign in</button></form>` + PK_SCRIPT, PK_HEAD);
+}
+
+const pkJson = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
+
+// The passkey half of this page (JSON, called by public/mfa-passkey.js).
+async function passkeyStep(request: Request, action: string, id: string, p: PendingSignIn): Promise<Response> {
+  if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) return pkJson({ ok: false, error: 'json' }, 415);
+  const bind = 'step:' + id;
+  if (action === 'options') {
+    if (p.mode !== 'verify' || (await twoStep(p.email)).passkeys === 0) return pkJson({ ok: false, error: 'no_passkey' }, 409);
+    return pkJson({ ok: true, publicKey: await requestOptions('step', bind, p.email) });
+  }
+  if (action === 'register-options') {
+    if (p.mode !== 'setup') return pkJson({ ok: false, error: 'not_setup' }, 409);
+    return pkJson({ ok: true, publicKey: await creationOptions('step-register', bind, p.email) });
+  }
+  if (action !== 'verify' && action !== 'register') return pkJson({ ok: false, error: 'unknown' }, 400);
+  if (action === 'verify' ? p.mode !== 'verify' : p.mode !== 'setup') return pkJson({ ok: false, error: 'wrong_mode' }, 409);
+  const body = (await request.json().catch(() => null)) as { credential?: unknown; device?: unknown } | null;
+
+  let limited: boolean;
+  try { limited = await codeAttemptsExceeded(p.email); } catch { return pkJson({ ok: false, error: 'unavailable' }, 503); }
+  if (limited) { await dropPending(id); return pkJson({ ok: false, error: 'too_many', next: '/login?error=codes' }, 429); }
+
+  try {
+    if (action === 'verify') {
+      const r = await finishAssertion('step', bind, (body?.credential ?? {}) as never, p.email);
+      await dropPending(id);
+      await logAudit({ actor: p.email, role: 'owner', action: 'signin.passkey', email: p.email, detail: `two-step · ${r.name}` });
+      return withSession(pkJson({ ok: true, next: p.next, hint: await passkeyHint(p.email) }), p.email, true);
+    }
+    const r = await finishRegistration('step-register', bind, p.email, (body?.credential ?? {}) as never, '', body?.device);
+    await dropPending(id);
+    await logAudit({ actor: p.email, role: 'owner', action: 'passkey.add', email: p.email, detail: r.passkey.name });
+    return withSession(pkJson({ ok: true, next: p.next, hint: await passkeyHint(p.email), recovery_codes: r.recovery_codes ?? [] }), p.email, true);
+  } catch (e) {
+    const code = e instanceof WebAuthnError ? e.code : 'error';
+    if (action === 'verify') await logAudit({ actor: p.email, role: 'owner', action: 'signin.passkey_refused', email: p.email, detail: code });
+    const tries = p.tries + 1;
+    if (tries >= STEP_MAX_TRIES) { await dropPending(id); return pkJson({ ok: false, error: 'too_many', next: '/login?error=codes' }, 401); }
+    await savePending(id, { ...p, tries });
+    return pkJson({ ok: false, error: code === 'cred_exists' ? 'exists' : 'failed', left: STEP_MAX_TRIES - tries }, 401);
+  }
 }
 
 export async function GET(request: Request) {
@@ -66,6 +132,8 @@ export async function POST(request: Request) {
   if (!sameOrigin(request)) return page(403, 'This sign-in did not start here', '<p><a href="/login">Back to sign in</a></p>');
   const id = stepCookieValue(request);
   const p = await getPending(id);
+  const action = new URL(request.url).searchParams.get('passkey');
+  if (action !== null) return p ? passkeyStep(request, action, id, p) : pkJson({ ok: false, error: 'timeout', next: '/login?error=timeout' }, 410);
   if (!p) return timedOut(request);
   const form = await request.formData().catch(() => null);
   const code = String(form?.get('code') ?? form?.get('recovery') ?? '');

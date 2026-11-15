@@ -2,6 +2,8 @@ import { cookies } from 'next/headers';
 import { getAccountSummary } from '@/app/lib/license-db';
 import SitesSection, { UnusedLicenses } from './components/SitesSection';
 import TwoStepCard from './components/TwoStepCard';
+import PasskeysCard, { PasskeyOffer } from './components/PasskeysCard';
+import { getPasskeys, viewOf } from '@/app/lib/passkeys';
 import { getSession } from '@/app/lib/session';
 import { getMfa, mfaRequired } from '@/app/lib/mfa';
 import { sitesWithStatus } from '@/app/lib/site-summary';
@@ -17,19 +19,23 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const sessionId = cookieStore.get('pg_session')?.value ?? '';
   const email = (await getSession(sessionId)) ?? '';
   const summary = await getAccountSummary(email);
-  const [mfa, required, withStatus, params] = await Promise.all([
+  const [mfa, required, withStatus, params, pks] = await Promise.all([
     getMfa(email),
     mfaRequired(email),
     // Connector add-ons belong to a site and only raise its capacity — they are not sites or licenses of their own here.
     sitesWithStatus(summary.licenses),
     searchParams,
+    getPasskeys(email),
   ]);
+  const passkeys = (pks?.creds ?? []).map(viewOf);
   const view = accountView(withStatus, summary.licenses);
   const none = view.sites.length === 0 && view.unused.length === 0;
 
   return (
     <div className="space-y-6">
       <h1 className="pg-display text-4xl text-white">My sites</h1>
+      {/* PASSKEYS-1 */}
+      <PasskeyOffer count={passkeys.length} />
 
       {none ? (
         <div className="pg-feature p-8 text-center space-y-4">
@@ -48,8 +54,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <div className="space-y-1 border-t border-white/[0.06] pt-4">
         <UnusedLicenses unused={view.unused} open={params.add === '1'} />
         {/* CLOUD-MFA */}
-        <TwoStepCard initial={{ enabled: !!mfa, since: mfa?.created_at ?? null, recovery_left: mfa?.recovery.length ?? 0, required }}
+        <TwoStepCard initial={{ enabled: !!mfa?.totp, since: mfa?.created_at ?? null, recovery_left: mfa && (mfa.totp || passkeys.length) ? mfa.recovery.length : 0, required, passkeys: passkeys.length }}
           extra={<a id="add-licenses" href="/pricing" className="inline-flex min-h-[44px] items-center text-sm text-white/50 hover:text-white sm:min-h-0">+ Add licenses</a>} />
+        <PasskeysCard initial={passkeys} totp={!!mfa?.totp} required={required} />
       </div>
     </div>
   );

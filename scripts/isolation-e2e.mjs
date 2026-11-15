@@ -18,6 +18,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { createHash, createPrivateKey } from 'node:crypto';
 import { startDev, finishTwoStep, SITE, ORIGIN, ADMIN, MINT, H, RELAY_PORT } from './cloud-dev.mjs';
+import { SoftAuthenticator } from './soft-authenticator.mjs';
 
 const CTL_DIR = process.env.CTL_DIR ?? path.join(homedir(), '.pg-work/ctl-iso');
 const RELAY_DIR = process.env.RELAY_DIR ?? path.join(homedir(), '.pg-work/relay-iso');
@@ -135,6 +136,44 @@ try {
   ok('(control) mallory gets a console link for her own site', own.status === 200 && !!own.console_url, JSON.stringify(own));
   const acmeLink = await sitePost('/api/account/relay-session', { license_id: L.acer }, { cookie: acme });
   ok('(control) acme gets a console link for Acer', acmeLink.status === 200 && !!acmeLink.console_url, JSON.stringify(acmeLink));
+
+  console.log('\nA2. PASSKEYS-1: mallory against acme\'s passkeys');
+  {
+    const acmeKey = new SoftAuthenticator({ origin: SITE }), malKey = new SoftAuthenticator({ origin: SITE });
+    const pk = (cookie, body) => sitePost('/api/account/passkeys', body, { cookie });
+    const ao = await pk(acme, { action: 'options' });
+    const ar = await pk(acme, { action: 'register', credential: await acmeKey.create(ao.publicKey), device: 'iPhone · Safari' });
+    ok('(control) acme adds a passkey to acme', ar.status === 200 && !!ar.passkey?.id, JSON.stringify(ar).slice(0, 160));
+    const acmeId = ar.passkey?.id;
+    const passkeysOf = (email) => JSON.parse(dev.kv.get('passkeys:' + email) ?? '{"creds":[]}').creds;
+    const mo = await pk(mallory, { action: 'options' });
+    ok('mallory\'s creation options name mallory only (never acme)', mo.status === 200 && mo.publicKey.user.name === 'mallory@mallory.test' && !JSON.stringify(mo).includes('acme'));
+    const steal = await pk(mallory, { action: 'register', credential: await malKey.create(mo.publicKey, { credId: Buffer.from(acmeId, 'base64url') }) });
+    ok('mallory registers acme\'s credential id on her account → refused', steal.status === 400 && passkeysOf('mallory@mallory.test').length === 0, JSON.stringify(steal));
+    const ao2 = await pk(acme, { action: 'options' });
+    const onAcme = await pk(mallory, { action: 'register', credential: await malKey.create(ao2.publicKey) });
+    ok('mallory answers acme\'s registration challenge with her session → refused, nothing added to acme', onAcme.status === 400 && passkeysOf('acme@acme.test').length === 1, JSON.stringify(onAcme));
+    const rm = await pk(mallory, { action: 'remove', id: acmeId, code: '123456' });
+    ok('mallory removes acme\'s passkey by id → not found, acme keeps it', rm.status === 404 && passkeysOf('acme@acme.test').length === 1, JSON.stringify(rm));
+    const co = await pk(acme, { action: 'confirm-options' });
+    const mr = await pk(mallory, { action: 'remove', id: acmeId, credential: await acmeKey.get(co.publicKey) });
+    ok('mallory with a confirmation acme made (acme\'s passkey, acme\'s challenge) → refused', mr.status === 404 || mr.status === 401, JSON.stringify(mr));
+    const ml = await fetch(SITE + '/api/account/passkeys', { headers: { cookie: mallory } }).then(j);
+    ok('mallory\'s passkey list never shows acme\'s', ml.status === 200 && !JSON.stringify(ml).includes(acmeId));
+    // passwordless sign-in naming acme's credential id, signed with mallory's own key
+    const mo2 = await pk(mallory, { action: 'options' });
+    const malOwn = await pk(mallory, { action: 'register', credential: await malKey.create(mo2.publicKey) });
+    const so = await fetch(SITE + '/api/auth/passkey/options', { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: '{}' });
+    const bind = (so.headers.get('set-cookie') ?? '').match(/pg_pk=[^;]+/)?.[0];
+    const opts = await so.json();
+    const forged = await malKey.get(opts.publicKey, { claimId: acmeId });
+    const sv = await fetch(SITE + '/api/auth/passkey/verify', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json', origin: ORIGIN, cookie: bind }, body: JSON.stringify({ credential: forged }) });
+    ok('passkey sign-in with acme\'s credential id but mallory\'s key → refused, no session', sv.status === 401 && !(sv.headers.get('set-cookie') ?? '').includes('pg_session='), String(sv.status));
+    const so2 = await fetch(SITE + '/api/auth/passkey/options', { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: '{}' });
+    const own = await fetch(SITE + '/api/auth/passkey/verify', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json', origin: ORIGIN, cookie: (so2.headers.get('set-cookie') ?? '').match(/pg_pk=[^;]+/)?.[0] }, body: JSON.stringify({ credential: await malKey.get((await so2.json()).publicKey, { useId: malOwn.passkey?.id }) }) });
+    const ownBody = await own.json().catch(() => ({}));
+    ok('(control) mallory\'s own passkey signs mallory in, never acme', own.status === 200 && ownBody.next === '/account', String(own.status));
+  }
 
   console.log('\nB. admin endpoints with mallory\'s (and acme\'s) session');
   for (const cookie of [mallory, acme]) {
