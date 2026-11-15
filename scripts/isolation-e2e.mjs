@@ -113,6 +113,7 @@ try {
     const code = (await mailTo(email, n0 + 1))?.text.match(/code is: (\d{6})/)?.[1];
     await j(await cpost('/api/license/confirm-email', { code }, ck));
     const cl = await j(await cpost('/api/license/claim', { license_id: L[key] }, ck));
+    await cpost('/api/wizard/complete', {}, ck); // a site in use (setup done), like a real one
     CT[key] = { port, C, ck, cpost, log: () => log, proc: p };
     if (!ok(`controller ${key} linked to its own site`, cl.status === 'linked', JSON.stringify(cl).slice(0, 200))) throw new Error('setup failed: ' + log.slice(-400));
   }
@@ -385,6 +386,15 @@ try {
     ok('acme taps Open Console for Acer: a console link and a console intent', oc.status === 200 && !!oc.url && oc.intent.startsWith(`pg_ci_${label(L.acer)}=`), JSON.stringify(oc));
     const relayCk = await enter(L.acer, oc.url);
     ok('the console link opens Acer through the relay', !!relayCk);
+    // FAST-SWITCH: not signed in yet, the relayed page is a small landing page that starts the cloud sign-in (not the ~1.5 MB app)
+    const land = await viaRelay(L.acer, [relayCk], '/');
+    ok('not signed in through the relay: GET / is the small sign-in landing page naming the site', land.status === 200 && land.body.length < 8192 && /Signing you in( to Acer)?…/.test(land.body), `${land.status} ${land.body.length} ${land.body.slice(0, 120)}`);
+    // C1: no inline script — the landing page's script is a same-origin file (by content hash) that starts the cloud sign-in
+    const landJs = land.body.match(/<script src="(\/sso-landing\.js\?v=[0-9a-f]+)"><\/script>/)?.[1];
+    const landScript = landJs ? await viaRelay(L.acer, [relayCk], landJs) : { status: 0, body: '' };
+    ok('…its only script is /sso-landing.js (no inline script), served through the relay, and it starts the cloud sign-in', !!landJs && (land.body.match(/<script/g) ?? []).length === 1 && landScript.status === 200 && landScript.body.includes('/api/auth/sso/start'), `${landJs} ${landScript.status}`);
+    const landApp = await viaRelay(L.acer, [relayCk], '/?app=1');
+    ok('…and ?app=1 (its hand-over) is the app itself', landApp.status === 200 && landApp.body.length > 100000, String(landApp.body.length));
     const st = JSON.parse((await viaRelay(L.acer, [relayCk], '/api/auth/sso/status')).body || '{}');
     const bs = JSON.parse((await viaRelay(L.acer, [relayCk], '/api/bootstrap')).body || '{}');
     ok('Acer says: through the console, not signed in → start the cloud sign-in by itself', st.available === true && st.auto === true && bs.authenticated === false && bs.sso_auto === true, JSON.stringify({ st, bs: { a: bs.authenticated, s: bs.sso_auto } }));
@@ -421,9 +431,21 @@ try {
       ok('acme\'s controller switching to mallory\'s site → refused, no link, no ticket', toMal.status === 404 && !toMal.console_url && !toMal.open_url, JSON.stringify(toMal));
       const asAcme = await askCloud(tok.mal, cidMal, { site_id: L.hp, actor: 'acme@acme.test' });
       ok('mallory\'s controller naming acme as actor for HP → refused, no ticket', asAcme.status === 404 && !asAcme.open_url, JSON.stringify(asAcme));
+      // FAST-SWITCH: ticket_only (no console link minted for nothing) changes nothing about who gets what
+      const to = await askCloud(tok.acer, cidAcer, { site_id: L.hp, actor: 'acme@acme.test', ticket_only: true });
+      ok('ticket_only for acme\'s admin: a switch ticket only, no console link', to.status === 200 && (to.open_url ?? '').startsWith(SITE + '/console/open?t=') && !to.console_url, JSON.stringify(to));
+      const toMalTo = await askCloud(tok.mal, cidMal, { site_id: L.hp, actor: 'acme@acme.test', ticket_only: true });
+      ok('ticket_only from mallory\'s controller for HP → refused, nothing', toMalTo.status === 404 && !toMalTo.open_url && !toMalTo.console_url, JSON.stringify(toMalTo));
+      const toNoActor = await askCloud(tok.acer, cidAcer, { site_id: L.hp, ticket_only: true });
+      ok('ticket_only without a linked account: no ticket (the console link as before)', toNoActor.status === 200 && !toNoActor.open_url, JSON.stringify(toNoActor));
       if (sess) {
         const viaCtl = JSON.parse((await viaRelay(L.acer, [relayCk, sess], '/api/sites/console', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: L.mal }) })).body || '{}');
         ok('acme signed in on Acer, the switcher asking for Mal → refused, no link', !viaCtl.console_url && !viaCtl.open_url, JSON.stringify(viaCtl));
+        // FAST-SWITCH: the switcher on Acer (through the relay) fetching links ahead: HP's switch ticket, never Mal's
+        const ahead = (id) => viaRelay(L.acer, [relayCk, sess], '/api/sites/console', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, prefetch: true }) }).then((r) => ({ status: r.status, ...JSON.parse(r.body || '{}') }));
+        const aHp = await ahead(L.hp);
+        ok('Acer\'s switcher fetching HP ahead (relay): a switch ticket on this cloud, no console link', aHp.status === 200 && (aHp.open_url ?? '').startsWith(SITE + '/console/open?t=') && !aHp.console_url, JSON.stringify(aHp));
+        for (const id of [L.mal, L.beurs]) { const a = await ahead(id); ok('Acer\'s switcher fetching another tenant\'s site ahead → refused, nothing', !a.open_url && !a.console_url && a.status >= 400, JSON.stringify(a)); }
       }
       const openT = (cookie) => fetch(sw.open_url, { redirect: 'manual', headers: cookie ? { cookie } : {} });
       const o0 = await openT('');

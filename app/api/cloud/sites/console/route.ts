@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const license = await holderCaller(request);
   if (license instanceof Response) return license;
 
-  const body = await request.json().catch(() => null) as { site_id?: unknown; actor?: unknown; via?: unknown } | null;
+  const body = await request.json().catch(() => null) as { site_id?: unknown; actor?: unknown; via?: unknown; ticket_only?: unknown } | null;
   const id = typeof body?.site_id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(body.site_id) ? body.site_id : '';
   if (!id) return Response.json({ error: 'site_id required' }, { status: 400 });
 
@@ -53,8 +53,6 @@ export async function POST(request: Request) {
   if (!consolePlan(site.plan)) return Response.json({ error: 'console_not_in_plan' }, { status: 403 });
   if (!isOnline(status)) return Response.json({ error: 'offline' }, { status: 409 });
 
-  const m = await mintConsoleURL(site.id, license.email);
-  if ('error' in m) return Response.json({ error: m.error }, { status: m.status });
   // AUTO-SSO: the controller's user is linked to the account that owns both licences (actor): also a switch ticket, so
   // the browser lands signed in on that site (app/lib/console-switch.ts). Anyone else: the console link only.
   let open_url: string | undefined;
@@ -62,6 +60,12 @@ export async function POST(request: Request) {
     const t = await createSwitchTicket(site.id, owner).catch(() => '');
     if (t) open_url = `${cloudOrigin(request)}/console/open?t=${t}`;
   }
+  // FAST-SWITCH: a controller that opens the ticket when there is one asks ticket_only. Then no console link is minted
+  // here (the ticket mints its own when the browser opens it), so a switch costs one relay mint, not two, and a ticket
+  // fetched ahead of the tap mints nothing. Without a ticket the console link as always.
+  if (open_url && body?.ticket_only === true) return Response.json({ open_url }, { headers: { 'cache-control': 'no-store' } });
+  const m = await mintConsoleURL(site.id, license.email);
+  if ('error' in m) return Response.json({ error: m.error }, { status: m.status });
   // SESSIONS-1: a ticket is logged when the browser opens it (app/console/open); a bare console link is logged here.
   if (!open_url) await logConsoleAccess(linked ? owner : 'controller', site.id, 'switcher', owner, { site: siteName(site, null) });
   return Response.json({ console_url: m.url, ...(open_url ? { open_url } : {}) }, { headers: { 'cache-control': 'no-store' } });

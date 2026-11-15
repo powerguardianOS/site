@@ -93,6 +93,23 @@ put('license:lic-hp', { ...hp, email: 'someone-else@test' });
 o = await open(r.open_url, acme);
 check('HP moved to another account after the ticket → refused, nothing minted', o.status === 403 && !o.headers.get('location'));
 
+console.log('\nFAST-SWITCH: ticket_only (the controller opens the ticket when there is one)');
+put('license:lic-hp', hp);
+let m0 = mints.length;
+r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-hp', actor: 'acme@test', ticket_only: true }));
+check('linked owner + ticket_only: an open_url only, no console link minted', r.status === 200 && OPEN_RE.test(r.open_url ?? '') && !r.console_url && mints.length === m0, JSON.stringify(r));
+o = await open(r.open_url, acme);
+check('…the ticket still mints HP\'s console link when the browser opens it (one mint per switch)', o.status === 303 && o.headers.get('location')?.includes(hpHost) && mints.length === m0 + 1, o.headers.get('location') ?? '');
+m0 = mints.length;
+r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-hp', ticket_only: true }));
+check('ticket_only without a linked account: the console link as always (no ticket to open)', r.status === 200 && !!r.console_url && !r.open_url && mints.length === m0 + 1, JSON.stringify(r));
+r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-hp', actor: 'mallory@test', ticket_only: true }));
+check('ticket_only with another account as actor: no ticket, the console link only', r.status === 200 && !!r.console_url && !r.open_url, JSON.stringify(r));
+r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-mal', actor: 'acme@test', ticket_only: true }));
+check('ticket_only for mallory\'s site → 404, nothing', r.status === 404 && !r.console_url && !r.open_url, JSON.stringify(r));
+r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-hp', actor: 'acme@test', ticket_only: 'yes' }));
+check('ticket_only must be exactly true (anything else: both, as before)', r.status === 200 && !!r.console_url && OPEN_RE.test(r.open_url ?? ''), JSON.stringify(r));
+
 console.log('\non the LAN: straight to HP\'s LAN address, still signed in by itself');
 put('license:lic-hp', hp);
 r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-hp', actor: 'acme@test', via: 'lan' }));

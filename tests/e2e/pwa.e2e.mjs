@@ -62,6 +62,16 @@ try {
     viewport: document.querySelector('meta[name="viewport"]')?.getAttribute('content') ?? '',
   }));
   check('home-screen meta: apple-touch-icon, web-app capable, title PowerGuardian, manifest link', head.apple.includes('apple-touch-icon') && head.capable === 'yes' && head.title === 'PowerGuardian' && head.manifest.includes('manifest'), JSON.stringify(head));
+  // B3: tab icon = favicon B (the green shield alone, no tile), app icon = A (green shield on a dark tile, full-bleed for iOS)
+  const fav = await page.evaluate(async () => {
+    const links = [...document.querySelectorAll('link[rel="icon"]')].map((l) => l.getAttribute('href'));
+    const r = await fetch('/favicon.svg'); const svg = await r.text();
+    const px = async (src, at) => { const img = new Image(); img.src = src; await img.decode(); const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0); return [...g.getImageData(at[0], at[1], 1, 1).data]; };
+    return { links, type: r.headers.get('content-type') ?? '', svg, p32: await px('/favicon-32.png', [0, 0]), s32: await px('/favicon-32.png', [16, 4]), ico: (await fetch('/favicon.ico')).status, ac: await px('/icons/apple-touch-icon.png', [0, 0]), as: await px('/icons/apple-touch-icon.png', [90, 30]) };
+  });
+  check('favicon B: the tab icons (svg, 32px png, ico) are linked and served', ['/favicon.svg', '/favicon-32.png'].every((h) => fav.links.some((l) => l.startsWith(h))) && fav.ico === 200, JSON.stringify(fav.links));
+  check('favicon B: the green shield alone (no dark tile), transparent around it', /svg/.test(fav.type) && /fill="#00c66f"/.test(fav.svg) && !/<rect/.test(fav.svg) && fav.p32[3] === 0 && fav.s32[1] > 150 && fav.s32[3] === 255, JSON.stringify([fav.type, fav.p32, fav.s32]));
+  check('app icon A: the home-screen icon is a full dark tile with the green shield', fav.ac[3] === 255 && fav.ac[1] < 30 && fav.as[1] > 150 && fav.as[0] < 60, JSON.stringify([fav.ac, fav.as]));
   check('viewport-fit=cover, and zooming is not switched off', /viewport-fit=cover/.test(head.viewport) && !/user-scalable=no|maximum-scale=1/.test(head.viewport), head.viewport);
   check('(test) the page sees itself as the installed app', await page.evaluate(() => navigator.standalone === true && matchMedia('(display-mode: standalone)').matches));
 
