@@ -63,7 +63,11 @@ export async function POST(request: Request) {
   // FAST-SWITCH: a controller that opens the ticket when there is one asks ticket_only. Then no console link is minted
   // here (the ticket mints its own when the browser opens it), so a switch costs one relay mint, not two, and a ticket
   // fetched ahead of the tap mints nothing. Without a ticket the console link as always.
-  if (open_url && body?.ticket_only === true) return Response.json({ open_url }, { headers: { 'cache-control': 'no-store' } });
+  // A linked ticket_only ask whose ticket could not be made is refused (503): no console link minted, nothing logged.
+  if (linked && body?.ticket_only === true) {
+    if (!open_url) return Response.json({ error: 'unavailable' }, { status: 503 });
+    return Response.json({ open_url }, { headers: { 'cache-control': 'no-store' } });
+  }
   const m = await mintConsoleURL(site.id, license.email);
   if ('error' in m) return Response.json({ error: m.error }, { status: m.status });
   // SESSIONS-1: a ticket is logged when the browser opens it (app/console/open); a bare console link is logged here.

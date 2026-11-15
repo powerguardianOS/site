@@ -14,7 +14,9 @@ import { NextRequest } from 'next/server';
 process.env.RELAY_MINT_SECRET = 'mint-secret';
 const mints: string[] = [];
 const kvFetch = (globalThis as any).fetch;
+let failTickets = false; // a switch ticket cannot be stored (KV / D1 down)
 (globalThis as any).fetch = async (url: string, init: any = {}) => {
+  if (failTickets && (String(url).includes('cs%3A') || String(url).includes('/cs:') || String(init?.body ?? '').includes('"cs:'))) return new Response('down', { status: 500 });
   if (String(url).startsWith('https://relay.powerguardian.cloud/mint/')) { mints.push(String(url).split('/').pop()!); return Response.json({ token: 'sub.tok', jti: 'j', expires_at: 1 }); }
   return kvFetch(url, init);
 };
@@ -109,6 +111,17 @@ r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-mal', actor: 'acme@
 check('ticket_only for mallory\'s site → 404, nothing', r.status === 404 && !r.console_url && !r.open_url, JSON.stringify(r));
 r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-hp', actor: 'acme@test', ticket_only: 'yes' }));
 check('ticket_only must be exactly true (anything else: both, as before)', r.status === 200 && !!r.console_url && OPEN_RE.test(r.open_url ?? ''), JSON.stringify(r));
+
+// review B3: ticket_only and the ticket cannot be made → 503, nothing minted, nothing logged (no silent fall-back)
+put('license:lic-hp', hp);
+failTickets = true;
+m0 = mints.length;
+const keys0 = [...(kv as any).keys()].length;
+r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-hp', actor: 'acme@test', ticket_only: true }));
+check('ticket_only, the ticket cannot be stored → 503, no console link minted, no access logged', r.status === 503 && r.error === 'unavailable' && !r.console_url && !r.open_url && mints.length === m0 && [...(kv as any).keys()].length === keys0, JSON.stringify(r) + ' keys ' + keys0 + '→' + [...(kv as any).keys()].length);
+r = await json(await ask(acer.token, C_ACER, { site_id: 'lic-hp', actor: 'acme@test' }));
+check('…without ticket_only the console link as before (the controller then opens that)', r.status === 200 && !!r.console_url && !r.open_url, JSON.stringify(r));
+failTickets = false;
 
 console.log('\non the LAN: straight to HP\'s LAN address, still signed in by itself');
 put('license:lic-hp', hp);
