@@ -6,7 +6,7 @@
 //   --overwrite    also replace a D1 row whose value or expiry differs from KV (default: an existing D1 row is kept,
 //                  because in dual mode D1 is never older than KV)
 //   --prefix=P     only keys starting with P
-//   --rps=N        API requests per second (default 3; the API allows 4/s per user and the live site shares it)
+//   --rps=N        API requests per second (default 1: the live site shares the API's 4/s per user; raise only off-peak)
 // Prints counts per key prefix only: never values, tokens or key names.
 import { config, flags, client, table, bump, sha } from './eu-lib.mjs';
 
@@ -67,7 +67,7 @@ for (const k of todo) {
     if (existing.value === value && existing.expiration === (k.expiration || 0)) { bump(counts, k.name, 'same'); continue; }
     batch.push({ name: k.name, hash: sha(value), overwrite: true, stmt: { sql: `INSERT INTO kv (key, value, expires_at) VALUES (?1, ?2, ${exp}) ON CONFLICT (key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at`, params } });
   } else {
-    batch.push({ name: k.name, hash: sha(value), overwrite: false, stmt: { sql: `INSERT INTO kv (key, value, expires_at) VALUES (?1, ?2, ${exp}) ON CONFLICT (key) DO NOTHING`, params } });
+    batch.push({ name: k.name, hash: sha(value), overwrite: false, stmt: { sql: `INSERT INTO kv (key, value, expires_at) VALUES (?1, ?2, ${exp}) ON CONFLICT (key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at WHERE kv.expires_at IS NOT NULL AND kv.expires_at <= CAST(strftime('%s','now') AS INTEGER)`, params } }); // an expired row does not block the copy
   }
   if (batch.length >= 25) await flush();
 }

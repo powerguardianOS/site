@@ -45,7 +45,7 @@ check('limit', JSON.stringify(await kvList('audit:', 2)) === '["audit:1","audit:
 check('_ and % in a prefix are literal, not wildcards', JSON.stringify(await kvList('a_')) === '["a_b"]' && JSON.stringify(await kvList('a%')) === '["a%c"]');
 check('empty prefix lists everything', (await kvList('')).length === 9);
 
-console.log('\ndual: write both, read D1 first, copy-on-read');
+console.log('\ndual: write both, read and list KV only (KV is the truth until d1)');
 process.env.KV_BACKEND = 'dual'; reset();
 await kvPut('session:x', 's', 3600);
 check('a write goes to D1 and KV', d1.kv.get('session:x') === 's' && kvMap.get('session:x') === 's');
@@ -53,19 +53,15 @@ check('both with the same expiry', Math.abs((exp('session:x') ?? 0) - (kvExp.get
 kvMap.set('license:old', '{"id":"old"}');
 kvMap.set('magic:t', 'm'); kvExp.set('magic:t', now() + 900);
 check('a key only in KV is read from KV', (await kvGet('license:old')) === '{"id":"old"}');
-check('…and copied into D1 (no expiry)', d1.kv.get('license:old') === '{"id":"old"}' && exp('license:old') === null);
-await kvGet('magic:t');
-check('copy-on-read keeps the KV expiration', d1.kv.get('magic:t') === 'm' && exp('magic:t') === kvExp.get('magic:t'));
-d1.kv.set('k:new', 'newer'); kvMap.set('k:new', 'older');
-check('D1 wins when both have the key', (await kvGet('k:new')) === 'newer');
-kvMap.set('k:only', 'v1');
-d1.db.prepare("INSERT INTO kv (key, value) VALUES ('k:only', 'v2')").run(); // a write raced the copy
-await kvGet('k:only');
-check('copy-on-read never overwrites a newer D1 row', d1.kv.get('k:only') === 'v2');
+check('…and never copied into D1 on read (the backfill fills D1)', !d1.kv.has('license:old'));
+d1.kv.set('k:stale', 'old-copy');
+check('a key only in D1 is not read (no stale copy ever comes back)', (await kvGet('k:stale')) === null);
 await kvDel('session:x');
 check('delete removes from both', !d1.kv.has('session:x') && !kvMap.has('session:x'));
+kvMap.set('session:y', 'kv-lags'); d1.kv.delete('session:y'); // deleted in D1, KV delete failed or lags
+check('a key deleted in D1 but still in KV is never copied back into D1', (await kvGet('session:y')) === 'kv-lags' && !d1.kv.has('session:y'));
 kvMap.set('list:a', '1'); d1.kv.set('list:b', '2');
-check('list is the union of both', JSON.stringify(await kvList('list:')) === '["list:a","list:b"]');
+check('list comes from KV only', JSON.stringify(await kvList('list:')) === '["list:a"]');
 
 console.log('\nfail closed');
 reset();
@@ -74,7 +70,7 @@ let msg = await throws(() => kvPut('k', 'SECRET-VALUE'));
 check('dual: D1 write failure throws', msg.startsWith('D1 query failed'));
 check('…before KV is written (no half write reported as done)', !kvMap.has('k'));
 check('…and the error never contains the value', !msg.includes('SECRET-VALUE'));
-check('dual: D1 read failure throws (no silent fall back to KV)', (await throws(() => kvGet('k'))).startsWith('D1'));
+check('dual: a D1 outage does not break reads (KV is read)', (await kvGet('k')) === null);
 process.env.KV_BACKEND = 'd1';
 check('d1: read failure throws', (await throws(() => kvGet('k'))).startsWith('D1'));
 check('d1: list failure throws', (await throws(() => kvList('a'))).startsWith('D1'));
@@ -88,7 +84,7 @@ fail = (u, init) => (u.includes('/values/') && init.method === 'PUT' ? new Respo
 check('dual: KV write failure throws', (await throws(() => kvPut('k2', 'v'))).startsWith('KV write failed'));
 fail = null;
 const db = process.env.D1_DATABASE_ID; delete process.env.D1_DATABASE_ID;
-check('d1 not configured -> throws', (await throws(() => kvGet('k'))).includes('D1_DATABASE_ID'));
+check('d1 not configured -> a dual write throws', (await throws(() => kvPut('k', 'v'))).includes('D1_DATABASE_ID'));
 process.env.D1_DATABASE_ID = db;
 process.env.KV_BACKEND = 'D1 ';
 check('an unknown KV_BACKEND throws (no silent global fallback)', (await throws(async () => kvBackend())).includes('KV_BACKEND'));

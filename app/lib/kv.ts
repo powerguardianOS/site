@@ -4,8 +4,9 @@
 // EU-1: the data moves from Workers KV (global) to a D1 database created in the EU jurisdiction, both over the
 // Cloudflare REST API (the same way KV has always been reached from the edge runtime; no Pages binding). KV_BACKEND:
 //   kv   (default) Workers KV only, as before.
-//   dual           write both (D1 first, both must succeed), read D1 then KV; a key found only in KV is copied into D1
-//                  with its KV expiration (copy-on-read). Deletes go to both. Lists are the union.
+//   dual           write both (D1 first, both must succeed), deletes to both; reads and lists from KV only. KV stays the
+//                  one truth while D1 is filled (writes + scripts/eu-backfill.mjs) and checked (scripts/eu-verify.mjs).
+//                  D1 is never read here, so nothing deleted can come back from a stale copy (review 2026-11-15).
 //   d1             D1 only. KV is never called.
 // Any other value throws: no silent fallback to a global store.
 // D1 table (db/eu-1-kv.sql): kv(key TEXT PRIMARY KEY, value TEXT NOT NULL, expires_at INTEGER) — expires_at in unix
@@ -110,13 +111,12 @@ async function d1Get(key: string): Promise<string | null> {
   return row ? String(row.value) : null;
 }
 
-// expiresAt: unix seconds or 0 (never). onlyIfAbsent: copy-on-read / backfill must never overwrite a newer write.
-async function d1Put(key: string, value: string, expiresAt: number, onlyIfAbsent = false): Promise<void> {
+// expiresAt: unix seconds or 0 (never).
+async function d1Put(key: string, value: string, expiresAt: number): Promise<void> {
   const exp = expiresAt ? 'CAST(?3 AS INTEGER)' : 'NULL';
   const params = expiresAt ? [key, value, String(expiresAt)] : [key, value];
-  const conflict = onlyIfAbsent ? 'DO NOTHING' : 'DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at';
-  await d1Query(`INSERT INTO kv (key, value, expires_at) VALUES (?1, ?2, ${exp}) ON CONFLICT (key) ${conflict}`, params);
-  if (!onlyIfAbsent && Math.random() < 0.02) await d1Cleanup().catch(() => {}); // housekeeping never fails a write
+  await d1Query(`INSERT INTO kv (key, value, expires_at) VALUES (?1, ?2, ${exp}) ON CONFLICT (key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at`, params);
+  if (Math.random() < 0.02) await d1Cleanup().catch(() => {}); // housekeeping never fails a write
 }
 
 async function d1Del(key: string): Promise<void> {
@@ -144,18 +144,7 @@ export async function d1Cleanup(): Promise<number> {
 
 export async function kvGet(key: string): Promise<string | null> {
   const b = kvBackend();
-  if (b === 'kv') return wkvGet(key);
-  if (b === 'd1') return d1Get(key);
-  const v = await d1Get(key);
-  if (v !== null) return v;
-  const old = await wkvGet(key);
-  if (old === null) return null;
-  // copy-on-read with the key's KV expiration (only a list shows it); a failed copy does not fail the read
-  try {
-    const meta = (await wkvList(key, 10)).find((k) => k.name === key);
-    if (meta) await d1Put(key, old, meta.expiration ?? 0, true);
-  } catch { /* the backfill catches up */ }
-  return old;
+  return b === 'd1' ? d1Get(key) : wkvGet(key); // dual reads KV, the one truth until the switch to d1
 }
 
 export async function kvPut(key: string, value: string, ttlSeconds?: number): Promise<void> {
@@ -174,8 +163,6 @@ export async function kvDel(key: string): Promise<void> {
 // Key names with this prefix, sorted (as KV lists them), at most `limit` (one page, as the callers have always used).
 export async function kvList(prefix: string, limit = 1000): Promise<string[]> {
   const b = kvBackend();
-  if (b === 'kv') return (await wkvList(prefix, limit)).map((k) => k.name);
   if (b === 'd1') return d1List(prefix, limit);
-  const [a, c] = await Promise.all([d1List(prefix, limit), wkvList(prefix, limit)]);
-  return [...new Set([...a, ...c.map((k) => k.name)])].sort().slice(0, limit);
+  return (await wkvList(prefix, limit)).map((k) => k.name); // dual lists KV, like it reads it
 }

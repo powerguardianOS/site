@@ -15,8 +15,10 @@ Modes (`KV_BACKEND`, a Pages env var):
 | mode | writes | reads | lists |
 |---|---|---|---|
 | `kv` (default, also when unset) | KV | KV | KV |
-| `dual` | D1 first, then KV; both must succeed or the call fails | D1, then KV; a key found only in KV is copied into D1 with its KV expiry | union of both |
+| `dual` | D1 first, then KV; both must succeed or the call fails | KV only | KV only |
 | `d1` | D1 | D1 | D1 |
+
+In `dual`, KV stays the one truth: D1 is filled by the writes and the backfill and checked by verify, but never read by the site. So a key deleted in `dual` can never come back from a stale copy (review 2026-11-15: an earlier read-D1-then-KV design could bring back signed-out sessions and used links). A D1 outage in `dual` fails writes (sign-in, heartbeat) but not reads.
 
 Any other value makes every call fail (fail closed, no silent fallback). Expired rows are invisible right away. About 2 % of writes also delete up to 500 expired rows.
 
@@ -84,7 +86,7 @@ jq -Rs '{sql: .}' db/eu-1-kv.sql | curl -sX POST "https://api.cloudflare.com/cli
 node scripts/eu-backfill.mjs --dry-run   # read only: counts per prefix (kv, already in D1, expired, would_copy)
 node scripts/eu-backfill.mjs             # copies; prints counts per prefix only, never values or key names
 ```
-- Throttled to 3 API requests/s (`--rps=N`), because the live site shares the API rate limit. Expect about 1 request per key, so 3,000 keys take about 17 min.
+- Throttled to 1 API request/s by default (`--rps=N`), because the live site shares the API rate limit (1,200 per 5 min; in `dual` every write costs 2). Expect about 1 request per key, so 3,000 keys take about 50 min; raise `--rps` only at night. An expired D1 row never blocks a copy.
 - Idempotent. A second run reports `copied 0`. An existing D1 row is never overwritten (in `dual`, D1 is never older than KV) unless you pass `--overwrite`.
 - Exit 1 with `too_large` means a value over 1.9 MB, which D1 cannot hold. Not expected; report it before going on.
 - Rollback: not needed (D1 only). To start over: `DELETE FROM kv`, then run it again.
@@ -105,7 +107,7 @@ node scripts/eu-verify.mjs --counts-only  # quick: key counts per prefix only
    - Open console (relay mint).
    - Admin: licences and audit list.
    - Dashboard Workers KV > namespace > Metrics: reads and writes drop to about zero. D1 metrics keep moving.
-- Rollback: `KV_BACKEND=dual` and redeploy. That is safe because reads still come from D1 first. Going back to plain `kv` after running on `d1` would lose the writes made in `d1` mode (KV no longer has them). No reverse copy exists, so don't do that.
+- Rollback: none once live traffic ran on `d1`: fix forward. Going back to `dual` or `kv` would read the old KV snapshot, so keys deleted or used up during `d1` (sessions, links, tickets) would come back, and writes made on `d1` would be missing. Only right after the switch, before any sign-in or heartbeat on `d1`, is `KV_BACKEND=dual` still safe.
 
 ### 8. Deploy the relay
 ```sh
@@ -120,6 +122,7 @@ cd ~/.pg-work/relay-eu && npx wrangler deploy
   - Workers & Pages > pg-relay > Durable Objects metrics: wall-clock duration drops to almost nothing (hibernation).
 - Sub-tokens from before the deploy (at most 1 h) keep working. Their revocations are also checked in the old object.
 - 2 h after an EU object's first tunnel, its alarm wipes its old global twin once (revoked jti list + alarm). There is nothing to do for this.
+- Old global objects of controllers that never reconnect keep their revocation list (random ids only, no personal data) until a one-off sweep; the EU object wipes its global twin 2 h after its first tunnel.
 - Rollback: `npx wrangler rollback` (previous version). Controllers reconnect to their old global objects. If those were already wiped, only revocations of long-expired tokens are gone, which is harmless.
 
 ### 9. Close out KV (after about 2 weeks on `d1` without problems)

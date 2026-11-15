@@ -21,8 +21,8 @@ export function flags(argv = process.argv.slice(2)) {
   return f;
 }
 
-export function client(cfg, rps = 3) {
-  const gap = 1000 / Math.max(0.1, Number(rps) || 3);
+export function client(cfg, rps = 1) {
+  const gap = 1000 / Math.max(0.1, Number(rps) || 1);
   let next = 0, requests = 0;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   async function call(path, init = {}, okStatuses = []) {
