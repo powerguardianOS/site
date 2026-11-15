@@ -89,11 +89,14 @@ console.log('\nlast seen is written at most once per 5 minutes');
 const macKey = 'session:h:' + await S.hashId(idOf(acmeMac));
 let writes = 0;
 const countFetch = (globalThis as any).fetch;
-(globalThis as any).fetch = async (url: string, init: any = {}) => { if ((init.method ?? 'GET') === 'PUT' && decodeURIComponent(String(url)).includes(macKey)) writes++; return countFetch(url, init); };
+// a write of the record: a KV PUT, or (KV_BACKEND=d1/dual, EU-1) a D1 INSERT naming the key
+const isWrite = (url: string, init: any) => ((init.method ?? 'GET') === 'PUT' && decodeURIComponent(String(url)).includes(macKey))
+  || (/\/d1\/database\//.test(String(url)) && typeof init.body === 'string' && init.body.includes('INSERT') && init.body.includes(macKey));
+(globalThis as any).fetch = async (url: string, init: any = {}) => { if (isWrite(url, init)) writes++; return countFetch(url, init); };
 for (let i = 0; i < 5; i++) await S.getSession(acmeMac);
-check('5 requests within a minute → no write', writes === 0);
+check('5 requests within a minute → no write', writes === 0); // dual (EU-1) writes both stores: 2 requests per write
 await S.getSession(acmeMac, Date.now() + S.TOUCH_MS + 1000, client(MAC_CHROME, '84.241.9.9', 'BE'));
-check('after 5 minutes → one write with the new last seen and place', writes === 1 && JSON.parse(kv.get(macKey)!).country === 'BE');
+check('after 5 minutes → one write with the new last seen and place', writes === (process.env.KV_BACKEND === 'dual' ? 2 : 1) && JSON.parse(kv.get(macKey)!).country === 'BE');
 (globalThis as any).fetch = countFetch;
 
 console.log('\nanother account cannot list or end them');
@@ -178,7 +181,7 @@ let act = await listActivity('new@x.test');
 check('a sign-in by link → "Signed in · Email link", device, place, masked IP', act[0]?.action === 'auth.signin' && act[0].detail === 'Email link' && act[0].device === 'iPhone · Safari' && act[0].place === 'Utrecht, Netherlands' && act[0].ip === '178.229.x.x');
 check('the new session knows how it was made', (await listOf(newCookie)).sessions[0]?.method === 'Email link');
 for (let i = 0; i < 3; i++) {
-  await magic(new Request(SITE + '/api/auth/magic', { method: 'POST', headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '203.0.113.' + i }, body: JSON.stringify({ email: 'new@x.test', code: true }) }));
+  await magic(new Request(SITE + '/api/auth/magic', { method: 'POST', headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '203.0.113.' + i }, body: JSON.stringify({ email: 'new@x.test', app: true }) })); // LOGIN-2: a code only for the installed app
 }
 act = await listActivity('new@x.test');
 check('3 code requests within the hour are one line "(3×)", not three', act[0]?.action === 'auth.request' && act[0].n === 3 && activityRow(act[0]).title === 'Sign-in code requested (3×)' && act.length === 2);

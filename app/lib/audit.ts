@@ -1,4 +1,4 @@
-import { kvGet, kvPut, kvList } from '@/app/lib/kv';
+import { kvGet, kvPut, kvDel, kvList } from '@/app/lib/kv';
 // Append-only audit trail in KV. Keys sort newest-first (inverted timestamp), so
 // a prefix listing returns the latest entries first.
 
@@ -94,6 +94,9 @@ async function appendActivity(email: string, e: Omit<AuditEntry, 'at'>, now = Da
     // like the audit trail: never blocks the action it describes
   }
 }
+
+// B2: the account is deleted — its activity goes with it (a new account under the address starts empty).
+export const deleteActivity = (email: string) => kvDel(actKey(email));
 
 // Only ever called with the signed-in owner's own email (the API takes it from the session, never from the request).
 export async function listActivity(email: string, now = Date.now()): Promise<ActivityEvent[]> {

@@ -17,6 +17,10 @@ import { POST as pkVerify } from '../app/api/auth/passkey/verify/route.ts';
 import { GET as acctGet, POST as acctPost } from '../app/api/account/passkeys/route.ts';
 import { POST as mfaPost } from '../app/api/account/mfa/route.ts';
 import { deleteTenant } from '../app/lib/tenant-admin.ts';
+import { listActivity } from '../app/lib/audit.ts';
+import { activityRow } from '../app/lib/security-view.ts';
+import { listSessions } from '../app/lib/session.ts';
+import { methodText } from '../app/lib/security-view.ts';
 
 process.env.BREVO_API_KEY = 'x';
 const SITE = 'https://powerguardian.cloud';
@@ -288,6 +292,9 @@ hs = await signinOptions();
 const hres = await pkVerify(new NextRequest(SITE + '/api/auth/passkey/verify', { method: 'POST', body: JSON.stringify({ credential: await acmeKey.get(hs.publicKey), expect: hintAcme }), headers: { 'content-type': 'application/json', origin: SITE, cookie: 'pg_pk=' + hs.bind } }));
 hr = await j(hres);
 check('the typed address\'s own passkey → signed in, the answer carries that account\'s hint only', hr.status === 200 && hr.hint === hintAcme && !JSON.stringify(hr).includes('acme@acme.test') && !!cookieOf(hres, 'pg_session'));
+const acmeAct = await listActivity('acme@acme.test');
+check('SESSIONS-1 activity: "Signed in · Passkey" and "Passkey added"', acmeAct.some((e) => e.action === 'auth.signin' && e.detail === 'Passkey') && acmeAct.some((e) => activityRow(e).title === 'Passkey added'));
+check('SESSIONS-1 session list: the passkey session says "Passkey"', (await listSessions('acme@acme.test')).some((x) => methodText(x) === 'Passkey'));
 clearLimits();
 
 console.log('\ntenant deleted → passkeys gone');
@@ -295,7 +302,9 @@ kv.set('account:plain@x.test', JSON.stringify({ email: 'plain@x.test', created_a
 o = await j(await acct(plainS, { action: 'options' }));
 await acct(plainS, { action: 'register', credential: await new SoftAuthenticator({ origin: SITE }).create(o.publicKey) });
 const idxBefore = [...kv.keys()].filter((k) => k.startsWith('passkey:cred:')).length;
+const plainLive = await createSession('plain@x.test');
 const t = await deleteTenant('plain@x.test', 'plain@x.test', 'admin@powerguardian.cloud');
+check('B2: deleting an account ends its sessions and drops its session index and activity', (await getSessionInfo(plainLive)) === null && !kv.has('sessions:plain@x.test') && !kv.has('activity:plain@x.test'));
 check('deleting an account removes its passkeys and their index', t.ok === true && (await getPasskeys('plain@x.test')) === null && [...kv.keys()].filter((k) => k.startsWith('passkey:cred:')).length === idxBefore - 1);
 
 console.log('\nnothing secret in the logs');

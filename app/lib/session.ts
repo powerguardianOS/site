@@ -238,6 +238,14 @@ export async function revokeSession(email: string, ref: string, now = Date.now()
   return rec ? { ...rec, h: hit.h } : { email, expires: hit.exp, h: hit.h };
 }
 
+// B2: the account is deleted — every session of it ends at once (tombstones) and the index goes.
+export async function revokeAllSessions(email: string, now = Date.now()): Promise<number> {
+  const list = await readIndex(email, now);
+  for (const e of list) await tombstone(e.h, email, now, e.exp);
+  await kvDel(indexKey(email));
+  return list.length;
+}
+
 // Signs out every session of the account except keepH (the caller's own). Returns how many.
 export async function revokeOtherSessions(email: string, keepH: string, now = Date.now()): Promise<number> {
   const list = await readIndex(email, now);
