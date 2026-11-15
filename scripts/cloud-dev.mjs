@@ -40,10 +40,11 @@ export async function startDev(opts = {}) {
   const next = spawn('npx', ['next', 'dev', '-H', H, '-p', String(SITE_PORT), ...tls], {
     env: { ...process.env, CLOUDFLARE_API_BASE: `http://${H}:${KV_PORT}`, BREVO_API_BASE: `http://${H}:${KV_PORT}`, CLOUDFLARE_KV_NAMESPACE_ID: 'ns', CLOUDFLARE_API_TOKEN: 't', KV_BACKEND: backend, D1_DATABASE_ID: 'db',
       ADMIN_EMAIL: ADMIN, LEASE_PRIVATE_KEY: pkcs8, RELAY_MINT_SECRET: MINT, RELAY_BASE_URL: `http://${H}:${RELAY_PORT}`, NEXT_PUBLIC_BASE_URL: site, BREVO_API_KEY: 'x', NEXT_TELEMETRY_DISABLED: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'], cwd: fileURLToPath(new URL('..', import.meta.url)), // repo root, from wherever it is imported
+    stdio: ['ignore', 'pipe', 'pipe'], detached: true, cwd: fileURLToPath(new URL('..', import.meta.url)), // repo root, from wherever it is imported
   });
   const log = { text: '' }; next.stdout.on('data', (d) => (log.text += d)); next.stderr.on('data', (d) => (log.text += d));
-  const stop = () => { next.kill('SIGTERM'); fake.close(); };
+  // npx starts next as a child: kill the whole group, or a `next dev` stays on the port and the next suite talks to it
+  const stop = () => { try { process.kill(-next.pid, 'SIGTERM'); } catch { next.kill('SIGTERM'); } fake.close(); };
   const probe = opts.https
     ? () => new Promise((ok, no) => https.request(`https://${H}:${SITE_PORT}/api/license/verify`, { method: 'POST', rejectUnauthorized: false }, (r) => { r.resume(); ok(); }).on('error', no).end('{}'))
     : () => fetch(SITE + '/api/license/verify', { method: 'POST', body: '{}' });
