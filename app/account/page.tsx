@@ -1,10 +1,12 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getAccountSummary } from '@/app/lib/license-db';
 import SitesSection, { UnusedLicenses } from './components/SitesSection';
 import TwoStepCard from './components/TwoStepCard';
 import PasskeysCard, { PasskeyOffer } from './components/PasskeysCard';
+import SecurityCard from './components/SecurityCard';
 import { getPasskeys, viewOf } from '@/app/lib/passkeys';
-import { getSession } from '@/app/lib/session';
+import { getSession, countSessions } from '@/app/lib/session';
+import { clientInfo } from '@/app/lib/client-info';
 import { getMfa, mfaRequired } from '@/app/lib/mfa';
 import { sitesWithStatus } from '@/app/lib/site-summary';
 import { accountView } from '@/app/lib/account-view';
@@ -17,15 +19,16 @@ export const dynamic = 'force-dynamic';
 export default async function AccountPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get('pg_session')?.value ?? '';
-  const email = (await getSession(sessionId)) ?? '';
+  const email = (await getSession(sessionId, undefined, clientInfo(await headers()))) ?? '';
   const summary = await getAccountSummary(email);
-  const [mfa, required, withStatus, params, pks] = await Promise.all([
+  const [mfa, required, withStatus, params, pks, sessions] = await Promise.all([
     getMfa(email),
     mfaRequired(email),
     // Connector add-ons belong to a site and only raise its capacity — they are not sites or licenses of their own here.
     sitesWithStatus(summary.licenses),
     searchParams,
     getPasskeys(email),
+    countSessions(email).catch(() => 1), // SESSIONS-1
   ]);
   const passkeys = (pks?.creds ?? []).map(viewOf);
   const view = accountView(withStatus, summary.licenses);
@@ -57,6 +60,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <TwoStepCard initial={{ enabled: !!mfa?.totp, since: mfa?.created_at ?? null, recovery_left: mfa && (mfa.totp || passkeys.length) ? mfa.recovery.length : 0, required, passkeys: passkeys.length }}
           extra={<a id="add-licenses" href="/pricing" className="inline-flex min-h-[44px] items-center text-sm text-white/50 hover:text-white sm:min-h-0">+ Add licenses</a>} />
         <PasskeysCard initial={passkeys} totp={!!mfa?.totp} required={required} />
+        {/* SESSIONS-1 */}
+        <SecurityCard count={Math.max(1, sessions)} />
       </div>
     </div>
   );

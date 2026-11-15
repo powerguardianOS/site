@@ -4,6 +4,9 @@ import { getSession } from '@/app/lib/session';
 import { getLicensesByEmail } from '@/app/lib/license-db';
 import { mintConsoleURL } from '@/app/lib/relay-mint';
 import { mintConsoleIntent } from '@/app/lib/console-intent';
+import { logConsoleAccess } from '@/app/lib/shares';
+import { siteName } from '@/app/lib/account-view';
+import { activityCtx } from '@/app/lib/client-info';
 
 function sessionCookie(request: Request): string {
   for (const part of (request.headers.get('cookie') ?? '').split(';')) {
@@ -53,5 +56,6 @@ export async function POST(request: Request) {
   // AUTO-SSO: the console page that opens now may complete "Sign in with PowerGuardian Cloud" without the Continue tap,
   // once, within two minutes, in this browser session only (app/lib/console-intent.ts).
   const intent = await mintConsoleIntent(license.id, sessionId).catch(() => null);
+  await logConsoleAccess(email, license.id, 'portal', email, { site: siteName(license, null), ...activityCtx(request) }); // SESSIONS-1
   return Response.json({ console_url: m.url }, { headers: { 'cache-control': 'no-store', ...(intent ? { 'set-cookie': intent } : {}) } });
 }

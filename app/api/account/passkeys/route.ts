@@ -17,6 +17,7 @@ import {
 } from '@/app/lib/passkeys';
 import { WebAuthnError } from '@/app/lib/webauthn';
 import { logAudit } from '@/app/lib/audit';
+import { activityCtx } from '@/app/lib/client-info';
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     try {
       const r = await finishRegistration('register', bind, who.email, (body?.credential ?? {}) as never, body?.name, body?.device);
       await markSessionMfa(who.sessionId); // a verified passkey was just used on this session
-      await logAudit({ actor: who.email, role: 'owner', action: 'passkey.add', email: who.email, detail: r.passkey.name });
+      await logAudit({ actor: who.email, role: 'owner', action: 'passkey.add', email: who.email, detail: r.passkey.name, ...activityCtx(request) });
       return json({ ...r, hint: await passkeyHint(who.email) }); // B2: this device's /login offers it for this address
     } catch (e) {
       const code = e instanceof WebAuthnError ? e.code : 'error';
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     const ok = await confirmFresh(who.email, who.sessionId, body);
     if (!ok.ok) return json({ error: ok.error, message: ok.message }, ok.status);
     await removePasskey(who.email, id);
-    await logAudit({ actor: who.email, role: 'owner', action: 'passkey.remove', email: who.email, detail: `${target.name} · confirmed with ${ok.via}` });
+    await logAudit({ actor: who.email, role: 'owner', action: 'passkey.remove', email: who.email, detail: `${target.name} · confirmed with ${ok.via}`, ...activityCtx(request) });
     // B2: the last passkey gone → this device's /login stops offering one for this address
     return json({ removed: true, left: (acc?.creds.length ?? 1) - 1, hint: await passkeyHint(who.email) });
   }

@@ -7,6 +7,8 @@ import { consolePlan, mintConsoleURL } from '@/app/lib/relay-mint';
 import { createSwitchTicket } from '@/app/lib/console-switch';
 import { privateIPv4 } from '@/app/lib/sso';
 import { APEX_HOST } from '@/app/lib/host';
+import { logConsoleAccess } from '@/app/lib/shares';
+import { siteName } from '@/app/lib/account-view';
 
 // Where the browser opens a switch ticket: the apex host; a local test stack on loopback answers on the address the
 // controller called (its Host header), so the controller's exact check of the link holds there too.
@@ -60,5 +62,7 @@ export async function POST(request: Request) {
     const t = await createSwitchTicket(site.id, owner).catch(() => '');
     if (t) open_url = `${cloudOrigin(request)}/console/open?t=${t}`;
   }
+  // SESSIONS-1: a ticket is logged when the browser opens it (app/console/open); a bare console link is logged here.
+  if (!open_url) await logConsoleAccess(linked ? owner : 'controller', site.id, 'switcher', owner, { site: siteName(site, null) });
   return Response.json({ console_url: m.url, ...(open_url ? { open_url } : {}) }, { headers: { 'cache-control': 'no-store' } });
 }

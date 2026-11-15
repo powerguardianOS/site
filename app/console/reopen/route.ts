@@ -14,6 +14,8 @@ import { logConsoleAccess } from '@/app/lib/shares';
 import { rateLimited } from '@/app/lib/ratelimit';
 import { LABEL_RE, REOPEN_NEXT_COOKIE, safeConsolePath } from '@/app/lib/console-reopen';
 import { ssoHtml } from '@/app/lib/sso';
+import { siteName } from '@/app/lib/account-view';
+import { activityCtx } from '@/app/lib/client-info';
 
 const REOPEN_PER_10_MIN = 30;
 const NEXT_TTL_S = 600;
@@ -69,7 +71,7 @@ export async function GET(request: Request) {
     return ssoHtml(502, 'The site could not be opened', '<p style="color:#9aa4b2">PowerGuardian Cloud could not reach it right now. Try again in a moment.</p>' + back);
   }
   const intent = await mintConsoleIntent(site.id, sid).catch(() => null);
-  await logConsoleAccess(email, site.id, 'reopen', site.email);
+  await logConsoleAccess(email, site.id, 'reopen', site.email, { site: siteName(site, null), ...activityCtx(request) }); // SESSIONS-1 activity line
   const h = new Headers({ Location: m.url + (path === '/' ? '' : path), 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
   if (intent) h.append('Set-Cookie', intent);
   h.append('Set-Cookie', `${REOPEN_NEXT_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);

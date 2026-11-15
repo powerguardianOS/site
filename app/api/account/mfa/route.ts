@@ -13,6 +13,8 @@ import { ownerGuard } from '@/app/lib/owner';
 import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
 import { markSessionMfa } from '@/app/lib/session';
 import { twoStep, confirmFresh } from '@/app/lib/passkeys';
+import { logAudit } from '@/app/lib/audit';
+import { activityCtx } from '@/app/lib/client-info';
 import {
   getMfa, saveMfa, deleteMfa, enableMfa, regenerateRecovery, mfaRequired, codeAttemptsExceeded,
   newSecret, sealSecret, openSecret, base32, otpauthUri, qrSvg, groupKey,
@@ -51,6 +53,8 @@ export async function POST(request: Request) {
   }
 
   if (action !== 'confirm' && action !== 'remove' && action !== 'recovery') return json({ error: 'unknown_action' }, 400);
+  // SESSIONS-1: these land in the owner's activity list
+  const log = (a: string) => logAudit({ actor: who.email, role: 'owner', action: a, email: who.email, ...activityCtx(request) });
 
   if (action === 'confirm') {
     try {
@@ -62,21 +66,27 @@ export async function POST(request: Request) {
     const secret = sealed ? await openSecret(who.email, sealed) : null;
     if (!secret) return json({ error: 'setup_expired', message: 'This setup took too long. Start again.' }, 410);
     const codes = await enableMfa(who.email, secret, String(body?.code ?? ''));
-    if (!codes) return wrong();
+    if (!codes) { await log('auth.mfa_failed'); return wrong(); }
     await kvDel(setupKey(who.email));
     await markSessionMfa(who.sessionId); // they just proved the app: this session counts as two-step
+    await log('mfa.on');
     return json({ enabled: true, recovery_codes: codes });
   }
 
   const before = await twoStep(who.email);
   if (action === 'remove' ? !before.totp : !before.on) return json({ error: 'not_on', message: 'Two-step sign-in is off.' }, 409);
   const ok = await confirmFresh(who.email, who.sessionId, body);
-  if (!ok.ok) return json({ error: ok.error, message: ok.message }, ok.status);
+  if (!ok.ok) {
+    if (ok.error === 'invalid_code') await log('auth.mfa_failed');
+    return json({ error: ok.error, message: ok.message }, ok.status);
+  }
   if (action === 'remove') {
     const rec = await getMfa(who.email);
-    if ((await twoStep(who.email)).passkeys > 0) { if (rec) await saveMfa(who.email, { ...rec, totp: '', last_step: 0 }); }
-    else await deleteMfa(who.email);
+    if ((await twoStep(who.email)).passkeys > 0) { if (rec) await saveMfa(who.email, { ...rec, totp: '', last_step: 0 }); await log('mfa.app_off'); }
+    else { await deleteMfa(who.email); await log('mfa.off'); }
     return json({ enabled: false });
   }
-  return json({ recovery_codes: await regenerateRecovery(who.email) });
+  const codes = await regenerateRecovery(who.email);
+  await log('mfa.recovery');
+  return json({ recovery_codes: codes });
 }

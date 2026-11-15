@@ -3,7 +3,9 @@
 // 5 code tries) is kept under a random id in an HttpOnly cookie that only /login/mfa receives.
 import { NextResponse, type NextRequest } from 'next/server';
 import { kvGet, kvPut, kvDel } from '@/app/lib/kv';
-import { createSession } from '@/app/lib/session';
+import { createSession, type SignInMethod, type SecondStep } from '@/app/lib/session';
+import { logAudit } from '@/app/lib/audit';
+import { clientInfo, activityCtx } from '@/app/lib/client-info';
 import { mfaRequired, newSecret, sealSecret } from '@/app/lib/mfa';
 import { twoStep } from '@/app/lib/passkeys';
 import { REOPEN_NEXT_COOKIE, reopenTarget } from '@/app/lib/console-reopen';
@@ -17,6 +19,7 @@ export type PendingSignIn = {
   email: string;
   next: string;                 // where the browser goes afterwards (/account or the SSO authorize page)
   mode: 'verify' | 'setup';
+  method?: SignInMethod;        // SESSIONS-1: how the first step was done (mail link or 6-digit mail code)
   setup_secret?: string;        // sealed new secret (setup mode)
   tries: number;
   exp: number;
@@ -67,23 +70,31 @@ export function clearSignInNext(request: NextRequest, res: NextResponse): void {
   }
 }
 
-// Sets pg_session and the security headers on a response that ends a sign-in.
-export async function withSession(res: NextResponse, email: string, mfa: boolean): Promise<NextResponse> {
-  res.cookies.set('pg_session', await createSession(email, { mfa }), { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 86400, path: '/' });
+export const methodLabel = (method: SignInMethod | undefined, via?: SecondStep) =>
+  method === 'passkey' ? 'Passkey'
+    : `${method === 'code' ? 'Email code' : 'Email link'}${via === 'totp' ? ' + authenticator' : via === 'recovery' ? ' + recovery code' : via === 'passkey' ? ' + passkey' : ''}`;
+
+// Sets pg_session and the security headers on a response that ends a sign-in. SESSIONS-1: the session notes the browser,
+// place and sign-in method, and the account's activity gets "Signed in".
+export async function withSession(res: NextResponse, email: string, mfa: boolean, request?: Request,
+  how: { method?: SignInMethod; via?: SecondStep } = {}): Promise<NextResponse> {
+  const cookie = await createSession(email, { mfa, method: how.method ?? 'link', via: how.via, client: clientInfo(request) });
+  await logAudit({ actor: email.toLowerCase(), role: 'owner', action: 'auth.signin', email: email.toLowerCase(), detail: methodLabel(how.method ?? 'link', how.via), ...activityCtx(request) });
+  res.cookies.set('pg_session', cookie, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 86400, path: '/' });
   res.cookies.set(STEP_COOKIE, '', { ...cookieOpts, maxAge: 0 });
   res.headers.set('Cache-Control', 'no-store');
   return res;
 }
 
 // After the sign-in link is confirmed: straight in, or on to the two-step page.
-export async function afterLinkConfirmed(request: Request, email: string, next: string): Promise<NextResponse> {
+export async function afterLinkConfirmed(request: Request, email: string, next: string, method: SignInMethod = 'link'): Promise<NextResponse> {
   // PASSKEYS-1: the authenticator app or a passkey (either one is the second step).
   const ts = await twoStep(email);
   const mode: PendingSignIn['mode'] | null = ts.on ? 'verify' : (await mfaRequired(email)) ? 'setup' : null;
-  if (!mode) return withSession(NextResponse.redirect(new URL(next, request.url), 303), email, false);
+  if (!mode) return withSession(NextResponse.redirect(new URL(next, request.url), 303), email, false, request, { method });
   const id = randomHex(32);
   await savePending(id, {
-    email, next, mode, tries: 0, exp: Date.now() + STEP_TTL_S * 1000,
+    email, next, mode, method, tries: 0, exp: Date.now() + STEP_TTL_S * 1000,
     ...(mode === 'setup' ? { setup_secret: await sealSecret(email, newSecret()) } : {}),
   });
   const res = NextResponse.redirect(new URL(STEP_PATH, request.url), 303);

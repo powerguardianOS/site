@@ -12,6 +12,7 @@ import { finishAssertion, ownerOfAssertion, passkeyHint, PK_COOKIE, PK_PATH } fr
 import { WebAuthnError } from '@/app/lib/webauthn';
 import { withSession, signInTarget, clearSignInNext } from '@/app/lib/signin-step';
 import { logAudit } from '@/app/lib/audit';
+import { activityCtx } from '@/app/lib/client-info';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 const clearCookie = (res: NextResponse) => { res.cookies.set(PK_COOKIE, '', { httpOnly: true, secure: true, sameSite: 'strict', path: PK_PATH, maxAge: 0 }); return res; };
@@ -36,12 +37,12 @@ export async function POST(request: NextRequest) {
     const r = await finishAssertion('signin', 'cookie:' + bind, cred);
     await logAudit({ actor: r.email, role: 'owner', action: 'signin.passkey', email: r.email, detail: r.name });
     const target = signInTarget(request);
-    const res = await withSession(json({ ok: true, next: target, hint: await passkeyHint(r.email) }), r.email, true);
+    const res = await withSession(json({ ok: true, next: target, hint: await passkeyHint(r.email) }), r.email, true, request, { method: 'passkey' });
     clearSignInNext(request, res);
     return clearCookie(res);
   } catch (e) {
     const code = e instanceof WebAuthnError ? e.code : 'error';
-    if (owner) await logAudit({ actor: owner, role: 'owner', action: 'signin.passkey_refused', email: owner, detail: code });
+    if (owner) await logAudit({ actor: owner, role: 'owner', action: 'signin.passkey_refused', email: owner, detail: code, ...activityCtx(request) });
     const error = code === 'unknown_credential' ? 'unknown' : code === 'challenge' ? 'expired' : 'failed';
     return clearCookie(json({ ok: false, error }, 401));
   }

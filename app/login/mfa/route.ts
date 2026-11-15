@@ -15,6 +15,7 @@ import { WebAuthnError } from '@/app/lib/webauthn';
 import { logAudit } from '@/app/lib/audit';
 import { getPending, savePending, dropPending, stepCookieValue, withSession, STEP_MAX_TRIES, type PendingSignIn } from '@/app/lib/signin-step';
 import { getSession } from '@/app/lib/session';
+import { activityCtx } from '@/app/lib/client-info';
 import { redeemCode, enableMfa, openSecret, base32, otpauthUri, qrSvg, groupKey, codeAttemptsExceeded } from '@/app/lib/mfa';
 
 const gone = (request: Request, why: 'timeout' | 'codes') =>
@@ -106,15 +107,15 @@ async function passkeyStep(request: Request, action: string, id: string, p: Pend
       const r = await finishAssertion('step', bind, (body?.credential ?? {}) as never, p.email);
       await dropPending(id);
       await logAudit({ actor: p.email, role: 'owner', action: 'signin.passkey', email: p.email, detail: `two-step · ${r.name}` });
-      return withSession(pkJson({ ok: true, next: p.next, hint: await passkeyHint(p.email) }), p.email, true);
+      return withSession(pkJson({ ok: true, next: p.next, hint: await passkeyHint(p.email) }), p.email, true, request, { method: p.method, via: 'passkey' });
     }
     const r = await finishRegistration('step-register', bind, p.email, (body?.credential ?? {}) as never, '', body?.device);
     await dropPending(id);
-    await logAudit({ actor: p.email, role: 'owner', action: 'passkey.add', email: p.email, detail: r.passkey.name });
-    return withSession(pkJson({ ok: true, next: p.next, hint: await passkeyHint(p.email), recovery_codes: r.recovery_codes ?? [] }), p.email, true);
+    await logAudit({ actor: p.email, role: 'owner', action: 'passkey.add', email: p.email, detail: r.passkey.name, ...activityCtx(request) });
+    return withSession(pkJson({ ok: true, next: p.next, hint: await passkeyHint(p.email), recovery_codes: r.recovery_codes ?? [] }), p.email, true, request, { method: p.method, via: 'passkey' });
   } catch (e) {
     const code = e instanceof WebAuthnError ? e.code : 'error';
-    if (action === 'verify') await logAudit({ actor: p.email, role: 'owner', action: 'signin.passkey_refused', email: p.email, detail: code });
+    if (action === 'verify') await logAudit({ actor: p.email, role: 'owner', action: 'signin.passkey_refused', email: p.email, detail: code, ...activityCtx(request) });
     const tries = p.tries + 1;
     if (tries >= STEP_MAX_TRIES) { await dropPending(id); return pkJson({ ok: false, error: 'too_many', next: '/login?error=codes' }, 401); }
     await savePending(id, { ...p, tries });
@@ -151,9 +152,9 @@ export async function POST(request: Request) {
           `<p>That recovery code is now used up. You have <b id="mfa-left">${r.left}</b> left.</p>` +
           `<p>${r.left && r.left > 3 ? 'You can make new ones on your account page.' : 'Make new ones on your account page soon, or set up your authenticator app again.'}</p>` +
           `<div class="card"><a class="btn" id="mfa-continue" href="${esc(p.next)}">Continue</a></div>`);
-        return withSession(new NextResponse(res.body, res), p.email, true);
+        return withSession(new NextResponse(res.body, res), p.email, true, request, { method: p.method, via: 'recovery' });
       }
-      return withSession(NextResponse.redirect(new URL(p.next, request.url), 303), p.email, true);
+      return withSession(NextResponse.redirect(new URL(p.next, request.url), 303), p.email, true, request, { method: p.method, via: 'totp' });
     }
   } else {
     const secret = p.setup_secret ? await openSecret(p.email, p.setup_secret) : null;
@@ -165,9 +166,12 @@ export async function POST(request: Request) {
         `<div class="card"><ol id="mfa-codes" style="margin:0;padding-left:28px;font-family:ui-monospace,Menlo,monospace;font-size:16px;line-height:1.9;color:#fafafa;-webkit-user-select:all;user-select:all">` +
         codes.map((c) => `<li>${esc(c)}</li>`).join('') + `</ol></div>` +
         `<div class="card"><a class="btn" id="mfa-continue" href="${esc(p.next)}">I saved my recovery codes</a></div>`);
-      return withSession(new NextResponse(res.body, res), p.email, true);
+      await logAudit({ actor: p.email, role: 'owner', action: 'mfa.on', email: p.email, detail: 'at sign-in', ...activityCtx(request) });
+      return withSession(new NextResponse(res.body, res), p.email, true, request, { method: p.method, via: 'totp' });
     }
   }
+  // SESSIONS-1: a wrong code after a valid first step is worth telling the owner (repeats within an hour count up).
+  await logAudit({ actor: p.email, role: 'owner', action: 'auth.mfa_failed', email: p.email, detail: 'at sign-in', ...activityCtx(request) });
 
   const tries = p.tries + 1;
   if (tries >= STEP_MAX_TRIES) { await dropPending(id); return gone(request, 'codes'); }

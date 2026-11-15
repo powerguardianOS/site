@@ -11,6 +11,9 @@ import { mintConsoleURL } from '@/app/lib/relay-mint';
 import { mintConsoleIntent } from '@/app/lib/console-intent';
 import { peekSwitchTicket, burnSwitchTicket, TICKET_RE, SWITCH_TTL_S } from '@/app/lib/console-switch';
 import { ssoHtml, esc, privateIPv4 } from '@/app/lib/sso';
+import { logConsoleAccess } from '@/app/lib/shares';
+import { siteName } from '@/app/lib/account-view';
+import { activityCtx } from '@/app/lib/client-info';
 
 function cookie(request: Request, name: string): string {
   for (const part of (request.headers.get('cookie') ?? '').split(';')) {
@@ -57,6 +60,7 @@ export async function GET(request: Request) {
     if (!privateIPv4(ticket.lan)) return expired();
     // the site switcher on the LAN: to the address the site reported, which then signs in by itself (?sso=auto)
     const intent = await mintConsoleIntent(site.id, sid).catch(() => null);
+    await logConsoleAccess(email, site.id, 'switcher', email, { site: siteName(site, null), ...activityCtx(request) }); // SESSIONS-1
     const h = new Headers({ Location: `https://${ticket.lan}/?sso=auto`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
     if (intent) h.append('Set-Cookie', intent);
     h.append('Set-Cookie', 'pg_open_next=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
@@ -67,6 +71,7 @@ export async function GET(request: Request) {
     return ssoHtml(502, 'The site could not be opened', '<p style="color:#9aa4b2">PowerGuardian Cloud could not reach it right now. Try again from your controller.</p>');
   }
   const intent = await mintConsoleIntent(site.id, sid).catch(() => null);
+  await logConsoleAccess(email, site.id, 'switcher', email, { site: siteName(site, null), ...activityCtx(request) }); // SESSIONS-1
   const headers = new Headers({ Location: m.url, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
   if (intent) headers.append('Set-Cookie', intent);
   headers.append('Set-Cookie', 'pg_open_next=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');

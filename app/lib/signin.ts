@@ -14,6 +14,8 @@ import { sendEmail } from '@/app/lib/email';
 import { rateLimited, clientIp } from '@/app/lib/ratelimit';
 import { siteBase } from '@/app/lib/host';
 import { createSignInRequest, reqCookie, doneCookie, CODE_TTL_S } from '@/app/lib/signin-code';
+import { logAudit } from '@/app/lib/audit';
+import { activityCtx } from '@/app/lib/client-info';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 
@@ -65,6 +67,8 @@ export async function requestSignIn(request: Request, mode: 'register' | 'magic'
     console.error(`[${mode}] sign-in mail not sent:`, err instanceof Error ? err.message : 'error');
     return NextResponse.json({ ok: false, error: 'Could not send the sign-in email — please try again.' }, { status: 503 });
   }
+  // SESSIONS-1: the owner sees sign-in requests (and from where) in their activity; repeats within an hour count up.
+  await logAudit({ actor: email, role: 'owner', action: 'auth.request', email, detail: withCode ? 'code' : 'link', ...activityCtx(request) });
   const res = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
   res.headers.append('Set-Cookie', reqCookie(nonce));
   res.headers.append('Set-Cookie', doneCookie(0));
