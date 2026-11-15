@@ -2,7 +2,7 @@ import { cookies, headers } from 'next/headers';
 import { getAccountSummary } from '@/app/lib/license-db';
 import SitesSection, { UnusedLicenses } from './components/SitesSection';
 import TwoStepCard from './components/TwoStepCard';
-import PasskeysCard, { PasskeyOffer } from './components/PasskeysCard';
+import PasskeysCard from './components/PasskeysCard';
 import SecurityCard from './components/SecurityCard';
 import { getPasskeys, viewOf } from '@/app/lib/passkeys';
 import { getSession, countSessions } from '@/app/lib/session';
@@ -37,8 +37,6 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-6">
       <h1 className="pg-display text-4xl text-white">My sites</h1>
-      {/* PASSKEYS-1 */}
-      <PasskeyOffer count={passkeys.length} />
 
       {none ? (
         <div className="pg-feature p-8 text-center space-y-4">

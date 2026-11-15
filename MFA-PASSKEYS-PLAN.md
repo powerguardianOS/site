@@ -54,6 +54,8 @@ passkey). Code: app/lib/webauthn.ts (verifier), app/lib/passkeys.ts (records, ch
   used a passkey for the typed address before: localStorage pg_pk holds sha256('pg passkey hint|' + address), set after a
   passkey sign-in / passkey added here or on the two-step page. Only the device compares it; the server never says whether
   an address has a passkey. The button then says Continue; closing the passkey dialog sends the sign-in link as always.
+- Account page (B2): the quiet "Passkeys · Add" line is the only place to add one; the one-time "add a passkey"
+  banner was removed (never two places for the same thing).
 - Deleting a tenant deletes its passkeys and their index.
 Tests: tests/passkeys.test.mts (fixed vectors in tests/fixtures/webauthn-vectors.json + flows),
 tests/e2e/passkeys.e2e.mjs (Chromium virtual authenticator + WebKit iPhone layout), scripts/isolation-e2e.mjs A2.

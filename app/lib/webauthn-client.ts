@@ -26,11 +26,6 @@ export async function conditionalSupported(): Promise<boolean> {
   } catch { return false; }
 }
 
-// A passkey on this device itself (Face ID, Touch ID, Windows Hello, Android screen lock).
-export async function platformPasskey(): Promise<boolean> {
-  try { return passkeySupported() && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch { return false; }
-}
-
 type Json = Record<string, unknown>;
 const creds = (list: unknown) => (Array.isArray(list) ? list : []).map((c: Json) => ({ type: 'public-key' as const, id: unb64u(String(c.id)) }));
 

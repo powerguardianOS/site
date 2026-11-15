@@ -1,8 +1,8 @@
 // PASSKEYS-1 in real browsers, against the local HTTPS stack (fake KV + Brevo, next dev on https://localhost:3100;
 // the relying party is "localhost" there, powerguardian.cloud in production).
 //   Chromium + a CDP virtual authenticator (internal, resident keys, user verification): the full ceremony.
-//     /login has ONE button (B2: no passkey button, no account card) → e-mail sign-in → "Sign in faster next time — add a
-//     passkey" → recovery codes → passkey list → sign out → autofill signs in with the passkey → the typed address of
+//     /login has ONE button (B2: no passkey button, no account card) → e-mail sign-in → "Passkeys · Add" (the only place;
+//     no banner) → recovery codes → passkey list → sign out → autofill signs in with the passkey → the typed address of
 //     this device says Continue and signs in with the passkey (no mail) → remove (confirmed with the passkey) → the
 //     removed passkey is refused and the link goes out instead → an owner with a site sets up two-step with a passkey
 //     during sign-in, then signs in with it.
@@ -70,26 +70,24 @@ try {
 
   await signInByLink(page, PLAIN, 1);
   check('the e-mail link signs in (no passkey yet, no two-step)', new URL(page.url()).pathname === '/account');
-  await page.locator('#passkey-offer').waitFor();
-  check('once, inline: "Sign in faster next time — add a passkey"', (await page.locator('#passkey-offer').textContent()).includes('Sign in faster next time — add a passkey'));
-  await shot(page, 'passkeys-offer-desktop.png');
-  await page.locator('#passkey-offer-add').click();
+  await hydrated(page, '#passkeys-manage');
+  check('no "add a passkey" banner: the quiet "Passkeys: None · Add" line is the single place', (await page.locator('#passkey-offer').count()) === 0
+    && (await page.locator('#passkeys').innerText()).replace(/\s+/g, ' ').trim() === 'Passkeys: None · Add');
+  await page.locator('#passkeys-manage').click();
+  await page.locator('#passkey-add').click();
   await page.locator('#passkey-codes').waitFor();
   const codes = (await page.locator('#passkey-codes li').allTextContents()).map((s) => s.trim());
   check('adding the first passkey shows 10 recovery codes (two-step is now on)', codes.length === 10 && codes.every((c) => /^[a-z2-7]{5}-[a-z2-7]{5}$/.test(c)));
   const creds = (await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials;
   check('the authenticator holds one resident passkey for rp "localhost"', creds.length === 1 && creds[0].isResidentCredential && creds[0].rpId === 'localhost');
   await page.locator('#passkey-codes-done').click();
-  check('"I saved them" closes the offer', !(await page.locator('#passkey-offer').isVisible()));
-  await page.locator('#passkeys-manage').click();
   await page.locator('#passkeys-list li').first().waitFor();
+  check('"I saved them" goes back to the list', (await page.locator('#passkey-codes').count()) === 0);
   check('the list shows the passkey with its device name, added date and "not used yet"', /Mac|Linux|Windows/.test(await page.locator('#passkeys-list li').first().textContent()) && (await page.locator('#passkeys-list li').first().textContent()).includes('not used yet'));
   await page.waitForFunction(() => document.querySelector('#two-step-state')?.textContent === 'On');
   check('Two-step sign-in now says On', (await page.locator('#two-step-state').textContent()) === 'On');
   const h = await hints(page);
   check('this device keeps one hash for /login (no e-mail stored)', h.length === 1 && /^[0-9a-f]{64}$/.test(h[0]) && !JSON.stringify(h).includes('pat'));
-  await page.reload();
-  check('the offer does not come back once dismissed or done', !(await page.locator('#passkey-offer').isVisible()));
 
   console.log('\nsign out → autofill → signed in with the passkey');
   const mailsBefore = stack.mails.length;

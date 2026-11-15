@@ -1,21 +1,18 @@
 'use client';
 
 // PASSKEYS-1: passkeys on the account page.
-//   PasskeyOffer  — once per device after an e-mail sign-in on a device that has a passkey authenticator:
-//                   "Sign in faster next time — add a passkey" (Not now = never again on this device).
-//   PasskeysCard  — the quiet "Passkeys" line under Two-step sign-in; opens a list (name, added, last used, synced),
+//   PasskeysCard  — the single place for passkeys (B2: no separate "add a passkey" banner): the quiet "Passkeys" line under Two-step sign-in; opens a list (name, added, last used, synced),
 //                   "Add a passkey", and Remove with a fresh confirmation (a passkey, or an authenticator/recovery code).
 // B2: adding a passkey here also tells this device's /login to offer it for this address (saveHint).
 // Everything happens inline (no modal, no toast). Changes tell the Two-step card through the 'pg:twostep' event.
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import {
-  passkeySupported, platformPasskey, creationFromJson, requestFromJson, credentialJson, deviceLabel, cancelled, postJson,
+  passkeySupported, creationFromJson, requestFromJson, credentialJson, deviceLabel, cancelled, postJson,
   saveHint,
 } from '@/app/lib/webauthn-client';
 
 export type PasskeyItem = { id: string; name: string; created_at: string; last_used_at: string | null; synced: boolean };
 
-const OFFER_KEY = 'pg_pk_offer';
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 function ago(s: string | null): string {
   if (!s) return 'not used yet';
@@ -74,50 +71,6 @@ export function RecoveryCodes({ codes, onDone, intro }: { codes: string[]; onDon
 const KeyIcon = () => (
   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 9.5-4.9"/><circle cx="18" cy="13" r="2.5"/><path d="M18 15.5V21l1.5-1.2M18 18.5h1.5"/></svg>
 );
-
-export function PasskeyOffer({ count }: { count: number }) {
-  const [show, setShow] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [codes, setCodes] = useState<string[] | null>(null);
-  useEffect(() => {
-    if (count > 0) return;
-    let seen = '';
-    try { seen = localStorage.getItem(OFFER_KEY) ?? ''; } catch { /* private mode: offer anyway */ }
-    if (seen === 'dismissed') return;
-    platformPasskey().then(setShow);
-  }, [count]);
-  const dismiss = () => { try { localStorage.setItem(OFFER_KEY, 'dismissed'); } catch { /* ignore */ } setShow(false); setCodes(null); };
-  if (!show) return null;
-  return (
-    <section id="passkey-offer" className="rounded-2xl border border-[#00C66F]/25 bg-[#00C66F]/[0.06] p-5">
-      {codes ? (
-        <RecoveryCodes codes={codes} onDone={dismiss} intro="Your passkey is added and two-step sign-in is on. Save these recovery codes somewhere safe, like a password manager: each one lets you sign in once if you lose your passkey. They are shown only now." />
-      ) : (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <span className="hidden sm:inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#00C66F]/15 text-[#00C66F]"><KeyIcon /></span>
-          <div className="flex-1 space-y-1">
-            <p className="text-base font-medium text-white">Sign in faster next time — add a passkey</p>
-            <p className="text-sm text-white/60">Use Face ID, Touch ID or Windows Hello instead of waiting for an email. It also counts as two-step sign-in.</p>
-            {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
-          </div>
-          <div className="flex gap-2 sm:flex-col">
-            <button id="passkey-offer-add" disabled={busy} onClick={async () => {
-              setBusy(true); setError('');
-              const r = await addPasskey();
-              setBusy(false);
-              if (!r.ok) { setError(r.message); return; }
-              if (r.codes.length) setCodes(r.codes); else dismiss();
-            }} className="flex-1 min-h-[44px] px-5 py-2.5 rounded-lg bg-[#00C66F] text-black text-sm font-medium hover:bg-[#00b564] disabled:opacity-50">
-              {busy ? 'One moment…' : 'Add a passkey'}
-            </button>
-            <button id="passkey-offer-dismiss" onClick={dismiss} className="min-h-[44px] px-4 py-2.5 rounded-lg text-sm text-white/50 hover:text-white">Not now</button>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
 
 export default function PasskeysCard({ initial, totp, required }: { initial: PasskeyItem[]; totp: boolean; required: boolean }) {
   const [expanded, setExpanded] = useState(false);
