@@ -60,8 +60,9 @@ try {
     check(`admin: ${p} renders its page`, res.status() === 200 && new URL(res.url()).pathname === new URL(BASE + p).pathname && h1 === text,
       `${res.status()} ${res.url()} h1=${h1}`);
   }
+  check('admin: a repeated query param takes the first value (no crash)', (await (await adm.get(BASE + '/admin/tenants?q=demo&q=other')).text()).includes('value="demo"'));
   check('admin: the tenants search keeps its query', (await (await adm.get(BASE + '/admin/tenants?q=demo')).text()).includes('value="demo"'));
-  for (const p of ['/admin/nope', '/admin/customers', '/admin/customers/a/b', '/admin/licenses/new/x', '/admin/sections/overview']) {
+  for (const p of ['/admin/nope', '/admin/customers', '/admin/customers/a/b', '/admin/licenses/new/x', '/admin/sections/overview', '/admin/licenses%2Fnew']) {
     check(`admin: ${p} is not found (404)`, (await adm.get(BASE + p)).status() === 404);
   }
   await adm.dispose();

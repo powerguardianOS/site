@@ -1,7 +1,8 @@
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { getAdminEmail } from '@/app/lib/admin';
 import AdminOverview from '../sections/overview';
 import AuditPage from '../sections/audit';
 import CustomerPage from '../sections/customer';
@@ -19,17 +20,29 @@ export default async function AdminPage({ params, searchParams }: {
   params: Promise<{ path?: string[] }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const path = (await params).path ?? [];
-  const query = (await searchParams) as Query;
+  // Next may render a page without waiting for its layout, so the page checks the admin itself before loading anything.
+  if (!(await getAdminEmail())) redirect('/login');
 
-  switch (path.join('/')) {
-    case '': return <AdminOverview />;
-    case 'audit': return <AuditPage searchParams={query} />;
-    case 'licenses': return <LicensesPage searchParams={query} />;
-    case 'licenses/new': return <NewLicensePage searchParams={query} />;
-    case 'tenants': return <TenantsPage searchParams={query} />;
-    case 'testers': return <TestersPage />;
+  const path = (await params).path ?? [];
+  // A repeated param (?q=a&q=b) arrives as an array; the sections read one string, so take the first.
+  const query: Query = {};
+  for (const [k, v] of Object.entries(await searchParams)) query[k] = Array.isArray(v) ? v[0] : v;
+
+  // Match on segments, not a joined string: a decoded %2F inside one segment must not reach another page.
+  const [a, b, ...rest] = path;
+  if (rest.length) notFound();
+  if (b === undefined) {
+    switch (a ?? '') {
+      case '': return <AdminOverview />;
+      case 'audit': return <AuditPage searchParams={query} />;
+      case 'licenses': return <LicensesPage searchParams={query} />;
+      case 'tenants': return <TenantsPage searchParams={query} />;
+      case 'testers': return <TestersPage />;
+    }
+  } else if (a === 'licenses' && b === 'new') {
+    return <NewLicensePage searchParams={query} />;
+  } else if (a === 'customers') {
+    return <CustomerPage email={b} />;
   }
-  if (path.length === 2 && path[0] === 'customers') return <CustomerPage email={path[1]} />;
   notFound();
 }
