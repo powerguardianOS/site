@@ -108,7 +108,7 @@ export default function HomePage() {
             },
             {
               title: 'Your hardware, every site',
-              body: 'Controller and Connectors run on your own hardware. Move the Controller to a new box with a migration. Manage several sites and their licences from PG Cloud.',
+              body: 'Controller and Connectors run on your own hardware. Move the Controller to a new box with a migration. Manage your site and its licence from PG Cloud.',
               tags: ['Self-hosted', 'Migration', 'PG Cloud'],
             },
           ].map(f => (
