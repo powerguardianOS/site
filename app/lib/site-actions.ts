@@ -9,6 +9,7 @@ import { isRunning, limitFor } from '@/app/lib/limits';
 import { signLease } from '@/app/lib/lease';
 import { logAudit } from '@/app/lib/audit';
 import { dateLong, notifyOwner } from '@/app/lib/notify';
+import { CONTACT_EMAIL } from '@/app/lib/contact';
 
 export type Actor = { email: string; role: 'owner' | 'admin' };
 export type ActionResult<T = Record<string, unknown>> = { ok: true; value: T } | { ok: false; status: number; error: string; message: string };
@@ -98,7 +99,7 @@ export async function releaseSite(licenseId: string, actor: Actor, now = Date.no
 export async function issueOfflineLease(licenseId: string, controllerId: unknown, actor: Actor, now = Date.now()): Promise<ActionResult<{ lease: string; valid_until: number }>> {
   const l = await mine(licenseId, actor);
   if (!l) return NOT_FOUND;
-  if (!l.offline_allowed) return fail(403, 'not_allowed', 'Offline licenses are not enabled for this site. Contact sales@powerguardian.cloud.');
+  if (!l.offline_allowed) return fail(403, 'not_allowed', `Offline licenses are not enabled for this site. Contact ${CONTACT_EMAIL}.`);
   if (!isHexId(controllerId)) return fail(400, 'bad_controller_id', 'Enter the controller ID shown on the controller (Settings → License).');
   const cid = controllerId.toLowerCase();
   if (l.claimed_by && l.claimed_by !== cid) return fail(409, 'wrong_controller', 'This site is linked to another controller. Release or replace it first.');

@@ -1,4 +1,5 @@
-import { PRICING, VAT_NOTE, monthsFree, priceLine } from "@/app/lib/pricing";
+import { PRICING, VAT_NOTE, priceLine } from "@/app/lib/pricing";
+import { CONTACT_EMAIL } from "@/app/lib/contact";
 
 export type DocSection = { title: string; body: string };
 export type DocPage = { slug: string; title: string; intro: string; sections: DocSection[] };
@@ -57,7 +58,7 @@ export const DOCS: DocPage[] = [
       },
       {
         title: "Plans",
-        body: `${priceLine('home')}\n• ${PRICING.home.connectors} connector, one site\n• All core features\n\n${priceLine('pro')}\n• ${PRICING.pro.connectors} connectors, one site\n• Remote console from anywhere\n• All core features\n\n${priceLine('addon_connector')}\n• One extra connector for a Home or Pro site\n\nBusiness — coming soon: more sites, share a site by e-mail, SSO with Microsoft. Contact us.\n\nYearly = ${monthsFree('home')} months free. ${VAT_NOTE}`,
+        body: `${priceLine('home')}\n• ${PRICING.home.connectors} connector, 1 site\n• All core features\n\n${priceLine('pro')}\n• ${PRICING.pro.connectors} connectors, 1 site\n• Remote console from anywhere\n• All core features\n\n${priceLine('addon_connector')}\n• One extra connector for a Home or Pro site\n\nBusiness — coming soon: more sites, share a site by e-mail, SSO with Microsoft. Mail ${CONTACT_EMAIL}.\n\nBilled yearly. ${VAT_NOTE}`,
       },
     ],
   },

@@ -39,7 +39,7 @@ export async function createPayPalOrder(plan: PricedPlan, period: Period, parent
             value: priceOf(plan, period).toFixed(2),
           },
           custom_id: plan + '/' + period + (parentId ? ':' + parentId : ''),
-          description: 'PowerGuardian ' + PRICING[plan].name + ' licence (' + (period === 'year' ? '12 months' : '1 month') + ')',
+          description: 'PowerGuardian ' + PRICING[plan].name + ' licence (12 months)',
         },
       ],
     }),

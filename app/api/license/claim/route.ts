@@ -7,6 +7,7 @@ import { getLicense } from '@/app/lib/license-db';
 import { limitFor } from '@/app/lib/limits';
 import { LEASE_DAYS, DAY_S } from '@/app/lib/lease';
 import { dateLong, notifyOwner } from '@/app/lib/notify';
+import { CONTACT_EMAIL } from '@/app/lib/contact';
 
 // Step two of linking: the controller sends the ticket (from verify-code) and the
 // site the customer chose. Only now does it receive its token.
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (r.moved_from !== undefined) {
     await notifyOwner(
       ticket.email, `${r.license.site_name ?? 'Your site'} moved to another controller`,
-      `The license of ${r.license.site_name ?? 'your site'} was moved to a new controller (${ticket.hostname || 'unnamed'}).\n\nThe previous controller${r.moved_from ? ` (${r.moved_from})` : ''} keeps working until ${dateLong(now + LEASE_DAYS * DAY_S)} and then locks. Consider buying an extra license for it, or tell its new owner to get one at sales@powerguardian.cloud.\n\nIf you did not do this, contact us right away.`,
+      `The license of ${r.license.site_name ?? 'your site'} was moved to a new controller (${ticket.hostname || 'unnamed'}).\n\nThe previous controller${r.moved_from ? ` (${r.moved_from})` : ''} keeps working until ${dateLong(now + LEASE_DAYS * DAY_S)} and then locks. Consider buying an extra license for it, or tell its new owner to get one at ${CONTACT_EMAIL}.\n\nIf you did not do this, contact us right away.`,
     );
   }
   return NextResponse.json({

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { FAQ } from "@/app/content/faq";
+import { mailto } from "@/app/lib/contact";
 
 export const metadata: Metadata = {
   title: "FAQ · PowerGuardian",
@@ -38,7 +39,7 @@ export default function FaqPage() {
           <Link href="/docs" className="text-sm px-4 py-2 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-colors">
             Read the docs
           </Link>
-          <a href="mailto:support@powerguardian.cloud" className="pg-btn-primary text-sm px-4 py-2 rounded-lg font-medium">
+          <a href={mailto("PowerGuardian support")} className="pg-btn-primary text-sm px-4 py-2 rounded-lg font-medium">
             Contact support
           </a>
         </div>

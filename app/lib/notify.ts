@@ -1,10 +1,11 @@
 import { sendEmail } from '@/app/lib/email';
+import { CONTACT_EMAIL } from '@/app/lib/contact';
 
 // Mails to the account owner about something that happened to his sites. A mail
 // problem must never undo or block the action, so failures are only logged.
 export async function notifyOwner(email: string, subject: string, text: string): Promise<void> {
   try {
-    await sendEmail(email, subject, `${text}\n\nSee and manage your sites: https://powerguardian.cloud/account\nQuestions: sales@powerguardian.cloud\n\n— PowerGuardian`);
+    await sendEmail(email, subject, `${text}\n\nSee and manage your sites: https://powerguardian.cloud/account\nQuestions: ${CONTACT_EMAIL}\n\n— PowerGuardian`);
   } catch (e) {
     console.error('[notify] failed', e);
   }

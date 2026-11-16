@@ -1,7 +1,5 @@
-"use client";
-import { useState } from "react";
-import { PRICING, VAT_NOTE, eur, monthsFree } from "@/app/lib/pricing";
-import type { Period } from "@/app/lib/pricing";
+import { PRICING, VAT_NOTE, eur } from "@/app/lib/pricing";
+import { mailto } from "@/app/lib/contact";
 import TesterCta from "@/app/components/TesterCta";
 
 // Every number on this page comes from app/lib/pricing.ts — the same table PayPal charges from.
@@ -21,6 +19,7 @@ const PLANS = [
     tagline: "For a small business or the IT person.",
     points: [
       `1 site, ${PRICING.pro.connectors} connectors`,
+      "More sites: see Business",
       "Open your controller from anywhere",
       "Everything in Home",
     ],
@@ -29,17 +28,13 @@ const PLANS = [
 ];
 
 const BUSINESS = ["More sites in one account", "Share a site with a colleague by e\u2011mail", "Sign in with Microsoft (SSO)"];
-const CONTACT = "mailto:hello@powerguardian.cloud?subject=PowerGuardian%20Business";
+const CONTACT = mailto("PowerGuardian Business");
 
 function Check() {
   return <span aria-hidden className="mt-[3px] text-[#00C66F] text-xs">✓</span>;
 }
 
 export default function PricingPage() {
-  const [period, setPeriod] = useState<Period>("year");
-  const yearly = period === "year";
-  const free = monthsFree("home");
-
   return (
     <div className="mx-auto max-w-5xl px-4 md:px-6 pt-10 md:pt-16 pb-24 space-y-10 md:space-y-14">
 
@@ -48,7 +43,7 @@ export default function PricingPage() {
         Online purchase is not open yet. These are the prices when it opens.
       </div>
 
-      {/* Header + billing toggle */}
+      {/* Header */}
       <div className="space-y-5 md:space-y-6">
         <div className="text-[11px] uppercase tracking-[0.2em] text-[#00C66F]/60 font-mono">Pricing</div>
         <h1 className="pg-display text-4xl md:text-6xl text-white">
@@ -57,16 +52,6 @@ export default function PricingPage() {
         <p className="text-zinc-400 text-sm max-w-xl leading-relaxed">
           One licence per site covers the Controller and its connectors. The shutdown protection runs on your own hardware and never stops.
         </p>
-
-        <div role="radiogroup" aria-label="Billing period"
-          className="grid grid-cols-2 w-full sm:w-auto sm:inline-grid border border-zinc-800 rounded-xl p-1 text-sm bg-zinc-900">
-          {(["month", "year"] as const).map((p) => (
-            <button key={p} role="radio" aria-checked={period === p} data-period={p} onClick={() => setPeriod(p)}
-              className={`px-5 py-2.5 rounded-lg transition-all whitespace-nowrap ${period === p ? "bg-[#00C66F]/10 text-[#00C66F]" : "text-zinc-500 hover:text-zinc-300"}`}>
-              {p === "month" ? "Monthly" : <>Yearly <span className="text-[11px] ml-1 text-[#00C66F]">{free} months free</span></>}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Plans */}
@@ -94,14 +79,10 @@ export default function PricingPage() {
 
               <div>
                 <div className="flex items-end gap-1.5">
-                  <span data-price className="pg-display text-5xl md:text-6xl text-white leading-none">{eur(yearly ? p.year : p.month)}</span>
-                  <span className="text-zinc-500 text-base mb-1">{yearly ? "/year" : "/month"}</span>
+                  <span data-price className="pg-display text-5xl md:text-6xl text-white leading-none">{eur(p.year)}</span>
+                  <span className="text-zinc-500 text-base mb-1">/year</span>
                 </div>
-                <p className="text-xs text-zinc-500 mt-2">
-                  {yearly
-                    ? <>{eur(Math.round((p.year / 12) * 100) / 100)} a month · <span className="text-[#00C66F]">{monthsFree(plan.id)} months free</span></>
-                    : <>or {eur(p.year)}/year — {monthsFree(plan.id)} months free</>}
-                </p>
+                <p className="text-xs text-zinc-500 mt-2">Billed once a year.</p>
               </div>
 
               <ul className="space-y-2.5 flex-1 border-t border-white/[0.06] pt-5 text-sm text-zinc-300">
@@ -150,8 +131,8 @@ export default function PricingPage() {
           <p className="text-sm text-zinc-400">One more connector for a Home or Pro site.</p>
         </div>
         <div className="flex items-baseline gap-1.5 shrink-0">
-          <span data-price className="pg-display text-3xl text-white">{eur(yearly ? PRICING.addon_connector.year : PRICING.addon_connector.month)}</span>
-          <span className="text-zinc-500 text-sm">{yearly ? "/year" : "/month"}</span>
+          <span data-price className="pg-display text-3xl text-white">{eur(PRICING.addon_connector.year)}</span>
+          <span className="text-zinc-500 text-sm">/year</span>
         </div>
       </div>
 

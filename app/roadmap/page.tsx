@@ -1,5 +1,6 @@
 // app/roadmap/page.tsx
 import type { Metadata } from "next";
+import { mailto } from "@/app/lib/contact";
 
 export const metadata: Metadata = {
   title: "Roadmap",
@@ -70,7 +71,7 @@ export default function RoadmapPage() {
           customers actually run into. Have a UPS model that isn't supported, a
           board that should be, or an integration that would save you hours?{" "}
           <a
-            href="mailto:hello@powerguardian.cloud"
+            href={mailto()}
             className="text-emerald-400 hover:text-emerald-300 transition-colors"
           >
             Let us know.

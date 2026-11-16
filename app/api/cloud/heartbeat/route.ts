@@ -9,6 +9,7 @@ import { getSiteStatus, putSiteStatus } from '@/app/lib/site-status';
 import { applyControllerPower, parseControllerPower, recordBeat } from '@/app/lib/power-history';
 import type { SiteDevice, SiteStatus } from '@/app/lib/site-status';
 import { privateLan } from '@/app/lib/site-summary';
+import { CONTACT_EMAIL } from '@/app/lib/contact';
 
 const MAX_BODY = 64 * 1024;
 const MAX_DEVICES = 200;
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
   // Not the holder: it gets a (capped) lease and a notice, but its data is not stored.
   if (d.kind === 'retired') {
     const notice = d.reason === 'moved'
-      ? `This site’s license moved to another controller. This controller stops working on ${dateLong(d.leaseUntil)}. Add a license for it, or contact sales@powerguardian.cloud.`
+      ? `This site’s license moved to another controller. This controller stops working on ${dateLong(d.leaseUntil)}. Add a license for it, or contact ${CONTACT_EMAIL}.`
       : `This controller was ${d.reason === 'replaced' ? 'replaced' : 'released'} and stops working on ${dateLong(d.leaseUntil)}.`;
     const lease = await leaseFor(license, controllerId ?? '', d.leaseUntil, 'moved', now, notice);
     return Response.json({ ok: true, lease, lease_valid_until: d.leaseUntil, state: 'moved', site_name: name, notice });

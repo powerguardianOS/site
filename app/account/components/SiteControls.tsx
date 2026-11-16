@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { ghostBtn, smallBtn, input } from './ui';
 
 import type { SiteInfo } from '@/app/lib/account-view';
+import { CONTACT_EMAIL } from '@/app/lib/contact';
 export type { SiteInfo };
 
 const btn = smallBtn;
@@ -101,7 +102,7 @@ export default function SiteControls({ site, title, left, details, hint }: { sit
     <div className="pointer-events-none relative z-10 mt-auto space-y-3 pt-3">
       {moved.map((m) => (
         <div key={m.until} className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-          <b>This site’s license moved to another controller.</b> The previous controller stops working on {fmt(m.until)}. Add a license for it, or write to sales@powerguardian.cloud.
+          <b>This site’s license moved to another controller.</b> The previous controller stops working on {fmt(m.until)}. Add a license for it, or write to {CONTACT_EMAIL}.
         </div>
       ))}
 
