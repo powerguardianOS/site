@@ -1,6 +1,3 @@
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-
 import Link from 'next/link';
 import { loadTenants } from '@/app/lib/tenants';
 import type { LicenseState, Tenant } from '@/app/lib/tenants';
@@ -39,8 +36,8 @@ function sitesLabel(t: Tenant): string {
   return `${t.sitesOnline} of ${t.sites.length} site${t.sites.length === 1 ? '' : 's'} online`;
 }
 
-export default async function TenantsPage({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
-  const { status = 'all', q = '' } = await searchParams;
+export default async function TenantsPage({ searchParams }: { searchParams: { status?: string; q?: string } }) {
+  const { status = 'all', q = '' } = searchParams;
   const now = nowMs();
   const all = await loadTenants();
 

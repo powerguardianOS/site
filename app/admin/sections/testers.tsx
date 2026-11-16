@@ -1,6 +1,3 @@
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-
 import { listTesters, PROTECT_LABEL } from '@/app/lib/testers';
 import { BTN, CARD, PageHeader } from '../ui';
 

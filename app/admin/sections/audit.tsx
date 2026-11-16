@@ -1,6 +1,3 @@
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-
 import Link from 'next/link';
 import { listAudit } from '@/app/lib/audit';
 import { auditLine, dayLabel, nowMs } from '../model';
@@ -16,8 +13,8 @@ const WHO = [
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-export default async function AuditPage({ searchParams }: { searchParams: Promise<{ who?: string }> }) {
-  const { who = 'all' } = await searchParams;
+export default async function AuditPage({ searchParams }: { searchParams: { who?: string } }) {
+  const { who = 'all' } = searchParams;
   const now = nowMs();
   const all = (await listAudit(200)).map(auditLine);
   const lines = all.filter((l) => who === 'all' || l.role === who);

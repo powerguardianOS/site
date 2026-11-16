@@ -1,13 +1,10 @@
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-
 import Link from 'next/link';
 import { loadTenants } from '@/app/lib/tenants';
-import { ago } from './format';
-import { licenseRows, licenseCounts, needsAttention, nowMs, siteCounts } from './model';
-import type { Attention } from './model';
-import { BTN, BTN_PRIMARY, Dot, Kpi, PageHeader, PlanTag, Section, Status, customerHref } from './ui';
-import type { Tone } from './ui';
+import { ago } from '../format';
+import { licenseRows, licenseCounts, needsAttention, nowMs, siteCounts } from '../model';
+import type { Attention } from '../model';
+import { BTN, BTN_PRIMARY, Dot, Kpi, PageHeader, PlanTag, Section, Status, customerHref } from '../ui';
+import type { Tone } from '../ui';
 
 const LEVEL: Record<Attention['level'], { tone: Tone; label: string }> = {
   critical: { tone: 'bad', label: 'Urgent' },

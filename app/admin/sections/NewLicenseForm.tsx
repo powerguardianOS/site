@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { shortDate } from '../../format';
-import { TERMS, termEnd } from '../../terms';
+import { shortDate } from '../format';
+import { TERMS, termEnd } from '../terms';
 
 // Suggested limits only — editable. 0 = unlimited (see /api/license/verify).
 const DEFAULT_LIMIT: Record<string, number> = { home: 1, pro: 5, founder: 0, addon_connector: 1 };

@@ -1,6 +1,3 @@
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-
 import Link from 'next/link';
 import { loadTenants } from '@/app/lib/tenants';
 import { licenseRows, licenseCounts, nowMs } from '../model';
@@ -24,8 +21,8 @@ function Founder({ r }: { r: LicenseRow }) {
   return <p className="mt-0.5 truncate text-xs text-zinc-500">+ {r.foundersites.length} founder site{r.foundersites.length === 1 ? '' : 's'}: {r.foundersites.join(', ')}</p>;
 }
 
-export default async function LicensesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  const { status = 'all' } = await searchParams;
+export default async function LicensesPage({ searchParams }: { searchParams: { status?: string } }) {
+  const { status = 'all' } = searchParams;
   const now = nowMs();
   const all = licenseRows(await loadTenants(), now);
   const counts = licenseCounts(all);

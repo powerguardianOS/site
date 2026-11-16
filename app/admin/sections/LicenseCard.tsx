@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { shortDate } from '../../format';
+import { shortDate } from '../format';
 
 type Lic = {
   id: string; plan: string; status: 'active' | 'revoked' | 'expired';

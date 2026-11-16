@@ -1,19 +1,16 @@
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-
 import Link from 'next/link';
 import { loadTenants, deleteBlocker, licenseState } from '@/app/lib/tenants';
 import type { Site } from '@/app/lib/tenants';
 import type { LicenseRecord } from '@/app/lib/license-db';
-import { ago, dateLabel, runtimeLabel } from '../../format';
+import { ago, dateLabel, runtimeLabel } from '../format';
 import { LicenseCard } from './LicenseCard';
 import { DeleteTenant } from './DeleteTenant';
 import { AddonList } from './AddonList';
 import { DeleteSite } from './DeleteSite';
 import { ControllerBlock } from './ControllerBlock';
 import { isRunning } from '@/app/lib/limits';
-import { BTN, CARD, PageHeader, PlanTag, Status } from '../../ui';
-import { termStatus } from '../../model';
+import { BTN, CARD, PageHeader, PlanTag, Status } from '../ui';
+import { termStatus } from '../model';
 
 // Time checks live outside the components (they read the clock).
 const inFuture = (iso: string) => new Date(iso).getTime() > Date.now();
@@ -152,8 +149,8 @@ function SiteCard({ license, site }: { license: LicenseRecord; site?: Site }) {
   );
 }
 
-export default async function CustomerPage({ params }: { params: Promise<{ email: string }> }) {
-  const email = decodeURIComponent((await params).email).toLowerCase();
+export default async function CustomerPage({ email: rawEmail }: { email: string }) {
+  const email = decodeURIComponent(rawEmail).toLowerCase();
   const tenant = (await loadTenants()).find((t) => t.email === email);
 
   if (!tenant) {

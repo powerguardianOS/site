@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { shortDate } from '../../format';
-import { TERMS, termEnd } from '../../terms';
+import { shortDate } from '../format';
+import { TERMS, termEnd } from '../terms';
 
 export type Addon = { id: string; connector_limit: number; expires_at: string | null; status: 'active' | 'revoked' | 'expired'; created_at: string };
 
