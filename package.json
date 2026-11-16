@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@paypal/react-paypal-js": "^9.2.0",
     "next": "^16.4.3",
     "qrcode-generator": "2.0.4",
     "react": "19.2.0",

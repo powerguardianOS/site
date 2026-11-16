@@ -21,6 +21,7 @@ const order = (id: string, custom_id: string, value: string, status = 'APPROVED'
 const { fulfilPurchase, parseCustomId } = await import('../app/lib/purchase.ts');
 const { PRICING, priceOf, yearEnd, isPeriod } = await import('../app/lib/pricing.ts');
 const { POST: createOrder } = await import('../app/api/paypal/create-order/route.ts');
+const { POST: captureOrder } = await import('../app/api/paypal/capture-order/route.ts');
 
 // An existing customer on the OLD price (bought before this price table): nothing below may touch this licence.
 const OLD = lic('site1', 'cust@x.nl', { plan: 'home', connector_limit: 1, expires_at: new Date(Date.now() + 100 * DAY).toISOString(), notes: 'paypal:OLD-ORDER' });
@@ -50,7 +51,19 @@ const base2 = globalThis.fetch;
   if (String(url).endsWith('/v2/checkout/orders')) { sent.push(JSON.parse(init.body)); return Response.json({ id: 'NEW' }); }
   return base2(url, init);
 };
+const capture = (orderID: string) => captureOrder(new Request('http://x/api/paypal/capture-order', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ orderID }) }) as any);
 const mk = (b: unknown) => createOrder(new Request('http://x/api/paypal/create-order', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }) as any);
+console.log('checkout switch (closed unless CHECKOUT_OPEN=1)');
+order('c1', 'home/year', '49.00');
+for (const v of [undefined, '', '0', 'true', 'yes', ' 1']) {
+  if (v === undefined) delete process.env.CHECKOUT_OPEN; else process.env.CHECKOUT_OPEN = v;
+  const a = await mk({ plan: 'home', period: 'year' }), c = await capture('c1');
+  check(`CHECKOUT_OPEN=${JSON.stringify(v)}: create and capture → 403 checkout_closed`,
+    a.status === 403 && (await a.json()).error === 'checkout_closed' && c.status === 403 && (await c.json()).error === 'checkout_closed');
+}
+check('…closed: no PayPal order made, nothing captured, no licence', sent.length === 0 && captures === 0 && orders.get('c1').status === 'APPROVED' && !get('license:x'));
+process.env.CHECKOUT_OPEN = '1';
+
 await mk({ plan: 'home', period: 'year', amount: '0.01' });
 await mk({ plan: 'pro', period: 'year', value: '1.00' });
 await mk({ plan: 'home' });

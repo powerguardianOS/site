@@ -1,10 +1,12 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
+import { checkoutClosed, checkoutOpen } from '@/app/lib/paypal';
 import { fulfilPurchase } from '@/app/lib/purchase';
 import { sendEmail } from '@/app/lib/email';
 import { PRICING } from '@/app/lib/pricing';
 
 export async function POST(req: NextRequest) {
+  if (!checkoutOpen()) return checkoutClosed();
   const body = await req.json().catch(() => null);
   const orderID: string = body?.orderID;
   if (!orderID || typeof orderID !== 'string') {

@@ -12,6 +12,7 @@ const base = globalThis.fetch;
   return Response.json({});
 };
 
+delete process.env.CHECKOUT_OPEN; // checkout closed: webhooks of existing subscriptions must keep working
 const { POST } = await import('../app/api/paypal/webhook/route.ts');
 seed(lic('sub1', 'cust@x.nl', { notes: 'paypal-sub:I-ABC' }));
 const event = { event_type: 'BILLING.SUBSCRIPTION.CANCELLED', resource: { id: 'I-ABC' } };

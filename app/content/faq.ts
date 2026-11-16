@@ -9,7 +9,7 @@ export const FAQ: FaqSection[] = [
       { q: "How does the Controller discover devices?", a: "It uses LLDP (Link Layer Discovery Protocol) to automatically detect PowerGuardian Connectors and other network devices on your subnet — no manual IP configuration needed." },
       { q: "How are credentials stored?", a: "All secrets are stored in an encrypted vault using PBKDF2-SHA256 with 600,000 iterations (OWASP/NIST compliant). SNMP community strings and NUT passwords are encrypted at rest." },
       { q: "How do updates work?", a: "The Controller is the master of updates, like the controller in a UniFi network. It fetches signed releases from PowerGuardian's update channel (stable or beta), verifies them, and hands them to its Connectors. A Connector checks the signature again before it installs anything and never downloads updates by itself, so it also updates on a network without internet. A new Connector is brought up to date when you adopt it. A release that does not start properly is rolled back automatically." },
-      { q: "Can I manage multiple locations?", a: "Yes. The Controller supports multi-site configurations — group Connectors by physical location and apply site-specific alert rules and thresholds." },
+      { q: "Can I manage multiple locations?", a: "Home and Pro cover one site each. More sites in one account come with Business (coming soon)." },
     ],
   },
   {

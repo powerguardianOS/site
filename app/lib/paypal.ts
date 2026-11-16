@@ -6,6 +6,11 @@ import { kvGet, kvPut } from '@/app/lib/kv';
 import { PRICING, priceOf } from '@/app/lib/pricing';
 import type { Period, PricedPlan } from '@/app/lib/pricing';
 
+// Online checkout is closed until CHECKOUT_OPEN is exactly "1". Closed, no order can be made or captured (403
+// checkout_closed). Webhooks of existing subscriptions do not look at this switch and keep working.
+export const checkoutOpen = () => process.env.CHECKOUT_OPEN === '1';
+export const checkoutClosed = () => Response.json({ error: 'checkout_closed' }, { status: 403 });
+
 export async function getPayPalToken(): Promise<string> {
   const response = await fetch(PAYPAL_BASE + '/v1/oauth2/token', {
     method: 'POST',

@@ -12,7 +12,7 @@ export const DOCS: DocPage[] = [
     sections: [
       {
         title: "Features",
-        body: "• LLDP discovery — auto-detects Connectors on your local subnet\n• Encrypted vault — PBKDF2-SHA256 (600k iterations) for all secrets\n• Multi-site support — group Connectors by physical location\n• Alert rules — custom triggers on battery %, load %, or status changes\n• OTA updates — push new Connector binaries from the dashboard\n• TOTP MFA — hardware-grade 2FA for the admin interface\n• Cloudflare Tunnel — secure remote access without port forwarding\n• SNMP RFC 1628 — enterprise UPS protocol support\n• Built-in NUT connector — monitor a local USB UPS without a separate agent",
+        body: "• LLDP discovery — auto-detects Connectors on your local subnet\n• Encrypted vault — PBKDF2-SHA256 (600k iterations) for all secrets\n• One site per licence — more sites with Business (coming soon)\n• Alert rules — custom triggers on battery %, load %, or status changes\n• OTA updates — push new Connector binaries from the dashboard\n• TOTP MFA — hardware-grade 2FA for the admin interface\n• Cloudflare Tunnel — secure remote access without port forwarding\n• SNMP RFC 1628 — enterprise UPS protocol support\n• Built-in NUT connector — monitor a local USB UPS without a separate agent",
       },
       {
         title: "Getting Started",

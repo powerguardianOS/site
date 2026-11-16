@@ -47,7 +47,7 @@ export default function ControllerPage() {
             <ul className="space-y-2.5 text-sm text-zinc-400">
               {[
                 'Zero-touch connector adoption with one-time tokens',
-                'Multi-site dashboard — all UPS in one view',
+                'One dashboard — every UPS of your site in one view',
                 'Staged, ordered shutdown sequences',
                 'Rule engine with confirmation window before trigger',
                 'Automation flows: SSH, NUT INSTCMD, WoL, webhooks',

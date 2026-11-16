@@ -1,12 +1,13 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createPayPalOrder } from '@/app/lib/paypal';
+import { checkoutClosed, checkoutOpen, createPayPalOrder } from '@/app/lib/paypal';
 import { getSession } from '@/app/lib/session';
 import { getLicenses } from '@/app/lib/license-db';
 import { isPeriod, isPricedPlan } from '@/app/lib/pricing';
 
 export async function POST(req: NextRequest) {
+  if (!checkoutOpen()) return checkoutClosed();
   const body = await req.json().catch(() => null);
   const plan: unknown = body?.plan;
   const period: unknown = body?.period ?? 'year';

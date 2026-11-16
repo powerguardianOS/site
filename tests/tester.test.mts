@@ -6,7 +6,7 @@ import { createSession } from '../app/lib/session.ts';
 
 const { POST: signUp } = await import('../app/api/tester/route.ts');
 const { GET: adminList } = await import('../app/api/admin/testers/route.ts');
-const { testersCsv } = await import('../app/lib/testers.ts');
+const { testersCsv, CONFIRM_SUBJECT, CONFIRM_TEXT } = await import('../app/lib/testers.ts');
 
 const good = (o: Record<string, unknown> = {}) => ({
   email: 'Tess@Example.com', name: 'Tess', country: 'Netherlands', ups: 'Eaton 5PX 1500', protects: ['nas', 'network'],
@@ -26,10 +26,11 @@ let r = await json(await post(good()));
 const t = get('tester:tess@example.com');
 check('a valid sign-up is stored under tester:<email> (lower case)', r.status === 200 && r.ok && t?.ups === 'Eaton 5PX 1500' && t.ups_count === 2 && t.protects.join() === 'nas,network' && t.consent === true);
 check('…and a waitlist confirmation mail goes to that address', mails.at(-1)?.to === 'tess@example.com' && /waitlist/i.test(mails.at(-1)!.subject) && /small groups/.test(mails.at(-1)!.text));
+check('the mail is fixed text: no name, no UPS, nothing the visitor typed', mails.at(-1)!.subject === CONFIRM_SUBJECT && mails.at(-1)!.text === CONFIRM_TEXT && !mails.at(-1)!.text.includes('Tess') && !mails.at(-1)!.text.includes('Eaton'));
 check('no licence is created automatically', licences() === lic0);
 r = await json(await post(good({ ups: 'APC Smart-UPS 1000' })));
-check('signing up again updates the same record (no duplicate)', r.status === 200 && get('tester:tess@example.com').ups === 'APC Smart-UPS 1000' && testerKeys().length === 1 && get('tester:tess@example.com').created_at === t.created_at);
-check('…and sends no second mail (no mail bombing an address)', mailsTo('tess@example.com') === 1);
+check('signing up again: 200 and no duplicate', r.status === 200 && testerKeys().length === 1);
+check('…but the first record is kept: same answer, nothing overwritten, no second mail', r.ok === true && get('tester:tess@example.com').ups === 'Eaton 5PX 1500' && JSON.stringify(get('tester:tess@example.com')) === JSON.stringify(t) && mailsTo('tess@example.com') === 1);
 
 console.log('validation (nothing stored, no mail)');
 const before = testerKeys().length, mails0 = mails.length;
@@ -54,11 +55,19 @@ check('…none of them stored or mailed anything', testerKeys().length === befor
 check('a form post (not JSON) is refused: 415', (await post('email=a@b.nl', undefined, 'application/x-www-form-urlencoded')).status === 415);
 check('garbage JSON → 400', (await post('{nope')).status === 400);
 check('a body over 8 KB → 413, nothing stored', (await post(good({ email: 'big@x.nl', heard: 'x'.repeat(9000) }))).status === 413 && !get('tester:big@x.nl'));
+// Chunked: no content-length, the body arrives as a stream. Reading stops at the cap.
+let pulled = 0;
+const endless = new ReadableStream<Uint8Array>({ pull(c) { pulled++; c.enqueue(new TextEncoder().encode('x'.repeat(1024))); } });
+const chunked = new Request('https://powerguardian.cloud/api/tester', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '10.9.9.9' }, body: endless, duplex: 'half' } as RequestInit);
+check('a chunked body with no content-length is cut off at 8 KB → 413 (not read to the end)', chunked.headers.get('content-length') === null && (await signUp(chunked)).status === 413 && pulled <= 10, String(pulled));
+const small = new Request('https://powerguardian.cloud/api/tester', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '10.9.9.8' }, body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(JSON.stringify(good({ email: 'chunk@x.nl' })))); c.close(); } }), duplex: 'half' } as RequestInit);
+check('…a small chunked sign-up still works', (await signUp(small)).status === 200 && !!get('tester:chunk@x.nl'));
 
 console.log('honeypot');
+const mailsHp = mails.length;
 r = await json(await post(good({ email: 'bot@spam.example', website: 'http://spam.example' })));
 check('honeypot filled: the bot sees the normal answer (200)…', r.status === 200 && r.ok === true);
-check('…but nothing is stored and no mail is sent', !get('tester:bot@spam.example') && mails.length === mails0);
+check('…but nothing is stored and no mail is sent', !get('tester:bot@spam.example') && mails.length === mailsHp);
 
 console.log('control characters and length');
 r = await json(await post(good({ email: 'ctl@x.nl', name: 'Evil\r\nBcc: x@y.z', ups: 'U'.repeat(500) })));
@@ -99,6 +108,6 @@ check('the admin gets the list, newest first', ok.status === 200 && ok.testers.l
 const csvRes = await list(adminCookie, '?format=csv');
 const csv = await csvRes.text();
 check('the admin gets a CSV download', csvRes.status === 200 && (csvRes.headers.get('content-type') ?? '').startsWith('text/csv') && (csvRes.headers.get('content-disposition') ?? '').includes('attachment') && csv.startsWith('signed_up,email,name,country,ups,protects,ups_count,heard,consent\n') && csv.includes('"tess@example.com"'));
-const evil = testersCsv([{ email: 'e@x.nl', name: '=HYPERLINK("http://evil")', country: '+31', ups: '@SUM(A1)', protects: ['other'], ups_count: 1, heard: 'say "hi"', consent: true, created_at: 'x', updated_at: 'x' }]);
+const evil = testersCsv([{ email: 'e@x.nl', name: '=HYPERLINK("http://evil")', country: '+31', ups: '@SUM(A1)', protects: ['other'], ups_count: 1, heard: 'say "hi"', consent: true, created_at: 'x' }]);
 check('CSV: formulas are neutralised and quotes doubled', evil.includes(`"'=HYPERLINK(""http://evil"")"`) && evil.includes(`"'+31"`) && evil.includes(`"'@SUM(A1)"`) && evil.includes('"say ""hi"""'));
 done();
