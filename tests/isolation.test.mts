@@ -159,7 +159,7 @@ console.log('\nadmin endpoints: every handler checks the admin itself (route han
   }
   const admin = readFileSync(new URL('../app/lib/admin.ts', import.meta.url), 'utf8');
   check('admin = exactly ADMIN_EMAIL (case-insensitive), refused when ADMIN_EMAIL is unset', /!adminEmail \|\| email\.toLowerCase\(\) !== adminEmail\.toLowerCase\(\)/.test(admin));
-  check('…in both admin checks (cookies() and the request Cookie header)', (admin.match(/!adminEmail \|\| email\.toLowerCase\(\) !== adminEmail\.toLowerCase\(\)/g) ?? []).length === 2);
+  check('…written once, shared by both admin checks (cookies() and the request Cookie header)', (admin.match(/!adminEmail \|\| email\.toLowerCase\(\) !== adminEmail\.toLowerCase\(\)/g) ?? []).length === 1 && (admin.match(/adminOfSession\(/g) ?? []).length === 3);
 }
 
 console.log('\nids are not guessable');

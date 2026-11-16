@@ -1,6 +1,7 @@
-// "Become a tester": sign-ups for the beta. Stored in KV under the "tester:" prefix (so the data moves with EU-1),
-// one record per e-mail address (a second sign-up updates it). Nothing here creates a licence: the admin decides.
-import { kvGet, kvPut } from '@/app/lib/kv';
+// The tester waitlist: sign-ups for the beta, invited in small groups. Stored through app/lib/kv (KV or EU D1, per
+// KV_BACKEND) under the "tester:" prefix, one record per e-mail address (a second sign-up updates it, no second mail).
+// Nothing here creates a licence or an invitation: the admin decides.
+import { kvGet, kvList, kvPut } from '@/app/lib/kv';
 import { rateLimited, clientIp } from '@/app/lib/ratelimit';
 import { sendEmail } from '@/app/lib/email';
 
@@ -22,8 +23,9 @@ export type Tester = {
 };
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
-const INDEX = 'tester:index';
-const key = (email: string) => `tester:${email}`;
+const PREFIX = 'tester:';
+const MAX_BODY = 8_000; // bytes; the largest valid sign-up is well under 2 KB
+const key = (email: string) => PREFIX + email;
 
 // Plain text, one line, no control characters, at most `max` characters.
 const clean = (v: unknown, max: number) =>
@@ -54,13 +56,19 @@ export function parseTester(b: unknown): Parsed {
 
 export type SignUp = { status: number; body: Record<string, unknown> };
 
-// The whole POST /api/tester flow: JSON only, honeypot, validation, rate limits (fail closed: it sends mail),
-// store, confirmation mail.
+// The whole POST /api/tester flow: JSON only, size cap, honeypot, validation, rate limits per IP and per address
+// (fail closed: it sends mail), store, and a confirmation mail only the first time an address joins.
 export async function signUpTester(request: Request): Promise<SignUp> {
   if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) {
     return { status: 415, body: { ok: false, error: 'application/json required' } };
   }
-  const b = await request.json().catch(() => null);
+  if (Number(request.headers.get('content-length') ?? 0) > MAX_BODY) {
+    return { status: 413, body: { ok: false, error: 'Too much data.' } };
+  }
+  const text = await request.text().catch(() => '');
+  if (text.length > MAX_BODY) return { status: 413, body: { ok: false, error: 'Too much data.' } };
+  let b: unknown = null;
+  try { b = JSON.parse(text); } catch { /* invalid JSON: answered below as invalid input */ }
   // Honeypot: a field people never see. A bot that fills it gets the normal answer, and nothing is stored or sent.
   if (b && typeof b === 'object' && typeof (b as Record<string, unknown>).website === 'string' && (b as Record<string, string>).website.trim()) {
     return { status: 200, body: { ok: true } };
@@ -85,14 +93,12 @@ export async function signUpTester(request: Request): Promise<SignUp> {
     const rec: Tester = { ...p.value, created_at: prev?.created_at ?? now, updated_at: now };
     await kvPut(key(rec.email), JSON.stringify(rec));
     if (!prev) {
-      const ids: string[] = JSON.parse((await kvGet(INDEX)) ?? '[]');
-      if (!ids.includes(rec.email)) await kvPut(INDEX, JSON.stringify([...ids, rec.email]));
+      await sendEmail(
+        rec.email,
+        "You're on the PowerGuardian tester waitlist",
+        `Hi${rec.name ? ' ' + rec.name : ''},\n\nThanks for joining the PowerGuardian tester waitlist. We invite testers in small groups and read every sign-up ourselves. We will e-mail you when it is your turn (your setup: ${rec.ups}).\n\nWhat you get: PowerGuardian Pro free during the beta, and a direct line to the maker.\nWhat we ask: install it on your own hardware, tell us about your UPS and devices, and tell us what works and what does not.\n\nDid not sign up? Ignore this e-mail; we will not contact you.\n\n— PowerGuardian`,
+      );
     }
-    await sendEmail(
-      rec.email,
-      'Thanks for signing up as a PowerGuardian tester',
-      `Hi${rec.name ? ' ' + rec.name : ''},\n\nThanks for signing up as a PowerGuardian beta tester. We read every sign-up ourselves and will e-mail you when there is a place for your setup (${rec.ups}).\n\nWhat you get: PowerGuardian Pro free during the beta, and a direct line to the maker.\nWhat we ask: install it on your own hardware, tell us about your UPS and devices, and tell us what works and what does not.\n\nDid not sign up? Ignore this e-mail; we will not contact you.\n\n— PowerGuardian`,
-    );
   } catch (err) {
     console.error('[tester] sign-up not completed:', err instanceof Error ? err.message : 'error');
     return { status: 503, body: { ok: false, error: 'Could not save your sign-up — please try again.' } };
@@ -105,10 +111,10 @@ export async function getTester(email: string): Promise<Tester | null> {
   return v ? (JSON.parse(v) as Tester) : null;
 }
 
-// Newest first.
+// Newest first. Listed by key prefix (no separate index that two sign-ups at once could overwrite).
 export async function listTesters(): Promise<Tester[]> {
-  const ids: string[] = JSON.parse((await kvGet(INDEX)) ?? '[]');
-  const all = await Promise.all(ids.map(getTester));
+  const keys = await kvList(PREFIX);
+  const all = await Promise.all(keys.map((k) => getTester(k.slice(PREFIX.length))));
   return all.filter((t): t is Tester => !!t).sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 

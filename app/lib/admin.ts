@@ -1,19 +1,21 @@
 import { cookies } from 'next/headers';
 import { getSession } from '@/app/lib/session';
 
-// Route handlers are not covered by app/admin/layout.tsx, so every /api/admin
-// handler must call this itself. Returns the admin's email, or null.
-export async function getAdminEmail(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get('pg_session')?.value;
+// The one admin rule: a live session whose e-mail is exactly ADMIN_EMAIL. Returns the admin's email, or null.
+async function adminOfSession(sessionId: string | undefined): Promise<string | null> {
   if (!sessionId) return null;
-
   const email = await getSession(sessionId);
   const adminEmail = process.env.ADMIN_EMAIL;
   if (!email || !adminEmail || email.toLowerCase() !== adminEmail.toLowerCase()) {
     return null;
   }
   return email;
+}
+
+// Route handlers are not covered by app/admin/layout.tsx, so every /api/admin
+// handler must call this itself. Returns the admin's email, or null.
+export async function getAdminEmail(): Promise<string | null> {
+  return adminOfSession((await cookies()).get('pg_session')?.value);
 }
 
 // Full guard for /api/admin handlers: admin session, plus — for anything that
@@ -40,10 +42,6 @@ export async function adminGuard(request: Request): Promise<Response | null> {
 // The same admin check, read from the request's own Cookie header (for handlers that are also unit tested
 // outside Next, where next/headers has no request).
 export async function adminFromRequest(request: Request): Promise<string | null> {
-  const sid = (request.headers.get('cookie') ?? '').split(/;\s*/).find((c) => c.startsWith('pg_session='))?.slice('pg_session='.length) ?? '';
-  if (!sid) return null;
-  const email = await getSession(decodeURIComponent(sid));
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (!email || !adminEmail || email.toLowerCase() !== adminEmail.toLowerCase()) return null;
-  return email;
+  const sid = (request.headers.get('cookie') ?? '').split(/;\s*/).find((c) => c.startsWith('pg_session='))?.slice('pg_session='.length);
+  return adminOfSession(sid ? decodeURIComponent(sid) : undefined);
 }

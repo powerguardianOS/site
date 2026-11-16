@@ -1,5 +1,5 @@
-// "Become a tester": the call to action on the home and pricing page, the /tester form on an iPhone (WebKit) and a
-// desktop, the confirmation mail, and the admin list (admin only, CSV). Demo data only; screenshots carry a DEMO label.
+// Tester waitlist: the call to action on the home and pricing page, the /tester form on an iPhone (WebKit) and a
+// desktop, the confirmation mail, and the admin list (admin only, CSV, no HTML from sign-ups). Demo data only; screenshots carry a DEMO label.
 //   cd tests/e2e && npm install && node tester.e2e.mjs [shot-dir]
 import { webkit, devices } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -40,7 +40,7 @@ try {
       await page.goto(BASE + path, { waitUntil: 'networkidle' });
       const cta = page.locator('[data-cta="tester"]');
       check(`${path}: tester call to action is there, links to /tester`,
-        ((await cta.textContent()) ?? '').includes('Become a tester') && ((await cta.textContent()) ?? '').includes('free during the beta') && (await cta.locator('a[href="/tester"]').count()) === 1);
+        ((await cta.textContent()) ?? '').includes('Become a tester') && ((await cta.textContent()) ?? '').includes('free during the beta') && ((await cta.textContent()) ?? '').includes('We invite in small groups') && (await cta.locator('a[href="/tester"]').count()) === 1);
       check(`${path}: no sideways scrolling`, await noSideScroll(page));
       await cta.scrollIntoViewIfNeeded();
       await demo(page);
@@ -71,14 +71,20 @@ try {
     await page.screenshot({ path: `${SHOTS}tester-form-${name}.png`, fullPage: true });
     await page.click('button[type=submit]');
     await page.waitForSelector('#tester-done');
-    check('sign-up done: thank-you shown, stored, confirmation mailed',
-      stack.kv.has('tester:' + p.email) && stack.mails.some((m) => m.to === p.email && /tester/i.test(m.subject)));
+    check('sign-up done: waitlist confirmation shown inline, stored, confirmation mailed',
+      ((await page.textContent('#tester-done')) ?? '').includes('waitlist') && ((await page.textContent('#tester-done')) ?? '').includes('small groups') &&
+      stack.kv.has('tester:' + p.email) && stack.mails.some((m) => m.to === p.email && /waitlist/i.test(m.subject)));
     await demo(page);
     await page.screenshot({ path: `${SHOTS}tester-done-${name}.png`, fullPage: true });
     await ctx.close();
   }
 
   console.log('admin');
+  // A sign-up that tries to inject HTML and a spreadsheet formula.
+  const evil = { email: 'evil@demo.example', name: '<img src=x onerror=alert(1)>', country: '=1+1', ups: '<b>UPS</b>', protects: ['other'], ups_count: 1, heard: '', consent: true };
+  const api = await browser.newContext({ ignoreHTTPSErrors: true });
+  check('an HTML/formula sign-up is accepted as plain text', (await api.request.post(BASE + '/api/tester', { data: evil })).status() === 200);
+  await api.close();
   const anon = await browser.newContext({ ignoreHTTPSErrors: true });
   check('anonymous: the API list is refused (401)', (await anon.request.get(BASE + '/api/admin/testers')).status() === 401);
   const ap = await anon.newPage();
@@ -101,10 +107,12 @@ try {
     const page = await adm.newPage();
     await page.goto(BASE + '/admin/testers', { waitUntil: 'networkidle' });
     const txt = (await page.textContent('#tester-list').catch(() => '')) ?? '';
-    check(`admin (${name}): both sign-ups listed`, txt.includes(PEOPLE.iphone.email) && txt.includes(PEOPLE.desktop.email));
+    check(`admin (${name}): all sign-ups listed`, txt.includes(PEOPLE.iphone.email) && txt.includes(PEOPLE.desktop.email) && txt.includes(evil.email));
+    check(`admin (${name}): sign-up text is shown as text, never as HTML`, txt.includes(evil.name) && (await page.locator('#tester-list img, #tester-list b').count()) === 0);
     check(`admin (${name}): no sideways scrolling`, await noSideScroll(page));
     const csv = await adm.request.get(BASE + '/api/admin/testers?format=csv');
-    check(`admin (${name}): CSV export`, csv.status() === 200 && (await csv.text()).includes(PEOPLE.desktop.ups));
+    const csvText = await csv.text();
+    check(`admin (${name}): CSV export, formulas neutralised`, csv.status() === 200 && csvText.includes(PEOPLE.desktop.ups) && csvText.includes(`"'=1+1"`));
     await demo(page);
     await page.screenshot({ path: `${SHOTS}tester-admin-${name}.png`, fullPage: true });
     await adm.close();

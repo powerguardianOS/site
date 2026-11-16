@@ -1,5 +1,5 @@
-// "Become a tester": sign-up form API and the admin list. Negative cases first-class: invalid input, honeypot,
-// rate limits, and nobody but the admin can read the list.
+// Tester waitlist: sign-up form API and the admin list. Negative cases first-class: invalid input, size cap, honeypot,
+// rate limits, one mail per address, and nobody but the admin can read the list.
 // Run: npx tsx tests/tester.test.mts
 import { kv, get, mails, check, done } from './harness.mts';
 import { createSession } from '../app/lib/session.ts';
@@ -17,6 +17,7 @@ const post = (body: unknown, ip = `10.0.0.${++ipN}`, ct = 'application/json') =>
   signUp(new Request('https://powerguardian.cloud/api/tester', { method: 'POST', headers: { 'content-type': ct, 'cf-connecting-ip': ip }, body: typeof body === 'string' ? body : JSON.stringify(body) }));
 const json = async (r: Response) => ({ status: r.status, ...(await r.json().catch(() => ({}))) }) as any;
 const testerKeys = () => [...kv.keys()].filter((k) => k.startsWith('tester:'));
+const mailsTo = (to: string) => mails.filter((m) => m.to === to).length;
 const licences = () => [...kv.keys()].filter((k) => k.startsWith('license:')).length;
 
 console.log('sign-up');
@@ -24,11 +25,11 @@ const lic0 = licences();
 let r = await json(await post(good()));
 const t = get('tester:tess@example.com');
 check('a valid sign-up is stored under tester:<email> (lower case)', r.status === 200 && r.ok && t?.ups === 'Eaton 5PX 1500' && t.ups_count === 2 && t.protects.join() === 'nas,network' && t.consent === true);
-check('…listed in tester:index', JSON.stringify(get('tester:index')) === '["tess@example.com"]');
-check('…and a confirmation mail goes to that address', mails.at(-1)?.to === 'tess@example.com' && /tester/i.test(mails.at(-1)!.subject));
+check('…and a waitlist confirmation mail goes to that address', mails.at(-1)?.to === 'tess@example.com' && /waitlist/i.test(mails.at(-1)!.subject) && /small groups/.test(mails.at(-1)!.text));
 check('no licence is created automatically', licences() === lic0);
 r = await json(await post(good({ ups: 'APC Smart-UPS 1000' })));
-check('signing up again updates the same record (no duplicate in the list)', r.status === 200 && get('tester:tess@example.com').ups === 'APC Smart-UPS 1000' && get('tester:index').length === 1 && get('tester:tess@example.com').created_at === t.created_at);
+check('signing up again updates the same record (no duplicate)', r.status === 200 && get('tester:tess@example.com').ups === 'APC Smart-UPS 1000' && testerKeys().length === 1 && get('tester:tess@example.com').created_at === t.created_at);
+check('…and sends no second mail (no mail bombing an address)', mailsTo('tess@example.com') === 1);
 
 console.log('validation (nothing stored, no mail)');
 const before = testerKeys().length, mails0 = mails.length;
@@ -52,11 +53,12 @@ for (const [label, body, field] of [
 check('…none of them stored or mailed anything', testerKeys().length === before && mails.length === mails0);
 check('a form post (not JSON) is refused: 415', (await post('email=a@b.nl', undefined, 'application/x-www-form-urlencoded')).status === 415);
 check('garbage JSON → 400', (await post('{nope')).status === 400);
+check('a body over 8 KB → 413, nothing stored', (await post(good({ email: 'big@x.nl', heard: 'x'.repeat(9000) }))).status === 413 && !get('tester:big@x.nl'));
 
 console.log('honeypot');
 r = await json(await post(good({ email: 'bot@spam.example', website: 'http://spam.example' })));
 check('honeypot filled: the bot sees the normal answer (200)…', r.status === 200 && r.ok === true);
-check('…but nothing is stored and no mail is sent', !get('tester:bot@spam.example') && !get('tester:index').includes('bot@spam.example') && mails.length === mails0);
+check('…but nothing is stored and no mail is sent', !get('tester:bot@spam.example') && mails.length === mails0);
 
 console.log('control characters and length');
 r = await json(await post(good({ email: 'ctl@x.nl', name: 'Evil\r\nBcc: x@y.z', ups: 'U'.repeat(500) })));
@@ -67,13 +69,15 @@ console.log('rate limits');
 const statuses: number[] = [];
 for (let i = 0; i < 4; i++) statuses.push((await post(good({ email: 'flood@x.nl' }))).status);
 check('the same address: 3 per hour, the 4th → 429', statuses.join() === '200,200,200,429', statuses.join());
+check('…and only one mail reached that address', mailsTo('flood@x.nl') === 1);
 const ipStat: number[] = [];
 for (let i = 0; i < 6; i++) ipStat.push((await post(good({ email: `ip${i}@x.nl` }), '203.0.113.9')).status);
 check('the same IP: 5 per hour, the 6th → 429', ipStat.join() === '200,200,200,200,200,429', ipStat.join());
 check('…the refused one is not stored', !get('tester:ip5@x.nl'));
-// KV down: sign-up fails closed (it sends mail).
+// Store down (KV or D1, whichever KV_BACKEND uses) for the rate-limit keys: sign-up fails closed (it sends mail).
 const kvFetch = globalThis.fetch;
-(globalThis as any).fetch = async (u: string, i: any) => (String(u).includes('/values/rl%3A') ? new Response('', { status: 500 }) : kvFetch(u, i));
+const rlCall = (u: string, i: any) => String(u).includes('/values/rl%3A') || (String(u).includes('/d1/') && String(i?.body ?? '').includes('"rl:'));
+(globalThis as any).fetch = async (u: string, i: any) => (rlCall(u, i) ? new Response('', { status: 500 }) : kvFetch(u, i));
 r = await json(await post(good({ email: 'down@x.nl' })));
 (globalThis as any).fetch = kvFetch;
 check('rate limiter unavailable → 503, nothing stored', r.status === 503 && !get('tester:down@x.nl'));
@@ -91,7 +95,7 @@ const saved = process.env.ADMIN_EMAIL; delete process.env.ADMIN_EMAIL;
 check('ADMIN_EMAIL unset → even the admin session is refused', (await list(adminCookie)).status === 401);
 process.env.ADMIN_EMAIL = saved;
 const ok = await json(await list(adminCookie));
-check('the admin gets the list, newest first', ok.status === 200 && ok.testers.length === testerKeys().filter((k) => k !== 'tester:index').length && ok.testers.some((x: any) => x.email === 'tess@example.com'));
+check('the admin gets the list, newest first', ok.status === 200 && ok.testers.length === testerKeys().length && ok.testers.some((x: any) => x.email === 'tess@example.com'));
 const csvRes = await list(adminCookie, '?format=csv');
 const csv = await csvRes.text();
 check('the admin gets a CSV download', csvRes.status === 200 && (csvRes.headers.get('content-type') ?? '').startsWith('text/csv') && (csvRes.headers.get('content-disposition') ?? '').includes('attachment') && csv.startsWith('signed_up,email,name,country,ups,protects,ups_count,heard,consent\n') && csv.includes('"tess@example.com"'));

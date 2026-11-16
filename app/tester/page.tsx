@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-// "Become a tester" form. The server checks everything again (app/lib/testers.ts); this page only helps.
+// Tester waitlist form. The server checks everything again (app/lib/testers.ts); this page only helps.
 const PROTECTS = [
   ["nas", "NAS"],
   ["servers", "Servers"],
@@ -52,14 +52,15 @@ export default function TesterPage() {
         <h1 className="pg-display text-4xl md:text-5xl text-white">Become a tester</h1>
         <p className="text-sm text-zinc-400 leading-relaxed">
           PowerGuardian Pro, free during the beta, and a direct line to the maker. In return: install it on your own
-          hardware, tell us your UPS and devices, and give honest feedback. We read every sign-up ourselves.
+          hardware, tell us your UPS and devices, and give honest feedback. Join the waitlist: we invite in small groups
+          and read every sign-up ourselves.
         </p>
       </div>
 
       {sent ? (
         <div role="status" id="tester-done" className="rounded-xl border border-[#00C66F]/25 bg-[#00C66F]/[0.05] p-6 space-y-2">
-          <p className="text-white font-medium">Thanks — you&apos;re on the list.</p>
-          <p className="text-sm text-zinc-400">We sent a confirmation to <span className="text-zinc-200">{sent}</span>. We&apos;ll e-mail you when there is a place for your setup.</p>
+          <p className="text-white font-medium">Thanks — you&apos;re on the waitlist.</p>
+          <p className="text-sm text-zinc-400">We invite in small groups. We&apos;ll e-mail <span className="text-zinc-200 break-all">{sent}</span> when it&apos;s your turn.</p>
           <Link href="/" className="inline-block pt-2 text-sm text-[#00C66F] hover:underline">Back to the home page</Link>
         </div>
       ) : (
@@ -112,7 +113,7 @@ export default function TesterPage() {
 
           <button type="submit" disabled={busy}
             className="w-full bg-[#00C66F] text-black font-medium py-3 rounded-lg text-base hover:bg-[#00b564] transition-colors disabled:opacity-50">
-            {busy ? "Sending…" : "Sign me up"}
+            {busy ? "Sending…" : "Join the waitlist"}
           </button>
         </form>
       )}

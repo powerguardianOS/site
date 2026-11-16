@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-// "Become a tester" call to action (home page and pricing page): calm, one card, short.
+// Tester waitlist call to action (home page and pricing page): calm, one card, short.
 export default function TesterCta({ className = '' }: { className?: string }) {
   return (
     <section data-cta="tester" aria-labelledby="tester-cta-title"
@@ -11,6 +11,7 @@ export default function TesterCta({ className = '' }: { className?: string }) {
           <h2 id="tester-cta-title" className="pg-display text-3xl md:text-4xl text-white">
             Become a tester <em className="text-zinc-400">— free during the beta</em>
           </h2>
+          <p className="text-sm text-zinc-400">Join the waitlist. We invite in small groups.</p>
           <div className="grid gap-4 sm:grid-cols-2 text-sm">
             <div>
               <div className="text-zinc-500 text-xs mb-1.5">You get</div>
@@ -30,7 +31,7 @@ export default function TesterCta({ className = '' }: { className?: string }) {
           </div>
         </div>
         <Link href="/tester" className="pg-btn-primary shrink-0 rounded-lg px-6 py-3 text-center font-semibold">
-          Become a tester
+          Join the waitlist
         </Link>
       </div>
     </section>
