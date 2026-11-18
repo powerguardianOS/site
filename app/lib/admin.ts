@@ -31,8 +31,9 @@ export async function adminGuard(request: Request): Promise<Response | null> {
     if (!ct.toLowerCase().startsWith('application/json')) {
       return Response.json({ error: 'application/json required' }, { status: 415 });
     }
-    const origin = request.headers.get('origin');
-    if (!origin || new URL(origin).host !== new URL(request.url).host) {
+    let sameOrigin = false;
+    try { sameOrigin = new URL(request.headers.get('origin') ?? '').host === new URL(request.url).host; } catch { /* missing or garbled: refused */ }
+    if (!sameOrigin) {
       return Response.json({ error: 'cross-origin request refused' }, { status: 403 });
     }
   }

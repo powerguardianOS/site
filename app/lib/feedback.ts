@@ -13,7 +13,9 @@
 // A merged item keeps its own text, reporter and replies, with merged_into = the id it was merged into and merged_at
 // (unix ms). Its reporter sees the root's status and fixed_in, their own item's replies, and of the items further up
 // the chain only the replies written after the merge: a reply written to another customer before that stays private.
-// Admin changes go to the root of a merge chain only, and re-read the item just before writing.
+// Admin changes go to the root of a merge chain only, and re-read the item just before writing. A merge re-points
+// everything merged into the item to the new root, so chains stay one level deep; older or racing deeper chains are
+// still followed, up to MAX_CHAIN steps.
 import { kvGetMany, kvList, kvListValues, kvPut } from '@/app/lib/kv';
 import { rateLimited } from '@/app/lib/ratelimit';
 import { readCapped } from '@/app/lib/body';
@@ -45,6 +47,7 @@ export type FeedbackItem = {
 export type OwnItem = Pick<FeedbackItem, 'id' | 'kind' | 'text' | 'status' | 'fixed_in' | 'created_at' | 'replies'>;
 
 export const ALL_MAX = 2000; // admin list
+const MAX_CHAIN = 32;
 export const MAX_BODY = 16 * 1024;
 export const MAX_TEXT = 4000;
 export const MAX_REPLY = 4000;
@@ -126,10 +129,10 @@ async function getItems(ids: string[]): Promise<Map<string, FeedbackItem>> {
 export async function getItem(id: string): Promise<FeedbackItem | null> {
   return (await getItems([id])).get(id) ?? null;
 }
-// Loads the merge chains of `items` into `cache` (one batch read per level, a few levels at most).
+// Loads the merge chains of `items` into `cache` (one batch read per level, until no item points further).
 async function loadChains(items: FeedbackItem[], cache: Map<string, FeedbackItem>): Promise<void> {
   let level = items;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < MAX_CHAIN; i++) {
     const want = level.map((x) => x.merged_into).filter((id): id is string => !!id && !cache.has(id));
     if (!want.length) return;
     const got = await getItems(want);
@@ -143,7 +146,7 @@ const putItem = (item: FeedbackItem) => kvPut(ITEM + item.id, JSON.stringify(ite
 export function rootOf(item: FeedbackItem, byId: (id: string) => FeedbackItem | null | undefined): FeedbackItem {
   let cur = item;
   const seen = new Set([item.id]);
-  while (cur.merged_into && !seen.has(cur.merged_into)) {
+  while (cur.merged_into && !seen.has(cur.merged_into) && seen.size <= MAX_CHAIN) {
     const next = byId(cur.merged_into);
     if (!next) break;
     seen.add(next.id);
@@ -154,13 +157,14 @@ export function rootOf(item: FeedbackItem, byId: (id: string) => FeedbackItem | 
 
 const exact = (r: Reply) => r.ms ?? r.at * 1000;
 
-// What the reporter of `item` sees. Along the merge chain, a reply counts only when it was written after every merge
-// between `item` and the node that holds it: before that, it was meant for that node's own reporters.
-export function ownView(item: FeedbackItem, byId: (id: string) => FeedbackItem | null | undefined): OwnItem {
+// The replies the reporter of `item` sees, and the root of its chain. Along the merge chain, a reply counts only when
+// it was written after every merge between `item` and the node that holds it: before that, it was meant for that
+// node's own reporters.
+function visible(item: FeedbackItem, byId: (id: string) => FeedbackItem | null | undefined): { replies: Reply[]; root: FeedbackItem } {
   const replies: Reply[] = [...item.replies];
   let cur = item, since = 0;
   const seen = new Set([item.id]);
-  while (cur.merged_into && !seen.has(cur.merged_into)) {
+  while (cur.merged_into && !seen.has(cur.merged_into) && seen.size <= MAX_CHAIN) {
     const next = byId(cur.merged_into);
     if (!next) break;
     since = Math.max(since, cur.merged_at ?? Infinity); // an old merge without merged_at shows nothing further up
@@ -168,10 +172,15 @@ export function ownView(item: FeedbackItem, byId: (id: string) => FeedbackItem |
     seen.add(next.id);
     cur = next;
   }
+  return { replies: replies.sort((a, b) => exact(a) - exact(b)), root: cur };
+}
+
+export function ownView(item: FeedbackItem, byId: (id: string) => FeedbackItem | null | undefined): OwnItem {
+  const { replies, root } = visible(item, byId);
   return {
-    id: item.id, kind: item.kind, text: item.text, status: cur.status,
-    ...(cur.status === 'fixed' && cur.fixed_in ? { fixed_in: cur.fixed_in } : {}),
-    created_at: item.created_at, replies: replies.sort((a, b) => exact(a) - exact(b)).map((r) => ({ at: r.at, text: r.text })),
+    id: item.id, kind: item.kind, text: item.text, status: root.status,
+    ...(root.status === 'fixed' && root.fixed_in ? { fixed_in: root.fixed_in } : {}),
+    created_at: item.created_at, replies: replies.map((r) => ({ at: r.at, text: r.text })),
   };
 }
 
@@ -246,6 +255,19 @@ function withStatus(item: FeedbackItem, status: FbStatus, fixedIn = ''): Feedbac
 
 type Result = { ok: true; item: FeedbackItem } | { ok: false; status: number; error: string };
 
+// After `old` was merged into `rootId`: every item whose chain led to `old` now points at `rootId` directly. The
+// replies its reporter could see along the old chain are copied into the item's own replies and merged_at becomes
+// this merge, so what the reporter sees stays exactly the same.
+async function repoint(old: FeedbackItem, rootId: string, now: number): Promise<void> {
+  const { items } = await listAll();
+  const byId = new Map(items.map((x) => [x.id, x]));
+  byId.set(old.id, old);
+  for (const it of items) {
+    if (it.id === old.id || !it.merged_into || rootOf(it, (id) => byId.get(id)).id !== old.id) continue;
+    await putItem({ ...it, merged_into: rootId, merged_at: now, replies: visible(it, (id) => byId.get(id)).replies });
+  }
+}
+
 // The root of `item`'s merge chain, read from the store.
 async function rootFromStore(item: FeedbackItem): Promise<FeedbackItem> {
   const cache = new Map([[item.id, item]]);
@@ -269,8 +291,10 @@ export async function applyAdminAction(id: string, a: AdminAction): Promise<Resu
     const [freshInto, fresh] = [await getItem(into.id), await getItem(root.id)];
     if (!freshInto || freshInto.merged_into) return { ok: false, status: 409, error: 'target_merged' };
     if (!fresh || fresh.merged_into) return { ok: false, status: 409, error: 'already_merged' };
-    const next = { ...fresh, merged_into: into.id, merged_at: Date.now() };
+    const now = Date.now();
+    const next = { ...fresh, merged_into: into.id, merged_at: now };
     await putItem(next);
+    await repoint(fresh, into.id, now);
     return { ok: true, item: next };
   }
 

@@ -2,7 +2,7 @@
 // nightly read uses. Negative cases first-class: bad token, size cap, validation, daily limit, cross-origin, and one
 // account never sees another's items through either API.
 // Run: npx tsx tests/feedback.test.mts      (KV_BACKEND=d1: the same against D1)
-import { kv, get, seed, lic, check, done } from './harness.mts';
+import { kv, get, put, seed, lic, check, done } from './harness.mts';
 import { createSession } from '../app/lib/session.ts';
 
 const ctl = await import('../app/api/cloud/feedback/route.ts');
@@ -140,6 +140,7 @@ const adm = await createSession('admin@powerguardian.cloud');
 check('no session → 401', (await admin(null, { id: first.id, action: 'seen' })).status === 401);
 check('a customer → 401', (await admin(anna, { id: first.id, action: 'seen' })).status === 401);
 check('cross-origin → 403', (await admin(adm, { id: first.id, action: 'seen' }, 'https://evil.example')).status === 403);
+check('a garbled Origin header → 403, not 500', (await admin(adm, { id: first.id, action: 'seen' }, 'not a url')).status === 403);
 check('an unknown action → 400', (await admin(adm, { id: first.id, action: 'delete' })).status === 400);
 check('an unknown item → 404', (await admin(adm, { id: '0'.repeat(16), action: 'seen' })).status === 404);
 check('Mark seen', (await admin(adm, { id: first.id, action: 'seen' })).status === 200 && get(`feedback:item:${first.id}`).status === 'seen');
@@ -171,6 +172,34 @@ check('Reject', (await admin(adm, { id: ideaA, action: 'reject' })).status === 2
 check('a rejected item carries no fixed_in', !('fixed_in' in (await json(await cGet(A.token))).items.find((i: any) => i.id === ideaA)));
 const audit = await listAudit(200);
 check('every admin change is in the audit log', ['feedback.seen', 'feedback.reply', 'feedback.merge', 'feedback.plan', 'feedback.fixed', 'feedback.reject'].every((a) => audit.some((e) => e.action === a && e.role === 'admin' && e.actor === 'admin@powerguardian.cloud')));
+
+console.log('merge chains');
+const hex = (p: string, i: number) => (p + String(i)).padEnd(16, '0');
+const mk = (id: string, email: string, o: Record<string, unknown> = {}) => {
+  put(`feedback:item:${id}`, { id, kind: 'bug', text: 'chain ' + id, status: 'new', email, source: 'web', created_at: Math.floor(Date.now() / 1000), replies: [], ...o });
+  kv.set(`feedback:acct:${encodeURIComponent(email)}:${String(9_999_999_999_999 - Date.now()).padStart(13, '0')}:${id}`, id);
+};
+const C = Array.from({ length: 8 }, (_, i) => hex('c', i));
+C.forEach((id, i) => mk(id, `chain${i}@c.test`));
+const c0 = await createSession('chain0@c.test');
+const c0Sees = async () => (await json(await aGet(c0))).items.find((i: any) => i.id === C[0]).replies.map((r: any) => r.text);
+for (let i = 0; i < 7; i++) {
+  if (i > 0) check(`reply on c${i} before it is merged`, (await admin(adm, { id: C[i], action: 'reply', text: 'R' + i })).status === 200);
+  check(`a private reply on c${i + 1} before c${i} joins it`, (await admin(adm, { id: C[i + 1], action: 'reply', text: 'P' + (i + 1) })).status === 200);
+  check(`merge c${i} into c${i + 1}`, (await admin(adm, { id: C[i], action: 'merge', into: C[i + 1] })).status === 200);
+}
+check('after 7 merges every item points at the root directly (one level deep)', C.slice(0, 7).every((id) => get(`feedback:item:${id}`).merged_into === C[7]));
+const seen0 = await c0Sees();
+check('c0 still sees the replies written after it joined, and none of the private ones', seen0.join('|') === 'R1|R2|R3|R4|R5|R6', seen0.join('|'));
+check('an admin action on the first item of the chain works (no 409)', (await admin(adm, { id: C[0], action: 'reply', text: 'All fixed' })).status === 200 && get(`feedback:item:${C[7]}`).replies.at(-1).text === 'All fixed');
+check('…and its reporter sees it', (await c0Sees()).at(-1) === 'All fixed');
+check('…and a status change via the first item lands on the root', (await admin(adm, { id: C[0], action: 'plan' })).status === 200 && get(`feedback:item:${C[7]}`).status === 'planned' && (await json(await aGet(c0))).items[0].status === 'planned');
+// an old chain, 7 levels deep (made before items were re-pointed): still followed
+const D = Array.from({ length: 8 }, (_, i) => hex('d', i));
+D.forEach((id, i) => mk(id, `deep${i}@d.test`, i < 7 ? { merged_into: D[i + 1], merged_at: Date.now() - 1000 } : {}));
+check('a 7-level chain from before: an action on its first item lands on the root', (await admin(adm, { id: D[0], action: 'reply', text: 'deep reply' })).status === 200 && get(`feedback:item:${D[7]}`).replies[0]?.text === 'deep reply');
+const d0 = await createSession('deep0@d.test');
+check('…and its first reporter sees the root\'s status and that reply', (await json(await aGet(d0))).items[0].replies.at(-1)?.text === 'deep reply' && (await json(await aGet(d0))).items[0].status === 'seen');
 
 console.log('admin rows');
 const all = await listAll();

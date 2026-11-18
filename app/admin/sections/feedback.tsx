@@ -28,7 +28,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: { k
     <div className="space-y-4">
       <PageHeader title="Feedback" sub="Problems and ideas from customers. Merge duplicates: the count is how many reported the same thing. Replies show up for every reporter." />
       <Chips label="Channel" items={TABS.map((t) => ({ key: t.kind, label: t.label, count: open(t.kind), href: href(t.kind, 'open'), on: t.kind === kind }))} />
-      {truncated && <p id="feedback-truncated" className="text-sm text-amber-300">Showing the first {items.length} items; there are more. Counts are for these only.</p>}
+      {truncated && <p id="feedback-truncated" className="text-sm text-amber-300">Showing {items.length} items; there are more.</p>}
       <Chips label="Status" items={FILTERS.map((f) => ({ key: f.key, label: f.label, count: count(f.key), href: href(kind, f.key), on: f.key === status }))} />
       {shown.length === 0 ? (
         <p className={`${CARD} px-4 py-10 text-center text-sm text-zinc-500`}>{ofKind.length ? 'Nothing matches this filter.' : `No ${kind === 'bug' ? 'problems' : 'ideas'} yet.`}</p>
