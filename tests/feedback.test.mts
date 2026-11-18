@@ -15,13 +15,19 @@ const SITE = 'https://powerguardian.cloud';
 const A = lic('site-a', 'Anna@A.test'), A2 = lic('site-a2', 'anna@a.test'), B = lic('site-b', 'bob@b.test');
 const REVOKED = lic('site-r', 'rex@r.test', { status: 'revoked' });
 const EXPIRED = lic('site-x', 'xena@x.test', { expires_at: new Date(Date.now() - 1000).toISOString() });
-seed(A, A2, B, REVOKED, EXPIRED);
+const HOLDER = 'c'.repeat(64), COPY = 'e'.repeat(64), OLD = 'd'.repeat(64);
+const CLAIMED = lic('site-c', 'cleo@c.test', {
+  claimed_by: HOLDER, copies: [{ controller_id: COPY, hostname: 'copy', first_seen: new Date().toISOString() }],
+  retired: [{ controller_id: OLD, token: null, until: new Date(Date.now() + 5 * 86_400_000).toISOString(), reason: 'moved', at: new Date().toISOString() }],
+});
+seed(A, A2, B, REVOKED, EXPIRED, CLAIMED);
 
 const json = async (r: Response) => ({ status: r.status, ...(await r.json().catch(() => ({}))) }) as any;
-const cPost = (token: string | null, body: unknown) => ctl.POST(new Request(SITE + '/api/cloud/feedback', {
-  method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: typeof body === 'string' ? body : JSON.stringify(body),
+const cHdr = (token: string | null, cid?: string): Record<string, string> => ({ ...(token ? { authorization: 'Bearer ' + token } : {}), ...(cid ? { 'x-controller-id': cid } : {}) });
+const cPost = (token: string | null, body: unknown, cid?: string) => ctl.POST(new Request(SITE + '/api/cloud/feedback', {
+  method: 'POST', headers: { 'content-type': 'application/json', ...cHdr(token, cid) }, body: typeof body === 'string' ? body : JSON.stringify(body),
 }));
-const cGet = (token: string | null) => ctl.GET(new Request(SITE + '/api/cloud/feedback', { headers: token ? { authorization: 'Bearer ' + token } : {} }));
+const cGet = (token: string | null, cid?: string) => ctl.GET(new Request(SITE + '/api/cloud/feedback', { headers: cHdr(token, cid) }));
 const aReq = (cookie: string | null, body?: unknown, o: { origin?: string | null; ct?: string } = {}) => {
   const h: Record<string, string> = cookie ? { cookie: 'pg_session=' + cookie } : {};
   if (body !== undefined) { h['content-type'] = o.ct ?? 'application/json'; if (o.origin !== null) h.origin = o.origin ?? SITE; }
@@ -55,6 +61,10 @@ check('no token → 401', (await cPost(null, good())).status === 401 && (await c
 check('a made-up token → 401', (await cPost('tok-nope-' + 'b'.repeat(20), good())).status === 401 && (await cGet('deadbeef')).status === 401);
 check('a revoked license → 403', (await cPost(REVOKED.token, good())).status === 403 && (await cGet(REVOKED.token)).status === 403);
 check('an expired license → 403', (await cPost(EXPIRED.token, good())).status === 403);
+check('the site\'s own controller (its hardware ID) → 200', (await cGet(CLAIMED.token, HOLDER)).status === 200);
+check('a copy of the site (same token, other hardware ID) → 403, POST and GET', (await cPost(CLAIMED.token, good(), COPY)).status === 403 && (await cGet(CLAIMED.token, COPY)).status === 403);
+check('a retired controller (the site moved away from it) → 403', (await cPost(CLAIMED.token, good(), OLD)).status === 403 && (await cGet(CLAIMED.token, OLD)).status === 403);
+check('an unknown hardware ID on a claimed site (a new copy) → 403', (await cPost(CLAIMED.token, good(), 'f'.repeat(64))).status === 403);
 check('…nothing stored for any of them', items().length === 2);
 
 console.log('controller: validation and size');
@@ -136,13 +146,22 @@ check('Mark seen', (await admin(adm, { id: first.id, action: 'seen' })).status =
 check('Reply → visible to the reporter', (await admin(adm, { id: first.id, action: 'reply', text: 'Thanks! Can you tell us which NAS?' })).status === 200 &&
   (await json(await cGet(A.token))).items.find((i: any) => i.id === first.id).replies[0].text === 'Thanks! Can you tell us which NAS?');
 check('an empty reply → 400', (await admin(adm, { id: first.id, action: 'reply', text: '  ' })).status === 400);
+check('a private reply to Bob, before any merge', (await admin(adm, { id: bobBug, action: 'reply', text: 'Bob, your serial ends in 4711' })).status === 200);
 check('Merge into an item of the other kind → 400', (await admin(adm, { id: bobBug, action: 'merge', into: ideaA })).status === 400);
 check('Merge into itself → 400', (await admin(adm, { id: first.id, action: 'merge', into: first.id })).status === 400);
-check('Merge Bob\'s problem into Anna\'s', (await admin(adm, { id: bobBug, action: 'merge', into: first.id })).status === 200 && get(`feedback:item:${bobBug}`).merged_into === first.id);
+check('Merge Bob\'s problem into Anna\'s, with merged_at', (await admin(adm, { id: bobBug, action: 'merge', into: first.id })).status === 200 && get(`feedback:item:${bobBug}`).merged_into === first.id && typeof get(`feedback:item:${bobBug}`).merged_at === 'number');
 let bobView = (await json(await aGet(bob))).items.find((i: any) => i.id === bobBug);
-check('the merged reporter keeps his own text but sees the target\'s status and replies', bobView.text === 'b0' && bobView.status === 'seen' && bobView.replies[0]?.text === 'Thanks! Can you tell us which NAS?');
+check('the merged reporter keeps his own text and sees the target\'s status', bobView.text === 'b0' && bobView.status === 'seen');
+check('…and his own pre-merge reply, but not the reply Anna got before the merge', bobView.replies.length === 1 && bobView.replies[0].text === 'Bob, your serial ends in 4711');
+let annaSees = async () => JSON.stringify([await json(await cGet(A.token)), await json(await aGet(anna))]);
+check('Bob\'s private pre-merge reply never reaches Anna (controller and website)', !(await annaSees()).includes('4711'));
+check('a reply after the merge reaches both', (await admin(adm, { id: first.id, action: 'reply', text: 'Fixed in the next release.' })).status === 200 &&
+  (await json(await aGet(bob))).items.find((i: any) => i.id === bobBug).replies.map((r: any) => r.text).join('|') === 'Bob, your serial ends in 4711|Fixed in the next release.' &&
+  (await json(await cGet(A.token))).items.find((i: any) => i.id === first.id).replies.length === 2 && !(await annaSees()).includes('4711'));
 check('Merge back the other way (a cycle) → 400', (await admin(adm, { id: first.id, action: 'merge', into: bobBug })).status === 400);
-check('an action on a merged item goes to its target', (await admin(adm, { id: bobBug, action: 'plan' })).status === 200 && get(`feedback:item:${first.id}`).status === 'planned' && get(`feedback:item:${bobBug}`).status === 'new');
+check('an action on a merged item goes to its target', (await admin(adm, { id: bobBug, action: 'plan' })).status === 200 && get(`feedback:item:${first.id}`).status === 'planned' && get(`feedback:item:${bobBug}`).status === 'seen');
+check('a reply via the merged item lands on the target, not on Bob\'s own item', (await admin(adm, { id: bobBug, action: 'reply', text: 'Via the merged row' })).status === 200 &&
+  get(`feedback:item:${first.id}`).replies.length === 3 && get(`feedback:item:${bobBug}`).replies.length === 1);
 check('Fixed in 0.1.121', (await admin(adm, { id: first.id, action: 'fixed', fixed_in: '0.1.121' })).status === 200);
 bobView = (await json(await aGet(bob))).items.find((i: any) => i.id === bobBug);
 const annaView = (await json(await cGet(A.token))).items.find((i: any) => i.id === first.id);
@@ -154,10 +173,25 @@ const audit = await listAudit(200);
 check('every admin change is in the audit log', ['feedback.seen', 'feedback.reply', 'feedback.merge', 'feedback.plan', 'feedback.fixed', 'feedback.reject'].every((a) => audit.some((e) => e.action === a && e.role === 'admin' && e.actor === 'admin@powerguardian.cloud')));
 
 console.log('admin rows');
-const rows = adminRows(await listAll());
+const all = await listAll();
+check('listAll: every item, not truncated', !all.truncated && all.items.length === items().length);
+const rows = adminRows(all.items);
 const row = rows.find((x) => x.id === first.id)!;
 check('one row per root: count = 1 + merged, distinct customers', row.count === 2 && row.customers === 2 && !rows.some((x) => x.id === bobBug));
 check('…with the versions and report ids of all its reports', row.versions.includes('0.1.120') && row.reports.includes('PGR-ABCD-EFGH'));
 const loop = { id: 'a', merged_into: 'b' } as any, loop2 = { id: 'b', merged_into: 'a' } as any;
 check('a circular merge chain stops (no endless loop)', ['a', 'b'].includes(rootOf(loop, (id) => (id === 'a' ? loop : loop2)).id));
+
+console.log('store: one read for many keys, truncation reported');
+const { kvListValues, kvGetMany } = await import('../app/lib/kv.ts');
+for (let i = 0; i < 5; i++) kv.set(`zz:t:${i}`, `v${i}`);
+const few = await kvListValues('zz:t:', 3), alle = await kvListValues('zz:t:', 10);
+check('kvListValues: at most max, truncated when there are more', few.entries.length === 3 && few.truncated && few.entries[0][0] === 'zz:t:0' && few.entries[0][1] === 'v0');
+check('…and everything when it fits', alle.entries.length === 5 && !alle.truncated);
+const many = await kvGetMany(['zz:t:1', 'zz:t:4', 'zz:nope']);
+check('kvGetMany: the values that exist', many.size === 2 && many.get('zz:t:4') === 'v4');
+
+console.log('admin cookie');
+const bad = await adminPost(new Request(SITE + '/api/admin/feedback', { method: 'POST', headers: { 'content-type': 'application/json', origin: SITE, cookie: 'pg_session=%E0%A4%A' }, body: '{}' }));
+check('a malformed session cookie → 401, not 500', bad.status === 401);
 done();

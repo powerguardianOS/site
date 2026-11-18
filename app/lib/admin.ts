@@ -43,5 +43,7 @@ export async function adminGuard(request: Request): Promise<Response | null> {
 // outside Next, where next/headers has no request).
 export async function adminFromRequest(request: Request): Promise<string | null> {
   const sid = (request.headers.get('cookie') ?? '').split(/;\s*/).find((c) => c.startsWith('pg_session='))?.slice('pg_session='.length);
-  return adminOfSession(sid ? decodeURIComponent(sid) : undefined);
+  let id: string | undefined;
+  try { id = sid ? decodeURIComponent(sid) : undefined; } catch { return null; } // a malformed cookie: not signed in
+  return adminOfSession(id);
 }

@@ -33,6 +33,7 @@ const demo = (page) => page.evaluate(() => {
 });
 const XSS = '<img src=x onerror="window.__xss=1"><b>bold</b> NAS did not wake up';
 const XSS_REPLY = '<script>window.__xss=2</script><i>Which</i> NAS model?';
+const PRIVATE = 'Bob, your UPS serial ends in 4711';
 const ctlApi = (token) => request.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: token ? { authorization: 'Bearer ' + token } : {} });
 const acctApi = (email) => request.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: email ? { cookie: 'pg_session=' + sid(email), origin: BASE } : { origin: BASE } });
 const IPHONE = { ...devices['iPhone 15'], userAgent: IPHONE_UA };
@@ -167,11 +168,14 @@ try {
     if (name === 'desktop') {
       const row = (id) => page.locator(`.feedback-row[data-id="${id}"]`);
       await hydrated(page, `.feedback-row[data-id="${annaBug}"] .fb-act-reply`);
-      // Reply (HTML in the reply too)
-      await row(annaBug).locator('.fb-act-reply').click();
-      await row(annaBug).locator('.fb-reply-text').fill(XSS_REPLY);
-      await row(annaBug).locator('.fb-reply-send').click();
-      await page.waitForFunction((id) => document.querySelector(`.feedback-row[data-id="${id}"] .feedback-reply`), annaBug);
+      const reply = async (id, text) => {
+        await row(id).locator('.fb-act-reply').click();
+        await row(id).locator('.fb-reply-text').fill(text);
+        await row(id).locator('.fb-reply-send').click();
+        await page.waitForFunction(([x, t]) => [...document.querySelectorAll(`.feedback-row[data-id="${x}"] .feedback-reply`)].some((e) => e.textContent.includes(t)), [id, text]);
+      };
+      // A private reply to Bob before any merge
+      await reply(bobWebBug, PRIVATE);
       // Merge Bob's two problems into Anna's
       for (const id of [bobCtlBug, bobWebBug]) {
         await row(id).locator('.fb-act-merge').click();
@@ -181,6 +185,8 @@ try {
       }
       await page.waitForFunction((id) => document.querySelector(`.feedback-row[data-id="${id}"] .feedback-count`)?.textContent === '3×', annaBug);
       check('admin: merged → one row, 3×, 2 customers', ((await row(annaBug).textContent()) ?? '').includes('2 customers') && (await page.locator('.feedback-row').count()) === 1);
+      // A reply after the merge (HTML in the reply too) goes to every reporter
+      await reply(annaBug, XSS_REPLY);
       // Fixed in
       await row(annaBug).locator('.fb-act-fixed').click();
       await row(annaBug).locator('.fb-fixed-version').fill('0.1.121');
@@ -205,11 +211,21 @@ try {
   console.log('what the reporters see');
   const bobItems = (await (await ab.get(BASE + '/api/account/feedback')).json()).items;
   const bm = bobItems.find((i) => i.id === bobWebBug), bc = (await (await cb.get(BASE + '/api/cloud/feedback')).json()).items.find((i) => i.id === bobCtlBug);
-  check('the merged reporter sees the target\'s status, fixed_in and reply (website)', bm.status === 'fixed' && bm.fixed_in === '0.1.121' && bm.replies[0]?.text === XSS_REPLY && bm.text === 'NAS stayed off after the outage');
+  check('the merged reporter sees the target\'s status, fixed_in, his private reply and the later reply (website)', bm.status === 'fixed' && bm.fixed_in === '0.1.121' &&
+    bm.replies.map((x) => x.text).join('|') === `${PRIVATE}|${XSS_REPLY}` && bm.text === 'NAS stayed off after the outage');
   check('…and through his controller', bc.status === 'fixed' && bc.fixed_in === '0.1.121' && bc.replies.length === 1);
   const annaItems = (await (await ca.get(BASE + '/api/cloud/feedback')).json()).items;
   check('Anna sees the reply and the fix on her controller', annaItems.find((i) => i.id === annaBug).replies[0].text === XSS_REPLY && annaItems.find((i) => i.id === annaBug).fixed_in === '0.1.121');
   check('…and her idea as rejected', annaItems.find((i) => i.id === annaIdea).status === 'rejected');
+  check('Bob\'s private pre-merge reply never reaches Anna (controller and website)',
+    !JSON.stringify(annaItems).includes('4711') && !JSON.stringify(await (await aa.get(BASE + '/api/account/feedback')).json()).includes('4711'));
+  const anc = await browser.newContext({ ...IPHONE, ignoreHTTPSErrors: true });
+  await anc.addCookies([cookie(ANNA)]);
+  const anp = await anc.newPage();
+  await anp.goto(BASE + '/feedback', { waitUntil: 'networkidle' });
+  await anp.waitForSelector('#fb-reports .fb-reply');
+  check('…nor her /feedback page', !((await anp.textContent('#fb-reports')) ?? '').includes('4711') && ((await anp.textContent('#fb-reports')) ?? '').includes(XSS_REPLY));
+  await anc.close();
   const rc = await browser.newContext({ ...IPHONE, ignoreHTTPSErrors: true });
   await rc.addCookies([cookie(BOB)]);
   const rp = await rc.newPage();
@@ -217,7 +233,7 @@ try {
   await rp.waitForSelector('#fb-reports .fb-reply');
   const item = rp.locator(`.fb-item[data-id="${bobWebBug}"]`);
   check('Bob\'s page: "Fixed in 0.1.121" and the reply, shown as text', ((await item.locator('.fb-status').textContent()) ?? '') === 'Fixed in 0.1.121' &&
-    ((await item.locator('.fb-reply').textContent()) ?? '').includes(XSS_REPLY) && (await rp.locator('#fb-reports script, #fb-reports i').count()) === 0 && !(await rp.evaluate(() => window.__xss)));
+    ((await item.locator('.fb-reply').allTextContents()).join(' ')).includes(XSS_REPLY) && (await rp.locator('#fb-reports script, #fb-reports i').count()) === 0 && !(await rp.evaluate(() => window.__xss)));
   check('Bob\'s page (iPhone): no sideways scrolling', await noSideScroll(rp));
   await demo(rp);
   await rp.screenshot({ path: `${SHOTS}feedback-replied-iphone.png`, fullPage: true });

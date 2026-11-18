@@ -166,3 +166,38 @@ export async function kvList(prefix: string, limit = 1000): Promise<string[]> {
   if (b === 'd1') return d1List(prefix, limit);
   return (await wkvList(prefix, limit)).map((k) => k.name); // dual lists KV, like it reads it
 }
+
+// Values of many keys in one go (missing or expired keys are left out). D1: one query; KV (and dual, which reads KV):
+// one read per key, as KV's REST API has no multi-get.
+export async function kvGetMany(keys: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!keys.length) return out;
+  if (kvBackend() === 'd1') {
+    const res = await d1Query(`SELECT key, value FROM kv WHERE key IN (SELECT value FROM json_each(?1)) AND ${LIVE}`, [JSON.stringify(keys), String(nowS())]);
+    for (const r of res.results ?? []) out.set(String(r.key), String(r.value));
+    return out;
+  }
+  const vals = await Promise.all(keys.map((k) => wkvGet(k)));
+  keys.forEach((k, i) => { if (vals[i] !== null) out.set(k, vals[i]!); });
+  return out;
+}
+
+// Keys and values under a prefix, sorted by key, at most `max`. truncated: more exist than were returned. D1: one query;
+// KV: one key listing (a KV page holds at most 1000 keys, so max is capped there and reported as truncated) and one
+// read per key.
+export async function kvListValues(prefix: string, max: number): Promise<{ entries: [string, string][]; truncated: boolean }> {
+  if (kvBackend() === 'd1') {
+    const res = await d1Query(
+      `SELECT key, value FROM kv WHERE key >= ?1 AND substr(key, 1, length(?1)) = ?1 AND ${LIVE} ORDER BY key LIMIT CAST(?3 AS INTEGER)`,
+      [prefix, String(nowS()), String(max + 1)],
+    );
+    const rows = (res.results ?? []).map((r) => [String(r.key), String(r.value)] as [string, string]);
+    return { entries: rows.slice(0, max), truncated: rows.length > max };
+  }
+  const page = Math.min(max + 1, 1000);
+  const names = (await wkvList(prefix, page)).map((k) => k.name);
+  const keys = names.slice(0, Math.min(max, page));
+  const vals = await kvGetMany(keys);
+  return { entries: keys.filter((k) => vals.has(k)).map((k) => [k, vals.get(k)!]), truncated: names.length > keys.length || (names.length === 1000 && max >= 1000) };
+}
+
