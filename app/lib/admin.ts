@@ -23,7 +23,7 @@ export async function getAdminEmail(): Promise<string | null> {
 // cross-site form post can never ride on the admin's cookie.
 // Returns an error Response to send back, or null when the request may proceed.
 export async function adminGuard(request: Request): Promise<Response | null> {
-  if (!(await getAdminEmail())) {
+  if (!(await adminFromRequest(request))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
   if (request.method !== 'GET' && request.method !== 'HEAD') {

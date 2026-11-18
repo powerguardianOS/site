@@ -38,6 +38,8 @@ const PAGES = [
   ['/admin/tenants', 'Customers'],
   ['/admin/tenants?status=active&q=demo', 'Customers'],
   ['/admin/testers', 'Testers'],
+  ['/admin/feedback', 'Feedback'],
+  ['/admin/feedback?kind=idea&status=all', 'Feedback'],
   ['/admin/customers/' + encodeURIComponent(CUSTOMER), CUSTOMER],
   ['/admin/customers/' + encodeURIComponent('nobody@example.test'), 'nobody@example.test'],
 ];

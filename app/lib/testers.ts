@@ -5,6 +5,7 @@
 import { kvGet, kvList, kvPut } from '@/app/lib/kv';
 import { rateLimited, clientIp } from '@/app/lib/ratelimit';
 import { sendEmail } from '@/app/lib/email';
+import { readCapped } from '@/app/lib/body';
 
 export const PROTECTS = ['nas', 'servers', 'network', 'other'] as const;
 export type Protect = (typeof PROTECTS)[number];
@@ -55,27 +56,6 @@ export function parseTester(b: unknown): Parsed {
 }
 
 export type SignUp = { status: number; body: Record<string, unknown> };
-
-// The body as text, or null when it is over `max` bytes. Read as a stream with a hard cap, so a chunked request
-// without a content-length is never read further than that.
-async function readCapped(request: Request, max: number): Promise<string | null> {
-  if (Number(request.headers.get('content-length') ?? 0) > max) return null;
-  if (!request.body) return '';
-  const reader = request.body.getReader();
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > max) { await reader.cancel().catch(() => {}); return null; }
-    parts.push(value);
-  }
-  const all = new Uint8Array(size);
-  let at = 0;
-  for (const p of parts) { all.set(p, at); at += p.byteLength; }
-  return new TextDecoder().decode(all);
-}
 
 // The confirmation mail is fixed text: nothing a visitor typed goes into it, so the form cannot be used to send
 // someone else a message of the visitor's own from our domain.

@@ -6,6 +6,7 @@ import { getAdminEmail } from '@/app/lib/admin';
 import AdminOverview from '../sections/overview';
 import AuditPage from '../sections/audit';
 import CustomerPage from '../sections/customer';
+import FeedbackPage from '../sections/feedback';
 import LicensesPage from '../sections/licenses';
 import NewLicensePage from '../sections/new-license';
 import TenantsPage from '../sections/tenants';
@@ -38,6 +39,7 @@ export default async function AdminPage({ params, searchParams }: {
       case 'licenses': return <LicensesPage searchParams={query} />;
       case 'tenants': return <TenantsPage searchParams={query} />;
       case 'testers': return <TestersPage />;
+      case 'feedback': return <FeedbackPage searchParams={query} />;
     }
   } else if (a === 'licenses' && b === 'new') {
     return <NewLicensePage searchParams={query} />;

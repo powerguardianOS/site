@@ -12,6 +12,7 @@ const ICON: Record<string, string> = {
   billing: 'M3 6h18v12H3z M3 10h18',
   support: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M9 12l2 2 4-4',
   testers: 'M9 3h6 M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3 M7 15h10',
+  feedback: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
   audit: 'M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01',
 };
 
@@ -22,6 +23,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     { label: 'Customers', icon: 'customers', href: '/admin/tenants' },
     { label: 'Licenses', icon: 'licenses', href: '/admin/licenses' },
     { label: 'Testers', icon: 'testers', href: '/admin/testers' },
+    { label: 'Feedback', icon: 'feedback', href: '/admin/feedback' },
     { label: 'Fleet', icon: 'fleet' },
     { label: 'Alerts', icon: 'alerts' },
   ]},
@@ -81,7 +83,7 @@ export default function AdminNav() {
 
       {/* Phone: a tab bar at the bottom, in thumb reach. Only what works today. */}
       <nav aria-label="Admin" className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800 bg-[#060a14]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-5">
+        <div className="mx-auto grid max-w-md grid-cols-6">
           {LIVE.map((n) => {
             const on = active(n.href!);
             return (

@@ -4,6 +4,7 @@ import SitesSection, { UnusedLicenses } from './components/SitesSection';
 import TwoStepCard from './components/TwoStepCard';
 import PasskeysCard from './components/PasskeysCard';
 import SecurityCard from './components/SecurityCard';
+import FeedbackCard from './components/FeedbackCard';
 import { getPasskeys, viewOf } from '@/app/lib/passkeys';
 import { getSession, countSessions } from '@/app/lib/session';
 import { clientInfo } from '@/app/lib/client-info';
@@ -61,6 +62,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         {/* SESSIONS-1 */}
         <SecurityCard count={Math.max(1, sessions)} />
       </div>
+
+      {/* FEEDBACK-1 */}
+      <FeedbackCard />
     </div>
   );
 }
